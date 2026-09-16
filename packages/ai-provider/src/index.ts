@@ -98,10 +98,11 @@ export {
   OXEEGEN_DEFAULT_MODEL,
   OXEEGEN_REGIONS,
   OXEEGEN_DECK_PAGE_CONCURRENCY,
+  OXEEGEN_ROLE_MODELS,
   OXEEGEN_VISION_MODELS,
-  OXEEGEN_WORKER_MODEL,
   oxeegenDeckPageConcurrency,
+  oxeegenDeckPageReferences,
   oxeegenLayerEnabled,
+  oxeegenRoleSettings,
   oxeegenRouteStreamRequest,
-  oxeegenWorkerSettings,
 } from './oxeegen'

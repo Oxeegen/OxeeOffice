@@ -132,35 +132,41 @@ describe('request bodies: the server configuration decides', () => {
   })
 })
 
-describe('worker tier', () => {
+describe('tiers', () => {
   const with_ = (provider: string, model: string) => ({
     provider,
     providers: { oxeegen: { apiKey: 'k', model, baseUrl: EU }, anthropic: { apiKey: 'a', model: 'claude-sonnet-5' } },
   })
 
-  it('runs worker steps on Oxee-instant whatever the picker holds', () => {
+  it('runs Slides pages and the layout check on Flash, compaction on Instant, whatever the picker holds', () => {
+    const expected = { deckPages: 'Oxee-flash', layoutCheck: 'Oxee-flash', compaction: 'Oxee-instant' } as const
+    expect(api.OXEEGEN_ROLE_MODELS).toEqual(expected)
     for (const model of api.OXEEGEN_CHAT_MODELS) {
-      expect(api.oxeegenWorkerSettings(with_('oxeegen', model))?.providers.oxeegen).toEqual({
-        apiKey: 'k',
-        model: 'Oxee-instant',
-        baseUrl: EU,
-      })
+      for (const role of Object.keys(expected) as Array<keyof typeof expected>) {
+        expect(api.oxeegenRoleSettings(with_('oxeegen', model), role)?.providers.oxeegen).toEqual({
+          apiKey: 'k',
+          model: expected[role],
+          baseUrl: EU,
+        })
+      }
     }
   })
 
   it('leaves other providers alone and never mutates the settings', () => {
-    expect(api.oxeegenWorkerSettings(with_('anthropic', 'claude-sonnet-5'))).toBeNull()
+    expect(api.oxeegenRoleSettings(with_('anthropic', 'claude-sonnet-5'), 'deckPages')).toBeNull()
     const s = with_('oxeegen', 'Oxee-max')
-    api.oxeegenWorkerSettings(s)
+    api.oxeegenRoleSettings(s, 'layoutCheck')
     expect(s.providers.oxeegen.model).toBe('Oxee-max')
   })
 
-  it('generates 4 slide pages at once on Oxeegen only', () => {
-    expect(api.oxeegenDeckPageConcurrency({ provider: 'oxeegen' })).toBe(4)
+  it('writes Slides pages one at a time with references, on Oxeegen only', () => {
+    expect(api.oxeegenDeckPageConcurrency({ provider: 'oxeegen' })).toBe(1)
+    expect(api.oxeegenDeckPageReferences({ provider: 'oxeegen' })).toBe(true)
     expect(api.oxeegenDeckPageConcurrency({ provider: 'anthropic' })).toBeUndefined()
+    expect(api.oxeegenDeckPageReferences({ provider: 'anthropic' })).toBe(false)
   })
 
-  it('routes compaction summaries to the worker model and nothing else', () => {
+  it('routes compaction summaries to Instant and nothing else', () => {
     const base = { requestId: 'r', system: 's', messages: [], settings: with_('oxeegen', 'Oxee-max') }
     expect(api.oxeegenRouteStreamRequest({ ...base, purpose: 'compaction' as const }).settings.providers.oxeegen?.model).toBe(
       'Oxee-instant',

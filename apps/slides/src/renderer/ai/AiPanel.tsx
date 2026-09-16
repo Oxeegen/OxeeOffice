@@ -2,9 +2,12 @@
 import {
   AI_PROVIDERS,
   oxeegenDeckPageConcurrency,
+  oxeegenDeckPageReferences,
   oxeegenLayerEnabled,
-  oxeegenWorkerSettings,
+  oxeegenRoleSettings,
 } from '@genoffice/ai-provider/browser'
+// OxeeOffice brand hook: pages see the pages written before them
+import { referenceBlock } from './oxee-deck-references'
 import { OxeeModelPicker } from '@genoffice/ui'
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import {
@@ -1049,8 +1052,9 @@ export function AiPanel({
           return false
         }
       },
-      // OxeeOffice brand hook: page specs on the worker model, several pages at once
+      // OxeeOffice brand hook: pages one at a time on Flash, each seeing the pages before it
       pageConcurrency: () => oxeegenDeckPageConcurrency(settingsRef.current),
+      pageReferences: () => oxeegenDeckPageReferences(settingsRef.current),
       // Local single-page generation (no gsk needed, e.g. BYOK): one LLM request through the
       // app's own AI transport writes a structured JSON slide spec, and the main process builds
       // it directly into a one-slide pptx with pptx-engine primitives — no HTML intermediate.
@@ -1097,6 +1101,7 @@ export function AiPanel({
           : ''
         const userMsg =
           `This is the deck's unified style (this page must follow it strictly to stay consistent across pages):\n${args.style}\n\n` +
+          referenceBlock(args.references) + // OxeeOffice brand hook
           (args.topic ? `Deck topic: ${args.topic}\n` : '') +
           `Deck-wide narrative Core Hook: ${args.coreHook}\n\n` +
           `Now design page ${args.pageIndex}/${args.totalPages}.\n` +
@@ -1111,8 +1116,8 @@ export function AiPanel({
               ? userMsg
               : `${userMsg}\n\nYour previous output was rejected: ${lastErr}. Output the corrected JSON object only.`
           // Text-heavy spec JSON can exceed the default 8192 tokens; single-page requests get a higher cap
-          // OxeeOffice brand hook: the page spec follows the outline on the worker model
-          const worker = oxeegenWorkerSettings(settingsRef.current)
+          // OxeeOffice brand hook: the page spec follows the outline on Flash
+          const worker = oxeegenRoleSettings(settingsRef.current, 'deckPages')
           const r = worker
             ? await runLlmAttempt(worker, sys, msg, 120000, args.signal, 16384)
             : await runLlmOnce(sys, msg, 120000, true, args.signal, 16384)
@@ -1122,7 +1127,7 @@ export function AiPanel({
           }
           try {
             const res = await window.slidesApi.localGeneratePage({ specJson: r.text })
-            if (res?.ok && res.marker) return res
+            if (res?.ok && res.marker) return { ...res, spec: r.text } // OxeeOffice brand hook: reference for later pages
             lastErr = res?.error ?? tGlobal('aiErrUnknown')
           } catch (e) {
             lastErr = e instanceof Error ? e.message : String(e)
@@ -1824,7 +1829,9 @@ export function AiPanel({
     const controller = new AbortController()
     qcAbortRef.current = controller
     const capped = pages.slice(0, QC_MAX_PAGES)
-    const transport = createElectronTransport(() => settingsRef.current)
+    // OxeeOffice brand hook: the layout check runs on Flash
+    const qcSettings = () => oxeegenRoleSettings(settingsRef.current, 'layoutCheck') ?? settingsRef.current
+    const transport = createElectronTransport(qcSettings)
     const header = tGlobal('aiQcStart', { count: capped.length })
     const lines: string[] = []
     const renderEntry = () => [header, ...lines].join('\n')
@@ -1848,7 +1855,7 @@ export function AiPanel({
     try {
       for (const page of capped) {
         if (controller.signal.aborted) break
-        const useScreenshot = !forceGeometryOnly && settingsSupportVision(settingsRef.current)
+        const useScreenshot = !forceGeometryOnly && settingsSupportVision(qcSettings()) // OxeeOffice brand hook
         const shot = useScreenshot ? await captureSlideShot(page) : null
         if (useScreenshot && !shot) {
           if (slidesRef.current[page]) lines.push(tGlobal('aiQcPageSkipped', { n: page + 1 }))

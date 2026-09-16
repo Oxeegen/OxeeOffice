@@ -91,8 +91,18 @@ const HOOKS = [
   },
   {
     file: 'apps/slides/src/renderer/ai/slides-skill.ts',
-    why: 'deck pages generated 4 at a time on Oxeegen',
-    must: ['pageConcurrency?(): number | undefined', 'const GEN_BATCH = access.pageConcurrency?.() ?? 2'],
+    why: 'deck pages one at a time on Oxeegen, each seeing the pages before it',
+    must: [
+      "import { pickReferencePages, type DeckPageSpec } from './oxee-deck-references'",
+      'pageConcurrency?(): number | undefined',
+      'pageReferences?(): boolean',
+      'references?: DeckPageSpec[]',
+      'imageFailures?: string[]; spec?: string }>',
+      'const PAGE_REFS = access.pageReferences?.() ?? false',
+      'const GEN_BATCH = access.pageConcurrency?.() ?? 2',
+      '...(PAGE_REFS ? { references: pickReferencePages(pageSpecs, pageIndex) } : {})',
+      'pageSpecs[pageIndex - 1] = { pageIndex, title: pageArgs.title, spec: res.spec }',
+    ],
   },
   {
     file: 'packages/ai-provider/src/providers.ts',
@@ -137,7 +147,7 @@ const HOOKS = [
   {
     file: 'packages/ai-provider/src/browser.ts',
     why: 'Oxeegen layer exported to renderers',
-    must: ["} from './oxeegen'", 'isHiddenProvider', 'OXEEGEN_REGIONS', 'oxeegenDeckPageConcurrency', 'oxeegenLayerEnabled', 'oxeegenWorkerSettings'],
+    must: ["} from './oxeegen'", 'isHiddenProvider', 'OXEEGEN_REGIONS', 'oxeegenDeckPageConcurrency', 'oxeegenDeckPageReferences', 'oxeegenLayerEnabled', 'oxeegenRoleSettings'],
   },
   {
     file: 'packages/ai-search/src/index.ts',
@@ -231,11 +241,18 @@ const HOOKS = [
   ]),
   {
     file: 'apps/slides/src/renderer/ai/AiPanel.tsx',
-    why: 'style/outline on the picker model; page specs on the worker model, 4 at a time',
+    why: 'style/outline on the picker model; pages and layout check on Flash; pages see earlier pages',
     must: [
+      "import { referenceBlock } from './oxee-deck-references'",
       'if (oxeegenLayerEnabled()) return cur',
       'pageConcurrency: () => oxeegenDeckPageConcurrency(settingsRef.current)',
-      'const worker = oxeegenWorkerSettings(settingsRef.current)',
+      'pageReferences: () => oxeegenDeckPageReferences(settingsRef.current)',
+      'referenceBlock(args.references) + // OxeeOffice brand hook',
+      "const worker = oxeegenRoleSettings(settingsRef.current, 'deckPages')",
+      'return { ...res, spec: r.text }',
+      "oxeegenRoleSettings(settingsRef.current, 'layoutCheck') ?? settingsRef.current",
+      'const transport = createElectronTransport(qcSettings)',
+      'settingsSupportVision(qcSettings())',
     ],
   },
   {
@@ -262,6 +279,7 @@ const FORK_FILES = [
   'packages/ai-provider/tests/oxeegen.test.ts',
   'packages/agent-core/tests/oxee-compaction-purpose.test.ts',
   'apps/slides/tests/oxee-page-concurrency.test.ts',
+  'apps/slides/src/renderer/ai/oxee-deck-references.ts',
   'packages/ai-search/src/brave.ts',
   'packages/ai-search/tests/oxeegen-search.test.ts',
   'apps/shell/src/renderer/src/oxeegen-settings.tsx',

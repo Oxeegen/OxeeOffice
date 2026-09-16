@@ -10,6 +10,8 @@ import type { AgentToolCall, AgentToolDef } from '../../shared/ipc'
 import { OP_GROUPS, opGuide, opGuideCatalog, opSignatureIndex } from '@genoffice/pptx-ops/op-docs'
 import { auditSlideLayout, formatAudit } from '@genoffice/pipelines/slides/layout-audit'
 import { runLayoutScript, type LayoutScriptElement } from './layout-script'
+// OxeeOffice brand hook: pages see the pages written before them
+import { pickReferencePages, type DeckPageSpec } from './oxee-deck-references'
 import { t } from '../i18n/locale'
 import systemPrompt from './prompts/system.md?raw'
 
@@ -155,7 +157,10 @@ export interface DeckAccess {
     canvasW: number
     canvasH: number
     signal?: AbortSignal
-  }): Promise<{ ok: boolean; marker?: string; error?: string; imageFailures?: string[] }>
+    /** OxeeOffice brand hook: specs of the pages already written, to match */
+    references?: DeckPageSpec[]
+    // OxeeOffice brand hook: spec = the page's JSON, kept as a reference for later pages
+  }): Promise<{ ok: boolean; marker?: string; error?: string; imageFailures?: string[]; spec?: string }>
   /**
    * In-tool Style Skill generation:
    * a dedicated LLM call focused on producing a complete structured visual style guide
@@ -216,6 +221,8 @@ export interface DeckAccess {
   retryBackoffMs?: number
   /** OxeeOffice brand hook: pages generated at once (default 2) */
   pageConcurrency?(): number | undefined
+  /** OxeeOffice brand hook: pass each page the specs of the pages before it */
+  pageReferences?(): boolean
   /**
    * Names of text attachments in the current conversation that were never read with
    * read_attachment. When non-empty, generate_deck refuses to run until they are read
@@ -1805,6 +1812,8 @@ async function executeTool(
       const insertMode: 'replace' | 'append' =
         call.input.insert_mode === 'append' ? 'append' : 'replace'
       const PLAN_BATCH = 12 // Per-batch planning cap (kept slightly conservative against truncation)
+      const PAGE_REFS = access.pageReferences?.() ?? false // OxeeOffice brand hook
+      const pageSpecs: Array<DeckPageSpec | undefined> = [] // OxeeOffice brand hook
       const GEN_BATCH = access.pageConcurrency?.() ?? 2 // OxeeOffice brand hook. Per-page generation concurrency (opus large output + proxy concurrent streams time out easily; lowered to 2, stability first)
       const BACKOFF_MS = access.retryBackoffMs ?? 2000 // Retry backoff base (rate limits/overload are mostly transient; immediate retries would hit them again)
 
@@ -2155,6 +2164,7 @@ async function executeTool(
           canvasW,
           canvasH,
           ...(signal ? { signal } : {}),
+          ...(PAGE_REFS ? { references: pickReferencePages(pageSpecs, pageIndex) } : {}), // OxeeOffice brand hook
         }
         // Both paths return a marker pointing at a one-slide pptx temp file. One retry, then the
         // page is skipped for now (locally-failed pages get one more chance in the retry round)
@@ -2165,6 +2175,9 @@ async function executeTool(
           if (attempt > 0 && BACKOFF_MS > 0) await new Promise((r) => setTimeout(r, BACKOFF_MS))
           const res = await gen(pageArgs)
           if (res.ok && res.marker) {
+            // OxeeOffice brand hook: keep the spec for the pages after this one
+            if (PAGE_REFS && 'spec' in res && typeof res.spec === 'string')
+              pageSpecs[pageIndex - 1] = { pageIndex, title: pageArgs.title, spec: res.spec }
             pageErrors[pageIndex - 1] = undefined
             if ('imageFailures' in res && Array.isArray(res.imageFailures))
               deckImageFails.push(...res.imageFailures.map((url) => ({ page: pageIndex, url })))

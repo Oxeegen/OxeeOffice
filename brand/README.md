@@ -95,15 +95,17 @@ never runs:
   `omitTemperature` and `omitMaxTokens`, so a chat body is only `model`, `messages`,
   `stream` and `tools`: temperature, output cap and reasoning are configured on the vLLM
   side. The Max output tokens field is hidden for Oxeegen because it has no effect.
-- **Two tiers.** The model in the picker (Max by default) plans and judges: the chat
-  agent, Slides style and outline, the Slides layout-fix agent, and the Docs / Markdown /
-  HTML writers. **Oxee-instant** (fast, reasoning off) carries out the plan: Slides page
-  specs, written from the outline 4 at a time (upstream: 2), and the summary written when
-  a long chat is compacted, in every editor. Routing lives in `oxeegen.ts`
-  (`oxeegenWorkerSettings`, `oxeegenDeckPageConcurrency`, `oxeegenRouteStreamRequest`).
-  Compaction is routed in the shell's `ai:stream` handler (`docs-main.ts`); the standalone
-  Slides/Sheets dev handlers are not routed. Upstream's Slides swap to a larger Anthropic
-  model is off.
+- **Model per step** (`OXEEGEN_ROLE_MODELS` in `oxeegen.ts`). The model in the picker (Max
+  by default) plans and writes: the chat agent, Slides style and outline, and the Docs /
+  Markdown / HTML writers. **Oxee-flash** writes Slides pages and runs the Slides layout
+  check. **Oxee-instant** writes the summary when a long chat is compacted, in every editor
+  (tagged in agent-core, routed in the shell's `ai:stream` handler in `docs-main.ts`; the
+  standalone Slides/Sheets dev handlers are not routed). Upstream's Slides swap to a
+  larger Anthropic model is off.
+- **Slides pages are written one at a time**, each request carrying the JSON specs of the
+  pages already written (`oxee-deck-references.ts`: page 1 plus the most recent pages,
+  24k characters). Upstream writes 2 pages in parallel from the style text alone; with a
+  faster model in parallel, a 4-slide deck came out visibly mismatched.
 
 **Testing.** The layer is **off under vitest** (`oxeegenLayerEnabled()`), so upstream's
 test suites keep asserting upstream's defaults and their files never need merging.

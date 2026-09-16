@@ -445,7 +445,7 @@ export class AgentLoop<TSnapshot = unknown> {
               { role: 'user', text: 'Compress the conversation above as instructed.' },
             ],
             tools: [],
-            purpose: 'compaction', // OxeeOffice brand hook: summaries run on the worker model
+            purpose: 'compaction', // OxeeOffice brand hook: summaries run on a fast model
           },
           {
             onDelta: (t) => {

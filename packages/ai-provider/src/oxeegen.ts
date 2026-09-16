@@ -65,25 +65,32 @@ export const OXEEGEN_DEFAULT_VISION_MODEL = 'Oxee-pro'
 // ── Tiers ───────────────────────────────────────────────────────────────────
 
 /**
- * Bulk steps that carry out a plan the picked model already wrote run on the
- * fast worker model (reasoning off): Slides page specs, written from the
- * outline, and chat-compaction summaries. Everything else (the chat agent,
- * Slides style and outline, the Slides layout-fix agent, the Docs / Markdown /
- * HTML writers) uses the model in the picker.
+ * Model per step. The model in the picker (Max by default) plans and writes:
+ * the chat agent, Slides style and outline, and the Docs / Markdown / HTML
+ * writers. Slides pages and the Slides layout check run on Flash; the summary
+ * written when a long chat is compacted runs on Instant (reasoning off).
  */
-export const OXEEGEN_WORKER_MODEL = 'Oxee-instant'
+export const OXEEGEN_ROLE_MODELS = {
+  deckPages: 'Oxee-flash',
+  layoutCheck: 'Oxee-flash',
+  compaction: 'Oxee-instant',
+} as const
+export type OxeegenRole = keyof typeof OXEEGEN_ROLE_MODELS
 
-/** Slides pages generated at once on the worker model (upstream generates 2). */
-export const OXEEGEN_DECK_PAGE_CONCURRENCY = 4
+/**
+ * Slides pages are written one at a time (upstream: 2 in parallel), each seeing
+ * the pages already written, so the deck keeps one look.
+ */
+export const OXEEGEN_DECK_PAGE_CONCURRENCY = 1
 
 type SettingsWithModels = { provider: string; providers: { [id: string]: { model: string } | undefined } }
 
-/** A copy of the settings on the worker model, or null when Oxeegen is not the provider. */
-export function oxeegenWorkerSettings<S extends SettingsWithModels>(settings: S): S | null {
+/** A copy of the settings on the step's model, or null when Oxeegen is not the provider. */
+export function oxeegenRoleSettings<S extends SettingsWithModels>(settings: S, role: OxeegenRole): S | null {
   if (!oxeegenLayerEnabled() || settings.provider !== 'oxeegen') return null
   const config = settings.providers.oxeegen
   if (!config) return null
-  return { ...settings, providers: { ...settings.providers, oxeegen: { ...config, model: OXEEGEN_WORKER_MODEL } } }
+  return { ...settings, providers: { ...settings.providers, oxeegen: { ...config, model: OXEEGEN_ROLE_MODELS[role] } } }
 }
 
 /** Slides page-generation concurrency, or undefined to keep upstream's. */
@@ -91,10 +98,15 @@ export function oxeegenDeckPageConcurrency(settings: { provider: string }): numb
   return oxeegenLayerEnabled() && settings.provider === 'oxeegen' ? OXEEGEN_DECK_PAGE_CONCURRENCY : undefined
 }
 
-/** Main-process `ai:stream` routing: compaction summaries go to the worker model. */
+/** Whether each Slides page request carries the specs of the pages before it. */
+export function oxeegenDeckPageReferences(settings: { provider: string }): boolean {
+  return oxeegenLayerEnabled() && settings.provider === 'oxeegen'
+}
+
+/** Main-process `ai:stream` routing: compaction summaries go to Instant. */
 export function oxeegenRouteStreamRequest<R extends { purpose?: string; settings: SettingsWithModels }>(request: R): R {
   if (request.purpose !== 'compaction') return request
-  const settings = oxeegenWorkerSettings(request.settings)
+  const settings = oxeegenRoleSettings(request.settings, 'compaction')
   return settings ? { ...request, settings } : request
 }
 

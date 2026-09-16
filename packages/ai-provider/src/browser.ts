@@ -21,6 +21,7 @@ export {
   isHiddenProvider,
   OXEEGEN_REGIONS,
   oxeegenDeckPageConcurrency,
+  oxeegenDeckPageReferences,
   oxeegenLayerEnabled,
-  oxeegenWorkerSettings,
+  oxeegenRoleSettings,
 } from './oxeegen'
