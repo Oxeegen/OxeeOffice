@@ -1,4 +1,45 @@
-# Contributing to GenOffice
+# Contributing to OxeeOffice
+
+OxeeOffice is Oxeegen's fork of GenOffice. The Oxeegen layer lives in
+[`brand/`](brand/README.md); read that first — it explains how the fork is built,
+lists every hook into upstream files, and covers releasing and upstream merges.
+
+## Working in this fork
+
+```bash
+git clone https://github.com/Oxeegen/OxeeOffice.git
+cd OxeeOffice
+git remote add upstream https://github.com/genspark-ai/genoffice.git
+gh repo set-default Oxeegen/OxeeOffice
+```
+
+**Run `gh repo set-default` once per clone.** In a GitHub fork, `gh pr create`
+otherwise opens the pull request against *upstream*.
+
+- Branch from `main`, open a pull request against `Oxeegen/OxeeOffice` `main`.
+- Brand checks run on every PR (`brand-ci.yml`). Locally:
+  `node brand/scripts/check-hooks.mjs` and `node brand/scripts/check-ee.mjs`.
+- Keep changes to upstream files to marked, minimal hooks (`OxeeOffice brand hook`)
+  and add each to `brand/scripts/check-hooks.mjs` and the table in `brand/README.md`.
+  Anything larger belongs under `brand/`.
+- Never commit API keys: the repository and its releases are public.
+- Do not add or copy code under `ee/`. It is under the GenOffice Enterprise License,
+  not Apache-2.0, and OxeeOffice may not distribute it.
+- Report OxeeOffice bugs in this repository, not upstream.
+
+### Which parts of the upstream guide below apply
+
+| Section | In this fork |
+| --- | --- |
+| Repository layout, Engine packages, Getting started, Checks every change must pass, Environment variables, Coding conventions | Apply as written |
+| How changes land here | Does not apply — this fork takes ordinary pull requests on `main` |
+| Building installers | Use the OxeeOffice release workflow ([brand/README.md → Releasing](brand/README.md#releasing)) |
+| Commit and PR guidelines | Apply, except that PRs go to this repository |
+| Reporting bugs, License and CLA | Upstream's process — no CLA is needed for OxeeOffice contributions, which are Apache-2.0 |
+
+---
+
+# Upstream guide: contributing to GenOffice
 
 Thanks for your interest in contributing. This document covers the local
 setup, the checks a change must pass, and the conventions used in this

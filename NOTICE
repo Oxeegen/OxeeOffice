@@ -31,3 +31,23 @@ Part 4, Transitional) XML Schema files for PresentationML and DrawingML, as
 distributed in the python-docx repository (ref/xsd), with one marked local
 amendment (see tools/ooxml-validate/README.md). They are used only by tests
 and development tooling and are not shipped in the application.
+
+-------------------------------------------------------------------------------
+
+OxeeOffice
+Copyright 2026 Oxeegen LLC
+
+OxeeOffice is a derivative work of GenOffice (https://github.com/genspark-ai/genoffice),
+Copyright 2026 Mainfunc, Inc., licensed under the Apache License, Version 2.0.
+
+Oxeegen's modifications rebrand the application, deliver updates from
+https://github.com/Oxeegen/OxeeOffice, and integrate Oxeegen's self-hosted,
+OpenAI-compatible inference. They are collected under brand/, with marked hooks in
+upstream files listed in brand/README.md. The upstream notices above are reproduced
+in full and continue to apply.
+
+The ee/ directory is covered by the GenOffice Enterprise License (ee/LICENSE), not
+Apache-2.0, and is not included in OxeeOffice builds.
+
+OxeeOffice is not affiliated with, endorsed by, or supported by Mainfunc, Inc. or
+GenSpark. Please report OxeeOffice issues to Oxeegen, not to the upstream project.
