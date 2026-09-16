@@ -343,7 +343,9 @@ const MANUAL_FALLBACK_AFTER = 2
 // and signing track, so a stable/legacy-track user could land on the wrong
 // build. Preferred is the CDN installer derived from the user's own update
 // feed (see manualDownloadUrlFor), which matches channel, track, and arch.
-const DOWNLOAD_PAGE_URL = 'https://github.com/genspark-ai/genoffice/releases/latest'
+// OxeeOffice brand hook: with the GitHub provider app-update.yml carries no
+// `url:`, so manualDownloadUrlFor() always returns null and THIS is the link
+const DOWNLOAD_PAGE_URL = 'https://github.com/Oxeegen/OxeeOffice/releases/latest'
 
 /// Trusted HTTPS base URL baked into resources/app-update.yml. Manual download
 /// links are always rebuilt from this base rather than trusting URLs supplied
@@ -408,7 +410,10 @@ let dismissedVersion: string | null = null
 // electron-updater feed name per user-facing channel. The platform suffix is
 // appended by electron-updater itself: 'beta' resolves to beta.yml on
 // Windows, beta-mac.yml on macOS, beta-linux.yml on Linux x64.
-const CHANNEL_FEED: Record<UpdateChannel, string> = { stable: 'latest', beta: 'beta' }
+// OxeeOffice brand hook: only the stable feed is published. A GitHub-provider
+// prerelease feed needs semver tags, and ours carry the oxeeoffice-v prefix, so
+// 'beta' would request a beta.yml that never exists. Beta users get stable.
+const CHANNEL_FEED: Record<UpdateChannel, string> = { stable: 'latest', beta: 'latest' }
 
 // true once the packaged-run updater is configured; channel switches before
 // that (or in dev runs) must not touch electron-updater

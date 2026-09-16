@@ -27,7 +27,8 @@ interface Pending {
   agentId?: AgentId
 }
 
-export const NPX_INSTALL_COMMAND = 'npx skills add genspark-ai/genoffice'
+// OxeeOffice brand hook: install the agent skill from the fork, not upstream
+export const NPX_INSTALL_COMMAND = 'npx skills add Oxeegen/OxeeOffice'
 
 /** some detected assistant holds an older copy of the skill than the bundled one */
 export const skillUpdateDue = (s: IntegrationsStatus): boolean =>

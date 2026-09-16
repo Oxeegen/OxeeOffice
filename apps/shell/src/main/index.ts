@@ -588,7 +588,8 @@ let cachedGithubStars: number | null = null
 async function fetchGithubStars(): Promise<number | null> {
   if (cachedGithubStars !== null) return cachedGithubStars
   try {
-    const response = await fetch('https://api.github.com/repos/genspark-ai/genoffice', {
+    // OxeeOffice brand hook: star count of the fork's repository
+    const response = await fetch('https://api.github.com/repos/Oxeegen/OxeeOffice', {
       headers: { Accept: 'application/vnd.github+json' },
       signal: AbortSignal.timeout(5000),
     })

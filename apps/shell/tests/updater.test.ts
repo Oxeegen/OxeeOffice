@@ -294,21 +294,25 @@ describe('initAutoUpdater', () => {
     expect(updaterState.allowDowngrade).toBe(false)
   })
 
-  it('starts on the beta feed when the beta channel is passed in', async () => {
+  // OxeeOffice brand hook: only the stable feed is published, so the beta
+  // channel resolves to 'latest' (see CHANNEL_FEED in src/main/updater.ts)
+  it('starts on the published feed when the beta channel is passed in', async () => {
     const { initAutoUpdater } = await loadUpdater()
     initAutoUpdater(() => null, 'beta')
-    expect(updaterState.channel).toBe('beta')
+    expect(updaterState.channel).toBe('latest')
     // must never allow a downgrade, despite electron-updater's channel setter
     // side effect
     expect(updaterState.allowDowngrade).toBe(false)
   })
 
-  it('applyUpdateChannel switches the feed and re-checks immediately', async () => {
+  // OxeeOffice brand hook: both channels map to the published 'latest' feed;
+  // a channel change must still re-check immediately
+  it('applyUpdateChannel re-checks immediately on a channel change', async () => {
     const { initAutoUpdater, applyUpdateChannel } = await loadUpdater()
     initAutoUpdater(() => null)
     expect(checkForUpdates).not.toHaveBeenCalled()
     applyUpdateChannel('beta')
-    expect(updaterState.channel).toBe('beta')
+    expect(updaterState.channel).toBe('latest')
     expect(updaterState.allowDowngrade).toBe(false)
     expect(checkForUpdates).toHaveBeenCalledTimes(1)
     applyUpdateChannel('stable')
@@ -465,7 +469,8 @@ describe('manual download fallback', () => {
     const actions = await failTwiceIntoManual(macFiles)
     actions.onOpenDownload()
     expect(openExternal).toHaveBeenCalledWith(
-      'https://github.com/genspark-ai/genoffice/releases/latest',
+      // OxeeOffice brand hook: the fork's releases page
+      'https://github.com/Oxeegen/OxeeOffice/releases/latest',
     )
   })
 
@@ -476,7 +481,8 @@ describe('manual download fallback', () => {
     ])
     actions.onOpenDownload()
     expect(openExternal).toHaveBeenCalledWith(
-      'https://github.com/genspark-ai/genoffice/releases/latest',
+      // OxeeOffice brand hook: the fork's releases page
+      'https://github.com/Oxeegen/OxeeOffice/releases/latest',
     )
   })
 })

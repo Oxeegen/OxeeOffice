@@ -1330,9 +1330,10 @@ export function SettingsModal({
                 <Field
                   label={t('setGithub')}
                   value={
+                    // OxeeOffice brand hook: the fork's repository
                     githubStars === null
-                      ? 'github.com/genspark-ai/genoffice'
-                      : `github.com/genspark-ai/genoffice · ★ ${formatStars(githubStars)}`
+                      ? 'github.com/Oxeegen/OxeeOffice'
+                      : `github.com/Oxeegen/OxeeOffice · ★ ${formatStars(githubStars)}`
                   }
                   action={
                     <button
