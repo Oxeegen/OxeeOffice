@@ -17,8 +17,8 @@ This mirrors the layout used by the OxeeUI fork of Orca.
 | `rename/roots.mjs` | Which build outputs are renamed and scanned, plus the reasoned allowlist. |
 | `scripts/rename-built-output.mjs` | Applies the rename to `apps/*/out` and the CLI bundle, in place, idempotently. |
 | `scripts/scan-visible-names.mjs` | Fails (`--fail`) when a user-visible upstream name survives. Also scans an extracted package. |
-| `scripts/apply-brand-assets.mjs` | Copies icons and the wordmark over upstream's files before the build. `--restore` puts upstream's back. |
-| `scripts/make-icons.ps1` | Regenerates `assets/build/` from `assets/icon.png` (Windows, GDI+). Outputs are committed. |
+| `scripts/apply-brand-assets.mjs` | Copies the app icon set and the wordmark over upstream's files before the build (file-type icons stay upstream's). `--restore` puts upstream's back. |
+| `scripts/make-icons.ps1` | Regenerates the app icon set in `assets/build/` from `assets/icon.png` (Windows, GDI+). Outputs are committed. |
 | `scripts/check-ee.mjs` | Licence guard: fails if code appears under upstream's enterprise-licensed `ee/`. |
 | `scripts/check-hooks.mjs` | Fails if a merge dropped a hook, or upstream added a new reference to its own repo. |
 | `scripts/verify-package.mjs` | Checks a **packaged** app: productName, version, update feed, exe name, no analytics credentials, visible names. |
@@ -232,7 +232,7 @@ bundles. Where that behaviour now lives in source:
 | Area | Status |
 | --- | --- |
 | Visible product name, window/taskbar identity, userData folder | Done |
-| Icons, file-type icons, wordmark, dark-mode logo | Done |
+| App icon (purple), wordmark, dark-mode logo; file-type icons are upstream's | Done |
 | Auto-update from GitHub Releases | Done |
 | Windows + Linux release workflow, package check, launch check | Done |
 | Oxeegen as the provider in AI Model and AI Media & Search, US/EU endpoints pre-filled; no Genspark sign-in, account page, credits, cloud tools or cloud projects | Done |

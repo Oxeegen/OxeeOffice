@@ -21,7 +21,6 @@ const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const A = 'brand/assets'
 
 const ICON_SIZES = [16, 32, 48, 64, 128, 256, 512, 1024].map((s) => `${s}x${s}.png`)
-const FILE_TYPES = ['docx', 'xlsx', 'pptx', 'pdf', 'md', 'html']
 
 /** [brand source, upstream target] */
 export const ASSETS = [
@@ -29,8 +28,7 @@ export const ASSETS = [
   [`${A}/build/icon.ico`, 'apps/shell/build/icon.ico'],
   [`${A}/build/icon.png`, 'apps/shell/build/icon.png'],
   ...ICON_SIZES.map((f) => [`${A}/build/icons/${f}`, `apps/shell/build/icons/${f}`]),
-  // per-type document icons for the OS file associations
-  ...FILE_TYPES.map((t) => [`${A}/build/${t}.ico`, `apps/shell/build/${t}.ico`]),
+  // File-type icons (docx/xlsx/pptx/pdf/md/html .ico) stay upstream's on purpose.
   // Home-screen wordmark and the in-app icon (docs/sheets/slides keep
   // byte-identical copies; unused today, swapped so a future import is right)
   [`${A}/renderer/oxeeoffice-logo.svg`, 'apps/shell/src/renderer/src/assets/genoffice-logo.svg'],
