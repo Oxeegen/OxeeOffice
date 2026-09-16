@@ -62,72 +62,143 @@ details and requirements in [Download](#download).
 ## The apps
 
 Six editors, one AI panel, and a command line for your coding agent.
-<sub>Screenshots of OxeeOffice will be added once the Oxeegen AI layer is in place.</sub>
+<sub>Screenshots are from GenOffice, the open-source project OxeeOffice is built on, and show its branding.</sub>
 
 ### 1 · Docs — open and edit `.docx` with an AI you can review
 
-**Opens the file as Word lays it out** — two-column sections, full-bleed images,
-shaded tables, headers and footers, pagination on Word's line metrics. Styles,
-comments, tracked changes, equations and ink round-trip untouched.
-
-**Ask for the edit** — the AI reads the blocks it needs, rewrites a section and
-inserts new content. Every AI turn is a snapshot you can roll back; with
-**Track changes** on, edits arrive as Word-style revisions.
+<table>
+<tr>
+<td width="50%"><img src="docs/assets/readme/docs-report.webp" alt="Docs rendering a two-column annual-report page with a full-width cover image, shaded KPI table, header and footer, at 80% zoom with the AI panel collapsed"></td>
+<td width="50%"><img src="docs/assets/readme/docs-ai.webp" alt="Docs: a company overview with a banner image; the AI tightened the Overview and inserted a new bulleted section, and the panel offers a one-click roll back"></td>
+</tr>
+<tr>
+<td><b>Opens the file as Word lays it out</b> — two-column sections, full-bleed images, shaded tables, headers and footers, pagination on Word's line metrics. Styles, comments, tracked changes, equations and ink round-trip untouched.</td>
+<td><b>Ask for the edit</b> — the AI reads the blocks it needs, rewrites the Overview and inserts a new bulleted section. Every AI turn is a snapshot you can roll back; with <b>Track changes</b> on, edits arrive as Word-style revisions.</td>
+</tr>
+</table>
 
 ### 2 · Sheets — `.xlsx` with live formulas and charts, not pasted numbers
 
-**Build it** — from one sentence the agent adds a summary sheet with real
-`SUMIF`s, inserts a chart, and applies the changes as a single undoable batch.
-
-**Ask it** — questions about the workbook come back with the reasoning and the
-exact cells used as clickable citations. Under the hood: a Rust `.xlsx` engine,
-pivot tables, slicers, conditional formatting and formula tracing.
+<table>
+<tr>
+<td width="50%"><img src="docs/assets/readme/sheets-ai.webp" alt="Sheets: the AI added a Summary sheet with revenue by region and category using SUMIF formulas, plus a column chart, and reports 43 applied changes with an Undo button"></td>
+<td width="50%"><img src="docs/assets/readme/sheets-qa.webp" alt="Sheets: asked which region led Q2 revenue, the AI answers Europe with the category breakdown and cites the cells it used as links, next to the Orders sheet"></td>
+</tr>
+<tr>
+<td><b>Build it</b> — from one sentence the agent adds a Summary sheet with real <code>SUMIF</code>s by region and category, inserts a column chart, and applies the 43 changes as a single undoable batch.</td>
+<td><b>Ask it</b> — questions about the workbook come back with the reasoning and the exact cells used as clickable citations. Under the hood: a Rust <code>.xlsx</code> engine, pivot tables, slicers, conditional formatting and formula tracing.</td>
+</tr>
+</table>
 
 ### 3 · Slides — from a prompt to a `.pptx` deck
 
-**One line in** — describe the deck. OxeeOffice plans the storyline and drafts
-every slide onto the canvas as a real `.pptx`.
+<img src="docs/assets/readme/slides-generate.webp" alt="Time-lapse of Slides generating the Aurora Home investor deck: the AI plans the storyline in the panel, slides appear on the canvas one after another, and the finished deck ends on the closing ask" width="100%">
 
-**Keep editing** — masters, layouts, smart guides and non-destructive cropping,
-or ask the panel to restyle, rewrite and reorder.
+<table>
+<tr>
+<td width="50%"><img src="docs/assets/readme/slides-cover.webp" alt="Slides: the cover slide of an AI-generated Aurora Home investor deck on the canvas, with the original one-line prompt and the AI's summary of what it built in the panel"></td>
+<td width="50%"><img src="docs/assets/readme/slides-ai.webp" alt="Slides: the designed closing slide of the same 11-slide deck, with the thumbnail strip on the left and the AI panel summarizing the storyline"></td>
+</tr>
+<tr>
+<td><b>One line in</b> — "Create a 10-slide investor pitch deck for Aurora Home…". The AI plans the storyline, researches the numbers, and drafts every slide onto the canvas as a real <code>.pptx</code>.</td>
+<td><b>A finished deck out</b> — designed slides with consistent typography, imagery and a closing call to action; keep editing with masters, layouts, smart guides and non-destructive cropping, or ask the panel to restyle, rewrite and reorder.</td>
+</tr>
+</table>
 
 ### 4 · PDF — edit PDF text in place, convert PDF to Word on-device
 
-**Edit inside the page** — Edit text mode outlines every text block for in-place
-retyping; the content stream is rewritten through PDFium with the original
-fonts, not a cover-up annotation. Ask the AI about a long report and get answers
-with page citations.
-
-**Convert on-device** — **PDF Converter → PDF to Word** produces an editable
-`.docx` that opens in Docs next to the source. Excel and PowerPoint targets work
-the same way; scanned pages go through the system OCR.
+<table>
+<tr>
+<td width="50%"><img src="docs/assets/readme/pdf-edit.webp" alt="PDF: Edit text mode outlines every text block on the page for in-place editing while the AI panel answers a question about the report with page citations"></td>
+<td width="50%"><img src="docs/assets/readme/pdf-convert.webp" alt="Docs showing a Word document converted locally from the Helios quarterly review PDF, opened in a second tab beside the original PDF"></td>
+</tr>
+<tr>
+<td><b>Edit inside the page</b> — Edit text mode outlines every text block for in-place retyping; the content stream is rewritten through PDFium with the original fonts, not a cover-up annotation. Ask the AI about a long report and get answers with page citations.</td>
+<td><b>Convert on-device</b> — <b>PDF Converter → PDF to Word</b> produces an editable <code>.docx</code> that opens in Docs next to the source, headings, stat rows and paragraphs intact. Excel and PowerPoint targets work the same way; scanned pages go through the system OCR.</td>
+</tr>
+</table>
 
 ### 5 · HTML — an AI page and UI builder, design brief first
 
 Say what the page is for and who it is for. The AI proposes a **design brief**
 first — hook, palette, typography and style directions — then builds a single
-self-contained `.html` file against those tokens. Click any element to restyle
-it, double-click to edit text, or switch to the source view. One **Restyle**
-request swaps the brief's tokens and the page follows. Present fullscreen, or
-export as PDF or a native editable Word document.
+self-contained `.html` file against those tokens.
+
+<img src="docs/assets/readme/html-restyle-motion.webp" alt="Time-lapse of HTML restyling the Lumen landing page: one Restyle request in the panel turns the dark Midnight Studio page into the warm Solar Daybreak version while every section and all copy stay in place" width="100%">
+
+<table>
+<tr>
+<td width="50%"><img src="docs/assets/readme/html-ai.webp" alt="HTML: a generated landing page for a solar desk lamp in the dark Midnight Studio direction, shown in the live preview with the AI panel summarizing the page it just built"></td>
+<td width="50%"><img src="docs/assets/readme/html-restyle.webp" alt="The same Lumen landing page restyled by the AI into the warm Solar Daybreak direction: paper background, serif headlines and an orange accent, with every section and all copy kept"></td>
+</tr>
+<tr>
+<td><b>Generated from one prompt</b> — a bold hero, feature cards, pricing and a waitlist form, built in the Midnight Studio direction. Click any element to restyle it, double-click to edit text, or switch to the CodeMirror source view.</td>
+<td><b>Same design, new direction</b> — one <b>Restyle</b> request swaps the brief's tokens and the page follows: warm paper, editorial serif, sun-orange accent, nothing rewritten. Present fullscreen, or export as PDF or a native editable Word document.</td>
+</tr>
+</table>
+<table>
+<tr>
+<td width="50%"><img src="docs/assets/readme/html-dashboard.webp" alt="HTML: a generated personal dashboard UI for a freelance designer in a warm linen style, with a left rail, serif greeting and four metric cards"></td>
+<td width="50%"><img src="docs/assets/readme/html-report.webp" alt="HTML: a generated EV-market data report in a broadsheet style, with a serif masthead, a 17.3 million headline figure and a stat row"></td>
+</tr>
+<tr>
+<td><b>UI mockups</b> — the "personal dashboard" starter turns a persona into a working layout: left rail, greeting, billable-hours sparkline, invoice and utilization cards, all real HTML you can hand to a developer.</td>
+<td><b>Data stories</b> — the "data report" starter builds an editorial broadsheet: serif masthead, one headline number, a rule-separated stat row, inline SVG charts and a methodology note.</td>
+</tr>
+</table>
 
 ### 6 · Markdown — a block editor over plain `.md`, with Ask AI
 
-**Ask AI about a selection** — select any passage and an **Ask AI** chip appears:
-type an instruction or pick a suggestion, send it now, or queue several anchored
-edits and run them in one pass. The same entry exists in every app.
+<table>
+<tr>
+<td width="50%"><img src="docs/assets/readme/markdown-ai.webp" alt="Markdown: a selected paragraph shows an Ask AI popover with a typed instruction and suggestion chips such as Polish, Make more concise, Expand and Fix grammar, plus Send now and Add to queue buttons"></td>
+<td width="50%"><img src="docs/assets/readme/markdown-render.webp" alt="Markdown rendering a launch-notes document with a table, a Mermaid flowchart and a task list, with the AI panel's starter prompts on the left"></td>
+</tr>
+<tr>
+<td><b>Ask AI about a selection</b> — select any passage and an <b>Ask AI</b> chip appears: type an instruction or pick a suggestion, send it now, or queue several anchored edits and run them in one pass. The same entry exists in every app.</td>
+<td><b>Rendered, saved as plain Markdown</b> — headings, lists, tables, images, code blocks and Mermaid diagrams in a Tiptap block editor, written back as plain <code>.md</code>, with a fully local <b>Markdown → Word</b> export.</td>
+</tr>
+</table>
 
-**Rendered, saved as plain Markdown** — headings, lists, tables, images, code
-blocks and Mermaid diagrams, written back as plain `.md`, with a fully local
-**Markdown → Word** export.
+### 7 · CLI — your coding agent drives OxeeOffice, on your machine
 
-### 7 · CLI and MCP — your coding agent drives OxeeOffice, on your machine
+OxeeOffice ships a command line and an agent skill. Install the skill and Claude
+Code, Codex, Cursor, Gemini CLI, GitHub Copilot, OpenCode or Windsurf can create,
+convert, read and edit real Office files through the same engines as the apps,
+without opening a window.
 
-OxeeOffice ships a command line, an agent skill and an MCP server. Claude Code,
-Claude Desktop, Codex, Cursor and other agents can create, convert, read and
-edit real Office files through the same engines as the apps, without opening a
-window. See [Command line and agent skill](#command-line-and-agent-skill) and
-[MCP server](#mcp-server).
+<img src="docs/assets/readme/cli-deck-in-app.webp" alt="Slides showing an eight-slide Solar System deck that a coding agent built through the command line: the cover slide on the canvas, eight thumbnails on the left and the AI panel open" width="100%">
+
+<table>
+<tr>
+<td width="50%"><img src="docs/assets/readme/cli-slides-grid.webp" alt="The eight rendered slides of the Solar System deck side by side: cover, exploration timeline, four key numbers, planet-diameter bar chart, rocky worlds versus giants, the Sun's 99.8% hero number, the four giants grid and takeaways"></td>
+<td width="50%"><img src="docs/assets/readme/cli-integrations.webp" alt="Settings, Integrations page: the skill installed into Claude Code, with Install buttons next to Codex and Cursor"></td>
+</tr>
+<tr>
+<td><b>One prompt to your agent</b> — "Build an eight-slide deck about the Solar System." The agent reads the skill, writes a style sheet, an outline and one page spec per slide, and lets <code>slides check</code> reject anything that overflows or overlaps before <code>create</code> assembles the <code>.pptx</code> and <code>slides render</code> hands back a PNG per slide to look at.</td>
+<td><b>Install once, from Settings → Integrations</b> — OxeeOffice lists the coding agents it finds on this computer and writes the skill into each one you pick. Or download the skill as a zip, or run <code>npx skills add Oxeegen/OxeeOffice</code>. See <a href="#command-line-and-agent-skill">Command line and agent skill</a>.</td>
+</tr>
+</table>
+
+### 8 · MCP — the same tools over the Model Context Protocol
+
+Every command is also an MCP tool. Claude Code, Claude Desktop, Cursor and any
+other MCP client can start the server themselves, with no skill to install and no
+window open. A second, HTTP server inside the app lets an agent build a Word
+document in a visible editor tab while you watch.
+
+<img src="docs/assets/readme/mcp-deck-motion.webp" alt="Time-lapse of Claude Code building an eight-slide renewable-energy investor briefing through the MCP server: it searches for figures and photos, checks each candidate picture, writes the style sheet and outline, adds one checked page at a time, assembles the .pptx and renders every slide; the finished deck then opens in Slides" width="100%">
+
+<table>
+<tr>
+<td width="50%"><img src="docs/assets/readme/mcp-deck-in-app.webp" alt="Slides showing the eight-slide Renewable Energy 2026 deck that Claude Code built through the MCP server: the cover slide with a wind-farm photograph on the canvas and eight thumbnails on the left"></td>
+<td width="50%"><img src="docs/assets/readme/mcp-integrations.webp" alt="Settings, Integrations page, MCP part: the one-line claude mcp add command for Claude Code, the JSON block for Cursor, Claude Desktop and other MCP clients, and the local HTTP server option below"></td>
+</tr>
+<tr>
+<td><b>One prompt, no shell</b> — "Build an eight-slide investor briefing about renewable energy in 2026, with a real photo on the cover." The agent pulls figures and photos with <code>search</code>, checks each picture with <code>media</code>, builds the deck page by page with every page checked against the outline and palette, then renders each slide as an image it can look at and fixes the pages it does not like.</td>
+<td><b>Connect once, from Settings → Integrations</b> — copy the <code>claude mcp add</code> line for Claude Code, or the JSON block into Cursor, Claude Desktop or any other MCP client. See <a href="#mcp-server">MCP server</a>.</td>
+</tr>
+</table>
 
 ## Why OxeeOffice
 

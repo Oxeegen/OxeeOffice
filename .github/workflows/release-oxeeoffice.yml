@@ -215,7 +215,15 @@ jobs:
               || { echo "Missing $manifest: installed apps would never see this release." >&2; exit 1; }
           done
           NOTES="$(git tag -l --format='%(contents)' "$TAG" 2>/dev/null || true)"
-          [ -n "$NOTES" ] || NOTES="OxeeOffice $VERSION — see CHANGELOG.md for changes and the upstream base."
+          [ -n "$NOTES" ] || NOTES="OxeeOffice $VERSION — see CHANGELOG.md for what changed."
+          # Release pages carry no upstream attribution ("Built from GenOffice…",
+          # "Built on GenOffice … Mainfunc…"): Oxeegen's call, 2026-09-16.
+          # Attribution lives in README, NOTICE and LICENSE instead.
+          if printf '%s' "$NOTES" | grep -q -i -E 'genoffice|mainfunc|genspark-ai'; then
+            echo "Release notes mention GenOffice / Mainfunc / genspark-ai. Reword the tag message:" >&2
+            printf '%s\n' "$NOTES" | grep -n -i -E 'genoffice|mainfunc|genspark-ai' >&2
+            exit 1
+          fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "${assets[@]}" --clobber
           else

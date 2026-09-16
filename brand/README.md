@@ -83,8 +83,11 @@ comment `OxeeOffice brand hook`.
 
 ## Releasing
 
-1. Update `CHANGELOG.md` (include the upstream base).
-2. Tag and push — the annotated tag message becomes the release notes:
+1. Update `CHANGELOG.md` (include the upstream base there).
+2. Tag and push — the annotated tag message becomes the release notes. **Release
+   notes never mention GenOffice, Mainfunc or the upstream repository** (no
+   "Built from GenOffice vX", no "Built on GenOffice … Mainfunc"); the workflow
+   refuses to publish notes that do. Attribution lives in README, NOTICE and LICENSE.
    ```bash
    git tag -a oxeeoffice-v0.10.488 -m "OxeeOffice 0.10.488"
    git push origin oxeeoffice-v0.10.488
