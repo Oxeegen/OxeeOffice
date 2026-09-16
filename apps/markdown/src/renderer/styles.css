@@ -188,7 +188,8 @@ button {
 }
 
 .doc-page {
-  max-width: 860px;
+  /* OxeeOffice brand hook: 860px squeezed tables into tall, narrow cells */
+  max-width: 90%;
   min-height: 100%;
   margin: 0 auto;
   padding: 40px 72px 120px;

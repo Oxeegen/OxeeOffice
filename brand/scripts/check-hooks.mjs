@@ -179,6 +179,11 @@ const HOOKS = [
     { file: `apps/${app}/src/preload/index.ts`, why: 'picker can save', must: ["setAiSettings: (settings: unknown) => ipcRenderer.invoke('ai:set-settings', settings)"] },
     { file: `apps/${app}/src/shared/ipc.ts`, why: 'picker can save (type)', must: ['setAiSettings(settings: unknown): Promise<void>'] },
   ]),
+  {
+    file: 'apps/markdown/src/renderer/styles.css',
+    why: 'wider Markdown page',
+    must: ['/* OxeeOffice brand hook: 860px squeezed tables into tall, narrow cells */\n  max-width: 90%;'],
+  },
   // upstream tests updated to assert what ships
   {
     file: 'apps/shell/tests/updater.test.ts',
