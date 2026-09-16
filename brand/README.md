@@ -96,8 +96,9 @@ never runs:
   Endpoints: US `inference-02`, EU `inference-04` (each region has its own keys).
 - **Requests carry no sampling or length settings.** Oxeegen's endpoint sets
   `omitTemperature` and `omitMaxTokens`, so a chat body is only `model`, `messages`,
-  `stream` and `tools`: temperature, output cap and reasoning are configured on the vLLM
-  side. The Max output tokens field is hidden for Oxeegen because it has no effect.
+  `stream` and `tools`: temperature and output cap are configured on the vLLM side. The
+  Max output tokens field is hidden for Oxeegen because it has no effect. The one field
+  added is the reasoning-off switch for execution steps (below).
 - **One model, reasoning switched per step** (`OXEEGEN_ROLES` in `oxeegen.ts`). Every
   step uses the model in the picker. Planning keeps reasoning on: the chat agent, Slides
   style and outline, the HTML brief. Steps that carry out a plan turn it off with
@@ -235,7 +236,7 @@ bundles. Where that behaviour now lives in source:
 | Auto-update from GitHub Releases | Done |
 | Windows + Linux release workflow, package check, launch check | Done |
 | Oxeegen as the provider in AI Model and AI Media & Search, US/EU endpoints pre-filled; no Genspark sign-in, account page, credits, cloud tools or cloud projects | Done |
-| Brave search behind the Oxeegen search entry; OpenAI `gpt-image-2` for images | Done |
+| Brave search behind the Oxeegen search entry; OpenAI `gpt-image-2.5-flare` for images | Done |
 | Model picker in each AI panel (Max, Pro, Flash, Instant) | Done |
 | Native slide-deck building | Done — upstream builds decks locally when Genspark's cloud is off |
 | Markdown page width | Done |

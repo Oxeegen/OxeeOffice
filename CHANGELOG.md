@@ -7,7 +7,7 @@ apps receive it through auto-update.
 
 ---
 
-## OxeeOffice 0.10.488 — unreleased
+## OxeeOffice 0.10.488 — 2026-09-16
 
 **Upstream: [GenOffice v0.10.488](https://github.com/genspark-ai/genoffice/releases/tag/v0.10.488)** (2026-09-16),
 which also brings in [v0.10.63](https://github.com/genspark-ai/genoffice/releases/tag/v0.10.63) (2026-09-13) · Windows x64, Linux x64
@@ -22,7 +22,8 @@ history, and every Oxeegen change lives in reviewable commits under
 - **Automatic updates.** Installed apps check this repository's releases and offer
   new versions: the Windows installer and the Linux AppImage update in place. The
   previous builds had updates switched off, because an upstream update would have
-  reverted the patches.
+  reverted the patches, so 0.10.488 is installed once by hand. On Windows it upgrades
+  an existing OxeeOffice install in place, keeping its settings.
 - **Linux.** AppImage, deb and rpm, alongside Windows.
 - **No more "GenOffice" in the app.** Window and taskbar titles, dialogs, every UI
   language, the installer, the settings folder (`%APPDATA%\OxeeOffice`,
@@ -62,8 +63,8 @@ underneath can copy `%APPDATA%\GenOffice\ai-settings.json` into
 - **Model picker in every editor.** The top of each AI panel (Docs, Sheets, Slides,
   PDF, Markdown, HTML) switches between Oxee Max, Pro, Flash and Instant; the choice
   applies in every open tab.
-- **Oxeegen models use their server settings.** OxeeOffice sends no temperature,
-  output-token cap or reasoning level, and hides the Max output tokens field for Oxeegen.
+- **Oxeegen models use their server settings.** OxeeOffice sends no temperature or
+  output-token cap, and hides the Max output tokens field for Oxeegen.
 - **Faster, consistent decks and documents.** Every AI step uses the model in the picker.
   It plans with reasoning on (the chat, Slides style and outline), then writes each slide,
   checks the layout and writes long Docs, Markdown and HTML content with reasoning off.

@@ -222,12 +222,15 @@ document in a visible editor tab while you watch.
 Oxeegen's models (Max, Pro, Flash, Instant) through its OpenAI-compatible
 endpoint. In **Settings → AI Model**, pick your region (**US** or **EU** — each has
 its own keys) and paste your Oxeegen API key; the endpoint is filled in for you.
-Switch models any time from the picker at the top of each editor's AI panel.
+Switch models any time from the picker at the top of each editor's AI panel: that
+model plans with reasoning on, then writes slides, checks slide layout and writes long
+documents with reasoning off.
 Keys are never bundled, because releases are public.
 
 Under **AI Media & Search**, web and image search run on **Brave Search** — paste a
 Brave API key into the Oxeegen search entry — and image generation uses **OpenAI**
-(`gpt-image-2`) with your OpenAI key, until Oxeegen serves its own image models.
+(`gpt-image-2.5-flare`, medium quality) with your OpenAI key, until Oxeegen serves its
+own image models.
 
 **Or bring your own key.** Settings → AI Model also lists Claude, OpenAI,
 Gemini, DeepSeek, Kimi, GLM, Qwen, Doubao, MiniMax, Grok, Mistral, OpenRouter,
