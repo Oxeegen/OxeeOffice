@@ -24,6 +24,8 @@ export interface ResolvedEndpoint {
   useMaxCompletionTokens?: boolean
   /** vendor-specific request fields merged into the chat-completions body */
   bodyExtras?: Record<string, unknown>
+  /** OxeeOffice brand hook: send no max_tokens; the server's configuration decides */
+  omitMaxTokens?: boolean
 }
 
 export interface ProviderAdapter {

@@ -90,6 +90,12 @@ never runs:
 - Search: the Oxeegen entry's key is a **Brave** key (`brave.ts`).
 - Models: Max (default), Pro, Flash, Instant; image/video analysis on Pro/Flash/Instant.
   Endpoints: US `inference-02`, EU `inference-04` (each region has its own keys).
+- **Requests carry no sampling or length settings.** Oxeegen's endpoint sets
+  `omitTemperature` and `omitMaxTokens`, so a chat body is only `model`, `messages`,
+  `stream` and `tools`: temperature, output cap and reasoning are configured on the vLLM
+  side. The Max output tokens field is hidden for Oxeegen because it has no effect.
+- Slides deck generation asks Oxee Pro when the chosen model is Max
+  (`oxeegenGenerationSettings`): Max's reasoning ran past Slides' 120 s per-page limit.
 
 **Testing.** The layer is **off under vitest** (`oxeegenLayerEnabled()`), so upstream's
 test suites keep asserting upstream's defaults and their files never need merging.

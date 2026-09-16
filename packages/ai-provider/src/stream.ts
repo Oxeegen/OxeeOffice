@@ -43,6 +43,7 @@ export async function streamForProvider(
           omitTemperature: endpoint.omitTemperature,
           useMaxCompletionTokens: endpoint.useMaxCompletionTokens,
           bodyExtras: endpoint.bodyExtras,
+          omitMaxTokens: endpoint.omitMaxTokens, // OxeeOffice brand hook
         })
     }
   })

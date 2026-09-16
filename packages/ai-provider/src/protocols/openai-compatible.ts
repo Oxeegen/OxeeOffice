@@ -116,6 +116,8 @@ export interface OpenAiRequestOptions {
   useMaxCompletionTokens?: boolean | undefined
   /** vendor-specific fields merged into the request body (e.g. DeepSeek's `thinking`) */
   bodyExtras?: Record<string, unknown> | undefined
+  /** OxeeOffice brand hook: send no output cap; the server's own configuration decides (Oxeegen/vLLM) */
+  omitMaxTokens?: boolean | undefined
 }
 
 export async function streamOpenAiCompatible(
@@ -160,9 +162,12 @@ async function openAiCompatibleTurn(
     },
     body: JSON.stringify({
       model: config.model,
-      ...(options.useMaxCompletionTokens
-        ? { max_completion_tokens: maxTokens }
-        : { max_tokens: maxTokens }),
+      // OxeeOffice brand hook: omitMaxTokens leaves the cap to the server
+      ...(options.omitMaxTokens
+        ? {}
+        : options.useMaxCompletionTokens
+          ? { max_completion_tokens: maxTokens }
+          : { max_tokens: maxTokens }),
       messages: openAiMessages(system, messages, modelEchoesReasoning(config.model)),
       ...(tools.length > 0
         ? {

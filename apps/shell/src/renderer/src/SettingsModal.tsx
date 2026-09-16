@@ -519,6 +519,8 @@ function AiModelPane({ t }: { t: TFunc }) {
           )}
         </>
       ) : null}
+      {/* OxeeOffice brand hook: Oxeegen requests send no max_tokens (vLLM decides), so no cap field */}
+      {provider !== 'oxeegen' && (
       <div className="set-field">
         <div className="set-field-text">
           <div className="set-field-stack">
@@ -540,6 +542,7 @@ function AiModelPane({ t }: { t: TFunc }) {
           onBlur={commitMaxTokens}
         />
       </div>
+      )}
       {/* OxeeOffice brand hook: no Genspark cloud tools switch (there is no Genspark sign-in) */}
       {!oxeegenLayerEnabled() && (
       <div className="set-field">

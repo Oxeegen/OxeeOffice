@@ -54,9 +54,10 @@ describe('Oxeegen chat provider', () => {
     const adapter = api.getProviderAdapter('oxeegen')
     expect(adapter.capabilities.auth).toBe('api-key')
     const cfg = (baseUrl?: string) => ({ apiKey: 'k', model: 'Oxee-max', baseUrl })
-    expect(adapter.resolveEndpoint(cfg())).toEqual({ protocol: 'openai-compatible', baseUrl: US })
-    expect(adapter.resolveEndpoint(cfg(''))).toEqual({ protocol: 'openai-compatible', baseUrl: US })
-    expect(adapter.resolveEndpoint(cfg(EU))).toEqual({ protocol: 'openai-compatible', baseUrl: EU })
+    const shaped = { omitTemperature: true, omitMaxTokens: true }
+    expect(adapter.resolveEndpoint(cfg())).toEqual({ protocol: 'openai-compatible', baseUrl: US, ...shaped })
+    expect(adapter.resolveEndpoint(cfg(''))).toEqual({ protocol: 'openai-compatible', baseUrl: US, ...shaped })
+    expect(adapter.resolveEndpoint(cfg(EU))).toEqual({ protocol: 'openai-compatible', baseUrl: EU, ...shaped })
   })
 
   it('never routes a stray genspark id to Genspark’s proxy', () => {
@@ -72,6 +73,64 @@ describe('Oxeegen chat provider', () => {
     expect(api.modelLacksVision('Oxee-ultra')).toBe(true)
     expect(api.modelLacksVision('Oxee-pro')).toBe(false)
     expect(api.modelLacksVision('Oxee-flash')).toBe(false)
+  })
+})
+
+describe('request bodies: the server configuration decides', () => {
+  // Oxeegen models are tuned in vLLM; upstream's hard-coded temperature 0.3 and
+  // max_tokens caps caused problems, so Oxeegen requests carry neither.
+  function captureFetch() {
+    const bodies: Record<string, unknown>[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>
+        bodies.push(body)
+        if (body.stream) {
+          const sse = 'data: {"choices":[{"delta":{"content":"OK"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
+          return new Response(sse, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
+        }
+        return new Response(JSON.stringify({ choices: [{ message: { content: 'OK' }, finish_reason: 'stop' }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }),
+    )
+    return bodies
+  }
+  const cb = { onDelta() {}, onToolCall() {} }
+  const tool = { name: 't', description: 'd', inputSchema: { type: 'object', properties: {} } }
+
+  it('Oxeegen streams and one-shot calls send no temperature and no max_tokens', async () => {
+    const bodies = captureFetch()
+    try {
+      const config = { apiKey: 'k', model: 'Oxee-max', baseUrl: US }
+      await api.streamForProvider('oxeegen', config, 'sys', [{ role: 'user', text: 'hi' }] as never, [tool] as never, 32768, cb as never)
+      await api.streamForProvider('oxeegen', config, 'sys', [{ role: 'user', text: 'page' }] as never, [], 16384, cb as never)
+      await api.chatForProvider('oxeegen', config, 'sys', 'ping')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+    expect(bodies).toHaveLength(3)
+    for (const body of bodies) {
+      expect(body).not.toHaveProperty('temperature')
+      expect(body).not.toHaveProperty('max_tokens')
+      expect(body).not.toHaveProperty('max_completion_tokens')
+      expect(body).not.toHaveProperty('reasoning_effort')
+      expect(body.model).toBe('Oxee-max')
+    }
+    expect(Object.keys(bodies[0]!).sort()).toEqual(['messages', 'model', 'stream', 'tools'])
+    expect(Object.keys(bodies[2]!).sort()).toEqual(['messages', 'model'])
+  })
+
+  it('other OpenAI-compatible providers still send upstream’s fields', async () => {
+    const bodies = captureFetch()
+    try {
+      await api.streamForProvider('mistral', { apiKey: 'k', model: 'mistral-medium-latest' }, 'sys', [{ role: 'user', text: 'hi' }] as never, [], 4096, cb as never)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+    expect(bodies[0]).toMatchObject({ temperature: 0.3, max_tokens: 4096 })
   })
 })
 
@@ -184,7 +243,7 @@ describe('upgrading from OxeeOffice 0.9.431', () => {
     expect(s.provider).toBe('oxeegen')
     expect(s.providers.oxeegen).toEqual({ apiKey: 'oxee-key', model: 'Oxee-max', baseUrl: US })
     expect(api.activeProvider(s)).toBe('oxeegen')
-    expect(api.getProviderAdapter(api.activeProvider(s)).resolveEndpoint(s.providers.oxeegen)).toEqual({
+    expect(api.getProviderAdapter(api.activeProvider(s)).resolveEndpoint(s.providers.oxeegen)).toMatchObject({
       protocol: 'openai-compatible',
       baseUrl: US,
     })

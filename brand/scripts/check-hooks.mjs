@@ -80,6 +80,21 @@ const HOOKS = [
     must: ['= withOxeegenAdapters({', 'if (oxeegenModelLacksVision(model)) return true'],
   },
   {
+    file: 'packages/ai-provider/src/protocols/openai-compatible.ts',
+    why: 'Oxeegen requests send no max_tokens (server decides)',
+    must: ['omitMaxTokens?: boolean | undefined', '...(options.omitMaxTokens'],
+  },
+  {
+    file: 'packages/ai-provider/src/stream.ts',
+    why: 'omitMaxTokens reaches the protocol',
+    must: ['omitMaxTokens: endpoint.omitMaxTokens'],
+  },
+  {
+    file: 'packages/ai-provider/src/registry.ts',
+    why: 'omitMaxTokens on the resolved endpoint',
+    must: ['omitMaxTokens?: boolean'],
+  },
+  {
     file: 'packages/ai-provider/src/media.ts',
     why: 'Oxeegen media entry and defaults',
     must: ['= withOxeegenMedia([', 'return withOxeegenMediaDefaults({'],
@@ -122,7 +137,7 @@ const HOOKS = [
   {
     file: 'apps/shell/src/renderer/src/SettingsModal.tsx',
     why: 'no Account page, region buttons, no cloud-tools switch, Brave hint',
-    must: ["initialSettingsSection('account')", 'visibleSettingsSections(SECTIONS)', 'id="set-ai-region"', 'id={`set-ai-${cap}-region`}', '{!oxeegenLayerEnabled() && (', '? OXEEGEN_SEARCH_HINT', '? OXEEGEN_CHAT_HINT'],
+    must: ["initialSettingsSection('account')", 'visibleSettingsSections(SECTIONS)', 'id="set-ai-region"', 'id={`set-ai-${cap}-region`}', '{!oxeegenLayerEnabled() && (', '? OXEEGEN_SEARCH_HINT', '? OXEEGEN_CHAT_HINT', "{provider !== 'oxeegen' && ("],
   },
   {
     file: 'apps/shell/src/renderer/src/Onboarding.tsx',

@@ -62,6 +62,8 @@ underneath can copy `%APPDATA%\GenOffice\ai-settings.json` into
 - **Model picker in every editor.** The top of each AI panel (Docs, Sheets, Slides,
   PDF, Markdown, HTML) switches between Oxee Max, Pro, Flash and Instant; the choice
   applies in every open tab.
+- **Oxeegen models use their server settings.** OxeeOffice sends no temperature,
+  output-token cap or reasoning level, and hides the Max output tokens field for Oxeegen.
 - **Web and image search on Brave**, behind the Oxeegen search entry.
 - **Image generation on OpenAI** `gpt-image-2`; image and video analysis on Oxeegen
   (Pro, Flash, Instant).

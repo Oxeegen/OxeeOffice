@@ -109,8 +109,21 @@ export function withOxeegenProviders(list: AiProviderMeta[]): AiProviderMeta[] {
   return oxeegenLayerEnabled() ? [OXEEGEN_PROVIDER, ...list] : list
 }
 
+/**
+ * Oxeegen's models are tuned server-side (vLLM generation config: sampling,
+ * reasoning, output length). Upstream sends a hard-coded `temperature: 0.3` and
+ * a `max_tokens` cap (the Max output tokens setting, 16,384 for Slides pages)
+ * on every OpenAI-compatible request; for Oxeegen those overrides caused
+ * problems (Oxeegen, 2026-09-16), so neither is sent. No reasoning parameter
+ * was ever sent. Requests carry only model, messages, tools and stream.
+ */
 function oxeegenEndpoint(config: AiProviderConfig): ResolvedEndpoint {
-  return { protocol: 'openai-compatible', baseUrl: config.baseUrl?.trim() || OXEEGEN_DEFAULT_BASE_URL }
+  return {
+    protocol: 'openai-compatible',
+    baseUrl: config.baseUrl?.trim() || OXEEGEN_DEFAULT_BASE_URL,
+    omitTemperature: true,
+    omitMaxTokens: true,
+  }
 }
 
 /**
