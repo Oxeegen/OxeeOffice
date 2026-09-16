@@ -34,6 +34,8 @@ Outside this directory, fork-owned files:
 | `apps/shell/electron-builder.brand.cjs` | Wraps upstream's `electron-builder.cjs`: identity, GitHub update feed, artifact and package names, brand steps in `beforePack`. Sits next to upstream's file because electron-builder resolves resource paths against the app directory. |
 | `.github/workflows/release-oxeeoffice.yml` | Tag `oxeeoffice-vX.Y.Z` → Windows + Linux build, verify, publish. |
 | `.github/workflows/brand-ci.yml` | `check-ee` + `check-hooks` on every push and PR. |
+| `README.md`, `PRIVACY.md` | Replaced outright with OxeeOffice versions (structure follows upstream's README). On an upstream merge, take ours and port any new upstream section worth having. Upstream's screenshots and translated READMEs under `docs/` show GenOffice branding and are not linked. |
+| `NOTICE`, `CHANGELOG.md`, `CONTRIBUTING.md` | Upstream notice kept in full with an Oxeegen section appended; changelog is ours; contributing guide has a fork section prepended. |
 
 ## How the product name is changed
 
@@ -76,6 +78,7 @@ comment `OxeeOffice brand hook`.
 | `apps/shell/src/renderer/src/IntegrationsPane.tsx` | `npx skills add Oxeegen/OxeeOffice`. |
 | `packages/electron-utils/src/github-menu.ts` | Help-menu / star CTA repository URL. |
 | `.github/workflows/ci.yml` | Upstream's CI runs in the fork only on demand. |
+| `SECURITY.md` | Vulnerability reports go to this repository's advisories. |
 | `apps/shell/tests/updater.test.ts`, `…/settings-integrations.test.ts` | Assert the hooked values. |
 
 ## Releasing
@@ -151,7 +154,7 @@ bundles. That behaviour is being moved into source here:
 | Icons, file-type icons, wordmark, dark-mode logo | Done |
 | Auto-update from GitHub Releases | Done |
 | Windows + Linux release workflow | Done — first CI run pending |
-| Oxeegen as the single provider in AI Model, AI Search and AI Media; no Genspark sign-in, credits or cloud projects | To do |
+| Oxeegen as the single provider in AI Model, AI Search and AI Media; no Genspark sign-in, credits or cloud projects. **Blocks the 0.10.488 release:** PRIVACY.md lists every outbound destination, and `www.genspark.ai` (sign-in proxy, cloud projects, image CDN referer) and the `genoffice.ai` link must be gone first | To do |
 | Live model list, Brave search, oxeegen.com links | To do |
 | Model picker in each AI panel, theme toggle, native slide-deck building, Markdown page width | To do |
 | `genoffice` command line, MCP server name and agent skill → `oxeeoffice` (one unit, with the Linux executable name) | To do |

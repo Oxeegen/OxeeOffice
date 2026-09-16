@@ -1,70 +1,53 @@
-# GenOffice Privacy
+# OxeeOffice Privacy
 
-Last updated: August 26, 2026
+Last updated: September 16, 2026. Applies to OxeeOffice 0.10.488 and later, the
+first releases built from this repository.
 
-GenOffice opens, edits, and saves documents locally. Document editing does not
-upload files to GenOffice. AI features require a network connection and send
-requests only when you use them.
+OxeeOffice opens, edits, saves and converts documents on your computer. Document
+editing does not upload files anywhere.
 
-## Usage analytics
+## No usage analytics
 
-Usage analytics is enabled by default in packaged official builds, including
-the initial app launch before the onboarding notice is shown. Onboarding
-explains what is collected and where to turn it off.
+OxeeOffice sends no usage analytics. The upstream code it is built from contains
+an analytics reporter that only runs when a build is given analytics credentials;
+OxeeOffice builds never are, and the release workflow refuses to publish a package
+that carries them (`brand/scripts/verify-package.mjs`).
 
-You can disable reporting at any time under **Settings → General → Send
-anonymous usage statistics**. An explicit opt-out is remembered and stops all
-subsequent analytics events.
+## What leaves your computer
 
-### Events and parameters
+The application makes these requests, for the reasons given:
 
-When enabled, the app sends these events:
+| Destination | When | What is sent |
+| --- | --- | --- |
+| The AI provider you configured (Oxeegen by default) | When you use an AI feature | Your prompt and the document content the AI needs to answer it |
+| The search provider you configured — or, if none is configured, DuckDuckGo | When the AI searches the web | The search query |
+| The media provider you configured | When the AI generates or analyzes an image or video | The image or video and the instructions |
+| The website hosting an image | When the AI inserts an image it found | A download request for that image |
+| `github.com` / `api.github.com` | On launch and periodically, to check for updates; when the About page is open, for the repository's star count | Standard HTTPS request metadata; no document or account data |
 
-- `install_first_launch` — marks the first analytics-enabled use of a newly
-  assigned anonymous `client_id`; used for retention cohorts
-- `app_launch` — no event-specific parameter
-- `file_open` — `ext`, the file extension such as `docx` or `xlsx`
-- `file_new` — `kind`, one of `docx`, `xlsx`, `pptx`, `md`, or `pdf`
-- `login_click` — no event-specific parameter
-- `login_success` — no event-specific parameter
+Documents and HTML pages you open can also reference remote content, such as
+linked images or web fonts, which is loaded when they are displayed.
 
-Every event includes:
+As with any HTTPS request, each recipient sees your public IP address and
+connection metadata.
 
-- `app_version`
-- `platform`
-- `os_version`
-- `ui_lang`
-- a per-process `session_id` derived from the process start time
-- `engagement_time_msec` with the fixed value `100`
+Your API keys are stored locally in the application's settings folder
+(`%APPDATA%\OxeeOffice` on Windows, `~/.config/OxeeOffice` on Linux) and are sent
+only to the provider they belong to.
 
-When available, the payload also includes `country_id`, the two-letter country
-code from the operating system's regional locale. This can differ from the
-user's physical location.
+## What is never sent
 
-The Google Analytics 4 payload also uses a random install UUID as `client_id`.
-The country code is sent through GA4's country-only `user_location` field; the
-app does not send a city or region. Neither identifier is a Genspark account or
-email address.
+- documents, file names or file paths, except the content you ask the AI to work on
+- usage statistics or telemetry
+- account identity or email addresses
 
-## Network information
+## The command line and MCP server
 
-Events are sent to Google Analytics 4 using the Measurement Protocol over
-HTTPS. As the HTTPS recipient, Google necessarily sees the connection's public
-IP address and transport metadata, and may use them for coarse geolocation and
-security or spam-abuse processing. GenOffice does not add an IP address to the
-event payload.
+The bundled command line and MCP server run locally. Only the `search`, `image`
+and `media` tools make network requests, to the provider configured in
+OxeeOffice. `GENOFFICE_ALLOWED_ROOTS` restricts every tool to the folders you
+list.
 
-## Data not collected by analytics
+## Questions
 
-GenOffice analytics never sends:
-
-- document content
-- file names
-- file paths
-- Genspark account identity
-- email addresses
-
-The analytics metadata is injected only into packaged official builds and is
-not part of this repository. Source builds and forks without that packaged
-metadata install a no-op tracker and send no usage analytics; all features work
-the same.
+Open an issue at <https://github.com/Oxeegen/OxeeOffice/issues>.

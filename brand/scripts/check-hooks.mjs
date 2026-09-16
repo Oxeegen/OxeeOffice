@@ -54,6 +54,11 @@ const HOOKS = [
     must: [`'npx skills add ${REPO}'`],
   },
   {
+    file: 'SECURITY.md',
+    why: 'vulnerability reports go to the fork',
+    must: [`https://github.com/${REPO}/security/advisories/new`],
+  },
+  {
     file: '.github/workflows/ci.yml',
     why: "upstream's CI runs in the fork only on demand",
     must: ["if: github.repository == 'genspark-ai/genoffice' || github.event_name == 'workflow_dispatch'"],

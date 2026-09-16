@@ -81,6 +81,7 @@ jobs:
         run: node brand/scripts/check-hooks.mjs
 
   build:
+    name: build (${{ matrix.platform }})
     needs: [version, guard]
     strategy:
       fail-fast: false

@@ -39,6 +39,12 @@ try {
   check(pkg.productName === brand.productName,
     `package.json productName is "${pkg.productName}" (app.getName(), userData folder, taskbar) — expected "${brand.productName}"`)
   check(pkg.version === version, `package.json version is "${pkg.version}" — expected "${version}"`)
+  // PRIVACY.md and the README promise no usage analytics. Upstream's tracker
+  // only runs when a build injects GA4 credentials here, so their absence is
+  // the guarantee — enforce it rather than trust it. Same for upstream's font
+  // CDN endpoint, which would send requests to a third-party server.
+  check(!('genofficeAnalytics' in pkg), 'package.json carries analytics credentials (genofficeAnalytics)')
+  check(!('genofficeFontCdn' in pkg), 'package.json carries upstream font CDN endpoint (genofficeFontCdn)')
 
   // 2. the update feed the installed app will poll
   const ymlPath = join(res, 'app-update.yml')

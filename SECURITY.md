@@ -2,10 +2,13 @@
 
 ## Reporting a Vulnerability
 
-Please report suspected vulnerabilities privately via GitHub's
-[private vulnerability reporting](https://github.com/genspark-ai/genoffice/security/advisories/new)
-on this repository. Do not open public issues for security reports. We aim to
-acknowledge reports within 72 hours.
+<!-- OxeeOffice brand hook: reports go to the fork -->
+Please report suspected OxeeOffice vulnerabilities privately via GitHub's
+[private vulnerability reporting](https://github.com/Oxeegen/OxeeOffice/security/advisories/new)
+on this repository. Do not open public issues for security reports.
+
+If the issue also affects upstream GenOffice, it can additionally be reported to
+[genspark-ai/genoffice](https://github.com/genspark-ai/genoffice/security/advisories/new).
 
 ## Process Security Posture
 
