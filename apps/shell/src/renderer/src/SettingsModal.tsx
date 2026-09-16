@@ -1309,6 +1309,8 @@ export function SettingsModal({
                     }}
                   />
                 </div>
+                {/* OxeeOffice brand hook: no analytics to switch off (PRIVACY.md), so no switch */}
+                {!oxeegenLayerEnabled() && (
                 <div className="set-field">
                   <div className="set-field-text">
                     <div className="set-field-stack">
@@ -1335,6 +1337,7 @@ export function SettingsModal({
                     }}
                   />
                 </div>
+                )}
               </>
             )}
             {section === 'integrations' && (

@@ -74,6 +74,26 @@ export function SettingsGlyph() {
 /** Shown under the search provider when Oxeegen (backed by Brave) is selected. */
 export const OXEEGEN_SEARCH_HINT = 'Brave Search serves both web and image search with your key.'
 
+/**
+ * First-run slides. Upstream's slide 2 invites users to GenTeam and promises
+ * "1,000+ Genspark credits"; slide 3 notes that AI "may consume Genspark
+ * credits" and explains default-on Google Analytics. None of that is true of
+ * OxeeOffice (the rename would make them claim Oxeegen credits), so slide 2 is
+ * dropped and slide 3 keeps only its headline, subtitle and GitHub star hint.
+ */
+export function brandOnboardingSlides<
+  T extends { showOffer?: boolean; showAnalyticsNotice?: boolean; bodyKey?: unknown; bodyDim?: boolean },
+>(slides: readonly T[]): readonly T[] {
+  if (!oxeegenLayerEnabled()) return slides
+  return slides
+    .filter((s) => !s.showOffer)
+    .map((s) => {
+      if (!s.showAnalyticsNotice) return s
+      const { bodyKey: _credits, bodyDim: _dim, showAnalyticsNotice: _analytics, ...rest } = s
+      return rest as T
+    })
+}
+
 /** OxeeOffice has no account: the Genspark sign-in and credits page is not shown. */
 export function visibleSettingsSections<T extends { id: string }>(sections: readonly T[]): readonly T[] {
   return oxeegenLayerEnabled() ? sections.filter((s) => s.id !== 'account') : sections

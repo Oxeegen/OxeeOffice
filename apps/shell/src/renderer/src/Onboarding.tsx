@@ -3,6 +3,7 @@ import appIcon from './assets/app-icon.png'
 import { useI18n } from './locale'
 import type { StringKey } from './locale'
 import './onboarding.css'
+import { brandOnboardingSlides } from './oxeegen-settings'
 
 interface OnboardingProps {
   /** persists completion; analytics remains enabled unless opted out in Settings */
@@ -26,7 +27,8 @@ interface Slide {
   art: 'logo' | 'gift' | 'check'
 }
 
-const SLIDES: readonly Slide[] = [
+// OxeeOffice brand hook: no GenTeam/credits slide, no analytics notice (oxeegen-settings.tsx)
+const SLIDES: readonly Slide[] = brandOnboardingSlides([
   { titleKey: 'onbTitle1', subtitleKey: 'onbSubtitle1', bodyKey: 'onbBody1', art: 'logo' },
   { titleKey: 'onbTitle2', subtitleKey: 'onbBody2', showOffer: true, art: 'gift' },
   {
@@ -38,7 +40,7 @@ const SLIDES: readonly Slide[] = [
     showAnalyticsNotice: true,
     art: 'check',
   },
-]
+])
 
 /** render `**emphasized**` segments of a localized string as <strong> */
 function renderEmphasis(text: string) {

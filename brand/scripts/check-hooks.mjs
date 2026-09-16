@@ -125,6 +125,16 @@ const HOOKS = [
     must: ["initialSettingsSection('account')", 'visibleSettingsSections(SECTIONS)', 'id="set-ai-region"', 'id={`set-ai-${cap}-region`}', '{!oxeegenLayerEnabled() && (', '? OXEEGEN_SEARCH_HINT', '? OXEEGEN_CHAT_HINT'],
   },
   {
+    file: 'apps/shell/src/renderer/src/Onboarding.tsx',
+    why: 'no GenTeam/credits slide, no analytics notice on first run',
+    must: ['const SLIDES: readonly Slide[] = brandOnboardingSlides(['],
+  },
+  {
+    file: 'apps/shell/src/renderer/src/SettingsModal.tsx',
+    why: 'no analytics switch in General',
+    must: ['{/* OxeeOffice brand hook: no analytics to switch off (PRIVACY.md), so no switch */}'],
+  },
+  {
     file: 'apps/shell/src/renderer/src/Home.tsx',
     why: 'sidebar button is Settings, not Genspark sign-in',
     must: ['const settingsOnly = oxeegenLayerEnabled()', '<SettingsGlyph />'],
