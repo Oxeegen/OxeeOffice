@@ -67,7 +67,7 @@ const HOOKS = [
   {
     file: 'packages/ai-provider/src/types.ts',
     why: 'oxeegen provider ids',
-    must: ["| 'oxeegen' // OxeeOffice brand hook", "'oxeegen' | 'genspark' | 'serper' | 'tavily'", 'oxeegen?: { apiKey: string }', "purpose?: 'compaction'"],
+    must: ["| 'oxeegen' // OxeeOffice brand hook", "'oxeegen' | 'genspark' | 'serper' | 'tavily'", 'oxeegen?: { apiKey: string }', "purpose?: 'compaction'", 'thinking?: boolean | undefined'],
   },
   {
     file: 'packages/agent-core/src/types.ts',
@@ -235,13 +235,22 @@ const HOOKS = [
     why: 'follow model changes made in other tabs',
     must: ['useAiSettingsRefresh(refreshAiSettings)'],
   })),
+  ...[
+    ['apps/docs/src/renderer/ai/AiPanel.tsx', 'settingsRef.current', 'streamText({\n        transport: writerTransportRef.current!'],
+    ['apps/markdown/src/renderer/ai/AiPanel.tsx', 'settingsRef.current!', 'streamText({\n        transport: writerTransportRef.current!'],
+    ['apps/html/src/renderer/ai/AiPanel.tsx', 'settingsRef.current!', 'streamPage({\n        transport: writerTransportRef.current!'],
+  ].map(([file, settings, call]) => ({
+    file,
+    why: 'writer runs with reasoning off',
+    must: [`oxeegenRoleSettings(${settings}, 'writer') ?? ${settings}`, call],
+  })),
   ...['pdf', 'markdown', 'html'].flatMap((app) => [
     { file: `apps/${app}/src/preload/index.ts`, why: 'picker can save', must: ["setAiSettings: (settings: unknown) => ipcRenderer.invoke('ai:set-settings', settings)"] },
     { file: `apps/${app}/src/shared/ipc.ts`, why: 'picker can save (type)', must: ['setAiSettings(settings: unknown): Promise<void>'] },
   ]),
   {
     file: 'apps/slides/src/renderer/ai/AiPanel.tsx',
-    why: 'style/outline on the picker model; pages and layout check on Flash; pages see earlier pages',
+    why: 'style/outline with reasoning; pages and layout check with reasoning off; pages see earlier pages',
     must: [
       "import { referenceBlock } from './oxee-deck-references'",
       'if (oxeegenLayerEnabled()) return cur',

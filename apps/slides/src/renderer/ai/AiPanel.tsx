@@ -1052,7 +1052,7 @@ export function AiPanel({
           return false
         }
       },
-      // OxeeOffice brand hook: pages one at a time on Flash, each seeing the pages before it
+      // OxeeOffice brand hook: pages one at a time, reasoning off, each seeing the pages before it
       pageConcurrency: () => oxeegenDeckPageConcurrency(settingsRef.current),
       pageReferences: () => oxeegenDeckPageReferences(settingsRef.current),
       // Local single-page generation (no gsk needed, e.g. BYOK): one LLM request through the
@@ -1116,7 +1116,7 @@ export function AiPanel({
               ? userMsg
               : `${userMsg}\n\nYour previous output was rejected: ${lastErr}. Output the corrected JSON object only.`
           // Text-heavy spec JSON can exceed the default 8192 tokens; single-page requests get a higher cap
-          // OxeeOffice brand hook: the page spec follows the outline on Flash
+          // OxeeOffice brand hook: the page spec follows the outline with reasoning off
           const worker = oxeegenRoleSettings(settingsRef.current, 'deckPages')
           const r = worker
             ? await runLlmAttempt(worker, sys, msg, 120000, args.signal, 16384)
@@ -1829,7 +1829,7 @@ export function AiPanel({
     const controller = new AbortController()
     qcAbortRef.current = controller
     const capped = pages.slice(0, QC_MAX_PAGES)
-    // OxeeOffice brand hook: the layout check runs on Flash
+    // OxeeOffice brand hook: the layout check runs with reasoning off
     const qcSettings = () => oxeegenRoleSettings(settingsRef.current, 'layoutCheck') ?? settingsRef.current
     const transport = createElectronTransport(qcSettings)
     const header = tGlobal('aiQcStart', { count: capped.length })

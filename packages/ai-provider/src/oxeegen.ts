@@ -64,18 +64,26 @@ export const OXEEGEN_DEFAULT_VISION_MODEL = 'Oxee-pro'
 
 // ── Tiers ───────────────────────────────────────────────────────────────────
 
+export type OxeegenRole = 'deckPages' | 'layoutCheck' | 'writer' | 'compaction'
+
 /**
- * Model per step. The model in the picker (Max by default) plans and writes:
- * the chat agent, Slides style and outline, and the Docs / Markdown / HTML
- * writers. Slides pages and the Slides layout check run on Flash; the summary
- * written when a long chat is compacted runs on Instant (reasoning off).
+ * How each step calls Oxeegen. Every step uses the model in the picker; steps
+ * that carry out a plan already made turn reasoning off (Slides page specs,
+ * the Slides layout check, the Docs / Markdown / HTML writers). A slide spec
+ * took 2-5 s with reasoning off against 50-99 s with it on, still valid JSON
+ * (2026-09-16). The summary written when a long chat is compacted runs on
+ * Instant. Planning (chat agent, Slides style and outline, HTML brief) keeps
+ * reasoning on.
  */
-export const OXEEGEN_ROLE_MODELS = {
-  deckPages: 'Oxee-flash',
-  layoutCheck: 'Oxee-flash',
-  compaction: 'Oxee-instant',
-} as const
-export type OxeegenRole = keyof typeof OXEEGEN_ROLE_MODELS
+export const OXEEGEN_ROLES: Record<OxeegenRole, { model?: string; thinking?: false }> = {
+  deckPages: { thinking: false },
+  layoutCheck: { thinking: false },
+  writer: { thinking: false },
+  compaction: { model: 'Oxee-instant' },
+}
+
+/** vLLM chat-template switch that turns reasoning off on Oxee models (others ignored it). */
+export const OXEEGEN_NO_THINKING_BODY = { chat_template_kwargs: { enable_thinking: false } }
 
 /**
  * Slides pages are written one at a time (upstream: 2 in parallel), each seeing
@@ -85,12 +93,19 @@ export const OXEEGEN_DECK_PAGE_CONCURRENCY = 1
 
 type SettingsWithModels = { provider: string; providers: { [id: string]: { model: string } | undefined } }
 
-/** A copy of the settings on the step's model, or null when Oxeegen is not the provider. */
+/** A copy of the settings for the step, or null when Oxeegen is not the provider. */
 export function oxeegenRoleSettings<S extends SettingsWithModels>(settings: S, role: OxeegenRole): S | null {
   if (!oxeegenLayerEnabled() || settings.provider !== 'oxeegen') return null
   const config = settings.providers.oxeegen
   if (!config) return null
-  return { ...settings, providers: { ...settings.providers, oxeegen: { ...config, model: OXEEGEN_ROLE_MODELS[role] } } }
+  const { model, thinking } = OXEEGEN_ROLES[role]
+  return {
+    ...settings,
+    providers: {
+      ...settings.providers,
+      oxeegen: { ...config, ...(model ? { model } : {}), ...(thinking === false ? { thinking } : {}) },
+    },
+  }
 }
 
 /** Slides page-generation concurrency, or undefined to keep upstream's. */
@@ -144,6 +159,7 @@ function oxeegenEndpoint(config: AiProviderConfig): ResolvedEndpoint {
     baseUrl: config.baseUrl?.trim() || OXEEGEN_DEFAULT_BASE_URL,
     omitTemperature: true,
     omitMaxTokens: true,
+    ...(config.thinking === false ? { bodyExtras: OXEEGEN_NO_THINKING_BODY } : {}),
   }
 }
 

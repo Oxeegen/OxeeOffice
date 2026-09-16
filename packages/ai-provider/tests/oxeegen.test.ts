@@ -138,25 +138,66 @@ describe('tiers', () => {
     providers: { oxeegen: { apiKey: 'k', model, baseUrl: EU }, anthropic: { apiKey: 'a', model: 'claude-sonnet-5' } },
   })
 
-  it('runs Slides pages and the layout check on Flash, compaction on Instant, whatever the picker holds', () => {
-    const expected = { deckPages: 'Oxee-flash', layoutCheck: 'Oxee-flash', compaction: 'Oxee-instant' } as const
-    expect(api.OXEEGEN_ROLE_MODELS).toEqual(expected)
+  it('keeps the picked model and turns reasoning off for steps that carry out a plan', () => {
     for (const model of api.OXEEGEN_CHAT_MODELS) {
-      for (const role of Object.keys(expected) as Array<keyof typeof expected>) {
+      for (const role of ['deckPages', 'layoutCheck', 'writer'] as const) {
         expect(api.oxeegenRoleSettings(with_('oxeegen', model), role)?.providers.oxeegen).toEqual({
           apiKey: 'k',
-          model: expected[role],
+          model,
           baseUrl: EU,
+          thinking: false,
         })
       }
     }
+  })
+
+  it('runs compaction summaries on Instant', () => {
+    expect(api.oxeegenRoleSettings(with_('oxeegen', 'Oxee-max'), 'compaction')?.providers.oxeegen).toEqual({
+      apiKey: 'k',
+      model: 'Oxee-instant',
+      baseUrl: EU,
+    })
   })
 
   it('leaves other providers alone and never mutates the settings', () => {
     expect(api.oxeegenRoleSettings(with_('anthropic', 'claude-sonnet-5'), 'deckPages')).toBeNull()
     const s = with_('oxeegen', 'Oxee-max')
     api.oxeegenRoleSettings(s, 'layoutCheck')
-    expect(s.providers.oxeegen.model).toBe('Oxee-max')
+    expect(s.providers.oxeegen).toEqual({ apiKey: 'k', model: 'Oxee-max', baseUrl: EU })
+  })
+
+  it('turns thinking: false into the vLLM chat-template switch, and nothing otherwise', () => {
+    const adapter = api.getProviderAdapter('oxeegen')
+    expect(adapter.resolveEndpoint({ apiKey: 'k', model: 'Oxee-max', thinking: false }).bodyExtras).toEqual({
+      chat_template_kwargs: { enable_thinking: false },
+    })
+    expect(adapter.resolveEndpoint({ apiKey: 'k', model: 'Oxee-max' }).bodyExtras).toBeUndefined()
+    expect(adapter.resolveEndpoint({ apiKey: 'k', model: 'Oxee-max', thinking: true }).bodyExtras).toBeUndefined()
+  })
+
+  it('a reasoning-off request carries the switch and still no temperature or max_tokens', async () => {
+    const bodies: Record<string, unknown>[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        bodies.push(JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>)
+        const sse = 'data: {"choices":[{"delta":{"content":"OK"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
+        return new Response(sse, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
+      }),
+    )
+    try {
+      const settings = api.oxeegenRoleSettings(with_('oxeegen', 'Oxee-max'), 'deckPages')!
+      await api.streamForProvider('oxeegen', settings.providers.oxeegen, 'sys', [{ role: 'user', text: 'page' }] as never, [], 16384, {
+        onDelta() {},
+        onToolCall() {},
+      } as never)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+    expect(bodies[0]).toMatchObject({ model: 'Oxee-max', chat_template_kwargs: { enable_thinking: false } })
+    expect(bodies[0]).not.toHaveProperty('temperature')
+    expect(bodies[0]).not.toHaveProperty('max_tokens')
+    expect(bodies[0]).not.toHaveProperty('thinking')
   })
 
   it('writes Slides pages one at a time with references, on Oxeegen only', () => {
@@ -166,7 +207,7 @@ describe('tiers', () => {
     expect(api.oxeegenDeckPageReferences({ provider: 'anthropic' })).toBe(false)
   })
 
-  it('routes compaction summaries to Instant and nothing else', () => {
+  it('routes compaction requests to Instant and nothing else', () => {
     const base = { requestId: 'r', system: 's', messages: [], settings: with_('oxeegen', 'Oxee-max') }
     expect(api.oxeegenRouteStreamRequest({ ...base, purpose: 'compaction' as const }).settings.providers.oxeegen?.model).toBe(
       'Oxee-instant',

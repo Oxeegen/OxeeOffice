@@ -95,17 +95,21 @@ never runs:
   `omitTemperature` and `omitMaxTokens`, so a chat body is only `model`, `messages`,
   `stream` and `tools`: temperature, output cap and reasoning are configured on the vLLM
   side. The Max output tokens field is hidden for Oxeegen because it has no effect.
-- **Model per step** (`OXEEGEN_ROLE_MODELS` in `oxeegen.ts`). The model in the picker (Max
-  by default) plans and writes: the chat agent, Slides style and outline, and the Docs /
-  Markdown / HTML writers. **Oxee-flash** writes Slides pages and runs the Slides layout
-  check. **Oxee-instant** writes the summary when a long chat is compacted, in every editor
-  (tagged in agent-core, routed in the shell's `ai:stream` handler in `docs-main.ts`; the
-  standalone Slides/Sheets dev handlers are not routed). Upstream's Slides swap to a
-  larger Anthropic model is off.
+- **One model, reasoning switched per step** (`OXEEGEN_ROLES` in `oxeegen.ts`). Every
+  step uses the model in the picker. Planning keeps reasoning on: the chat agent, Slides
+  style and outline, the HTML brief. Steps that carry out a plan turn it off with
+  `chat_template_kwargs: {enable_thinking: false}` (the only switch the Oxee vLLM models
+  honour): Slides page specs, the Slides layout check, the Docs / Markdown / HTML writers.
+  `oxeegenRoleSettings` puts `thinking: false` on a request-only copy of the settings;
+  `oxeegenEndpoint` turns it into `bodyExtras`. Measured on one slide spec: 2-5 s with
+  reasoning off, 50-99 s with it on, both valid. The summary written when a long chat is
+  compacted runs on **Oxee-instant**, in every editor (tagged in agent-core, routed in the
+  shell's `ai:stream` handler in `docs-main.ts`; the standalone Slides/Sheets dev handlers
+  are not routed). Upstream's Slides swap to a larger Anthropic model is off.
 - **Slides pages are written one at a time**, each request carrying the JSON specs of the
   pages already written (`oxee-deck-references.ts`: page 1 plus the most recent pages,
-  24k characters). Upstream writes 2 pages in parallel from the style text alone; with a
-  faster model in parallel, a 4-slide deck came out visibly mismatched.
+  24k characters). Upstream writes 2 pages in parallel from the style text alone; pages
+  written in parallel came out visibly mismatched.
 
 **Testing.** The layer is **off under vitest** (`oxeegenLayerEnabled()`), so upstream's
 test suites keep asserting upstream's defaults and their files never need merging.

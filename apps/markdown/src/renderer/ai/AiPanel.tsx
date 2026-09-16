@@ -1,5 +1,5 @@
 // OxeeOffice brand hook: model picker and Oxee mark
-import { AI_PROVIDERS, oxeegenLayerEnabled } from '@genoffice/ai-provider/browser'
+import { AI_PROVIDERS, oxeegenLayerEnabled, oxeegenRoleSettings } from '@genoffice/ai-provider/browser'
 import { OxeeMark, OxeeModelPicker } from '@genoffice/ui'
 import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactElement, ReactNode } from 'react'
@@ -272,6 +272,11 @@ export function AiPanel({
   const transportRef = useRef<ReturnType<typeof createElectronTransport> | null>(null)
   if (!transportRef.current)
     transportRef.current = createElectronTransport(() => settingsRef.current!)
+  // OxeeOffice brand hook: the writer follows the agent's plan with reasoning off
+  const writerTransportRef = useRef<ReturnType<typeof createElectronTransport> | null>(null)
+  writerTransportRef.current ??= createElectronTransport(
+    () => oxeegenRoleSettings(settingsRef.current!, 'writer') ?? settingsRef.current!,
+  )
 
   /**
    * Long-form writing: one tool-less request whose reply is the markdown, streamed
@@ -304,7 +309,7 @@ export function AiPanel({
     }
     const attempt = () =>
       streamText({
-        transport: transportRef.current!,
+        transport: writerTransportRef.current!, // OxeeOffice brand hook
         system,
         user,
         signal,

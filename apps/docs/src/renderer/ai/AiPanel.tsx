@@ -4,7 +4,7 @@ import type { Block } from '@genoffice/docx-engine'
 import { AgentLoop, composeSkills, streamText, type AgentImage } from '@genoffice/agent-core'
 import { imageGenerationAvailable } from '@genoffice/ai-provider/browser'
 // OxeeOffice brand hook: model picker
-import { AI_PROVIDERS, oxeegenLayerEnabled } from '@genoffice/ai-provider/browser'
+import { AI_PROVIDERS, oxeegenLayerEnabled, oxeegenRoleSettings } from '@genoffice/ai-provider/browser'
 import { OxeeModelPicker } from '@genoffice/ui'
 import type { AiSettings, AttachmentAddResult, AttachmentMeta } from '../../shared/ipc'
 import { ATTACHMENT_IMAGE_EXTS } from '../../shared/ipc'
@@ -670,6 +670,11 @@ export function AiPanel({
   const transportRef = useRef<ReturnType<typeof createElectronTransport> | null>(null)
   if (!transportRef.current)
     transportRef.current = createElectronTransport(() => settingsRef.current)
+  // OxeeOffice brand hook: the writer follows the agent's plan with reasoning off
+  const writerTransportRef = useRef<ReturnType<typeof createElectronTransport> | null>(null)
+  writerTransportRef.current ??= createElectronTransport(
+    () => oxeegenRoleSettings(settingsRef.current, 'writer') ?? settingsRef.current,
+  )
 
   /**
    * Long-form writing: one tool-less request whose reply is the fragment, streamed
@@ -698,7 +703,7 @@ export function AiPanel({
     }
     const attempt = () =>
       streamText({
-        transport: transportRef.current!,
+        transport: writerTransportRef.current!, // OxeeOffice brand hook
         system,
         user,
         signal,

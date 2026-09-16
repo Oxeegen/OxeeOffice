@@ -1,5 +1,5 @@
 // OxeeOffice brand hook: model picker and Oxee mark
-import { AI_PROVIDERS, oxeegenLayerEnabled } from '@genoffice/ai-provider/browser'
+import { AI_PROVIDERS, oxeegenLayerEnabled, oxeegenRoleSettings } from '@genoffice/ai-provider/browser'
 import { OxeeMark, OxeeModelPicker } from '@genoffice/ui'
 import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactElement, ReactNode } from 'react'
@@ -549,6 +549,11 @@ export function AiPanel({
   if (!transportRef.current) {
     transportRef.current = createElectronTransport(() => settingsRef.current!)
   }
+  // OxeeOffice brand hook: the page writer follows the confirmed brief with reasoning off
+  const writerTransportRef = useRef<ReturnType<typeof createElectronTransport> | null>(null)
+  writerTransportRef.current ??= createElectronTransport(
+    () => oxeegenRoleSettings(settingsRef.current!, 'writer') ?? settingsRef.current!,
+  )
 
   /**
    * Whole-page generation: one tool-less request whose reply is the HTML, streamed
@@ -576,7 +581,7 @@ export function AiPanel({
     }
     const attempt = () =>
       streamPage({
-        transport: transportRef.current!,
+        transport: writerTransportRef.current!, // OxeeOffice brand hook
         system,
         user,
         signal,
