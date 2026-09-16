@@ -1,0 +1,9 @@
+/* OxeeOffice shell theme overrides. Imported by apps/shell/src/renderer/src/main.tsx
+   AFTER upstream's stylesheets, so equal-specificity rules here win. */
+
+/* Upstream's wordmark is monochrome, so home.css flips it per theme with
+   `filter: invert(var(--logo-invert))`. Ours is full colour: inverting brand
+   purple (#5E4AF5) in dark mode gives lime green (#A1B50A). */
+.logo-lockup {
+  filter: none;
+}

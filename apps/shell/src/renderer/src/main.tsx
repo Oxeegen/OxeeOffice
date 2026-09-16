@@ -8,6 +8,8 @@ import '@genoffice/ui/screentip.css'
 import '@genoffice/ui/dropdown.css'
 import './home.css'
 import './tabbar.css'
+// OxeeOffice brand hook — must stay after upstream's stylesheets (brand/README.md)
+import '../../../../../brand/theme/shell.css'
 import { installScreenTips } from '@genoffice/ui'
 
 installScreenTips()
