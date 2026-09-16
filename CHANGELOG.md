@@ -70,8 +70,9 @@ underneath can copy `%APPDATA%\GenOffice\ai-settings.json` into
   Slides are written one after another, each matching the slides before it. Long chats
   are summarized with Oxee Instant. Every Oxee model can read images.
 - **Web and image search on Brave**, behind the Oxeegen search entry.
-- **Image generation on OpenAI** `gpt-image-2`; image and video analysis on any Oxee
-  model (Pro by default).
+- **Image generation on OpenAI** `gpt-image-2.5-flare` at medium quality, faster than
+  `gpt-image-2` (which it replaces, also in saved settings); image and video analysis on
+  any Oxee model (Pro by default).
 - **Slide decks are built by Oxeegen** from a prompt, entirely on your machine.
 - **No Genspark sign-in, account page, credits or cloud tools**, and nothing connects
   to Genspark — including a Genspark login present elsewhere on the computer.

@@ -237,7 +237,7 @@ describe('defaults for a fresh install', () => {
       analysisModel: 'Oxee-pro',
       baseUrl: US,
     })
-    expect(media.providers.openai?.imageModel).toBe('gpt-image-2')
+    expect(media.providers.openai?.imageModel).toBe('gpt-image-2.5-flare')
   })
 
   it('searches through the Oxeegen entry', () => {
@@ -359,5 +359,63 @@ describe('upgrading from OxeeOffice 0.9.431', () => {
       api.defaultAiSettings(),
     )
     expect(s.providers.oxeegen).toEqual({ apiKey: 'new', model: 'Oxee-flash', baseUrl: EU })
+  })
+})
+
+describe('images on OpenAI gpt-image-2.5-flare', () => {
+  const PNG_B64 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+
+  it('offers Flare first, as the default, in place of gpt-image-2', () => {
+    const openai = api.getMediaProviderMeta('openai')!
+    expect(openai.defaultImageModel).toBe('gpt-image-2.5-flare')
+    expect(openai.imageModels[0]).toBe('gpt-image-2.5-flare')
+    expect(openai.imageModels).not.toContain('gpt-image-2')
+  })
+
+  it('reads a saved gpt-image-2 as Flare and keeps any other model', () => {
+    const read = (imageModel: string) =>
+      api.resolveAiSettings(
+        {
+          provider: 'oxeegen',
+          providers: { oxeegen: { apiKey: 'k', model: 'Oxee-max', baseUrl: US } },
+          media: { imageProvider: 'openai', providers: { openai: { apiKey: 'sk', imageModel, analysisModel: '' } } },
+        } as never,
+        api.defaultAiSettings(),
+      ).media!.providers.openai!.imageModel
+    expect(read('gpt-image-2')).toBe('gpt-image-2.5-flare')
+    expect(read('gpt-image-1-mini')).toBe('gpt-image-1-mini')
+  })
+
+  it('asks OpenAI for medium quality on generations and edits, and only there', async () => {
+    const calls: RequestInit[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        calls.push(init!)
+        return new Response(JSON.stringify({ data: [{ b64_json: PNG_B64 }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }),
+    )
+    const png = { bytes: Uint8Array.from(atob(PNG_B64), (c) => c.charCodeAt(0)), mime: 'image/png' }
+    try {
+      const openai = { apiKey: 'sk', imageModel: 'gpt-image-2.5-flare', analysisModel: '' }
+      await api.generateImageWithProvider('openai', openai, { prompt: 'lake', aspectRatio: '16:9' })
+      await api.generateImageWithProvider('openai', openai, { prompt: 'edit', references: [png] })
+      await api.generateImageWithProvider('custom', { apiKey: '', baseUrl: 'http://localhost:1/v1', imageModel: 'gpt-image-1', analysisModel: '' }, { prompt: 'x' })
+    } finally {
+      vi.unstubAllGlobals()
+    }
+    expect(JSON.parse(String(calls[0]!.body))).toEqual({
+      model: 'gpt-image-2.5-flare',
+      prompt: 'lake',
+      n: 1,
+      size: '1536x1024',
+      quality: 'medium',
+    })
+    expect((calls[1]!.body as FormData).get('quality')).toBe('medium')
+    expect(JSON.parse(String(calls[2]!.body))).not.toHaveProperty('quality')
   })
 })

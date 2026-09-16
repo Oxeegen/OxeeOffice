@@ -88,6 +88,9 @@ never runs:
   switch Genspark cloud tools back on. With it empty, Slides' `generate_deck` takes
   upstream's **local** deck pipeline through the app's own AI (Oxeegen).
 - Search: the Oxeegen entry's key is a **Brave** key (`brave.ts`).
+- Images: OpenAI **gpt-image-2.5-flare** at **medium** quality. It replaces gpt-image-2 in the
+  OpenAI list and in saved settings; `oxeegenImageRequestFields` adds `quality` to
+  generations and edits (hook in `media-protocols.ts`). Measured 9.6 s against 15.3 s.
 - Models: Max (default), Pro, Flash, Instant. All four read images and video; analysis
   defaults to Pro in AI Media & Search.
   Endpoints: US `inference-02`, EU `inference-04` (each region has its own keys).

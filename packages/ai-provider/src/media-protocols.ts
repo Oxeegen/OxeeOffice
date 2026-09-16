@@ -19,6 +19,8 @@ import {
   getMediaProviderMeta,
 } from './media'
 import type { AiMediaProviderConfig, AiMediaProviderId, AiMediaProviderMeta } from './types'
+// OxeeOffice brand hook: OpenAI image quality
+import { oxeegenImageRequestFields } from './oxeegen'
 
 export interface MediaBlob {
   bytes: Uint8Array
@@ -253,6 +255,7 @@ async function generateImageOpenAi(
         n: 1,
         ...(size ? { size } : {}),
         ...(transparent ? { background: 'transparent' } : {}),
+        ...oxeegenImageRequestFields(provider, model), // OxeeOffice brand hook
         ...style.bodyExtras,
         ...(refs.length ? { image: refs.map(dataUrl) } : {}),
       }),
@@ -266,6 +269,7 @@ async function generateImageOpenAi(
   form.set('prompt', input.prompt)
   if (size) form.set('size', size)
   if (transparent) form.set('background', 'transparent')
+  for (const [k, v] of Object.entries(oxeegenImageRequestFields(provider, model))) form.set(k, v) // OxeeOffice brand hook
   refs.forEach((ref, i) => {
     const ext = ref.mime.split('/')[1]?.replace('jpeg', 'jpg') ?? 'png'
     form.append(

@@ -221,7 +221,36 @@ export const OXEEGEN_MEDIA_PROVIDER: AiMediaProviderMeta = {
 /** Media catalogue: Oxeegen first, the Genspark sign-in entry removed. */
 export function withOxeegenMedia(list: AiMediaProviderMeta[]): AiMediaProviderMeta[] {
   if (!oxeegenLayerEnabled()) return list
-  return [OXEEGEN_MEDIA_PROVIDER, ...list.filter((m) => m.id !== 'genspark')]
+  return [OXEEGEN_MEDIA_PROVIDER, ...list.filter((m) => m.id !== 'genspark').map(withFlareImages)]
+}
+
+// ── Images (OpenAI) ─────────────────────────────────────────────────────────
+
+/**
+ * Images are generated on OpenAI with gpt-image-2.5-flare ("fast, high-quality
+ * everyday image generation"), which replaces gpt-image-2 in the list and in
+ * saved settings. Every gpt-image request asks for medium quality instead of
+ * OpenAI's `auto`. Measured on a 1536x1024 photo (2026-09-16): Flare 9.6 s at
+ * medium (8.3 s at low), gpt-image-2 at auto 15.3 s.
+ */
+export const OXEEGEN_OPENAI_IMAGE_MODEL = 'gpt-image-2.5-flare'
+export const OXEEGEN_OPENAI_IMAGE_QUALITY = 'medium'
+const REPLACED_OPENAI_IMAGE_MODEL = 'gpt-image-2'
+
+function withFlareImages(meta: AiMediaProviderMeta): AiMediaProviderMeta {
+  if (meta.id !== 'openai') return meta
+  return {
+    ...meta,
+    imageModels: [OXEEGEN_OPENAI_IMAGE_MODEL, ...meta.imageModels.filter((m) => m !== REPLACED_OPENAI_IMAGE_MODEL)],
+    defaultImageModel: OXEEGEN_OPENAI_IMAGE_MODEL,
+  }
+}
+
+/** Extra Images API fields for a generation or edit request. */
+export function oxeegenImageRequestFields(provider: string, model: string): { quality?: string } {
+  return oxeegenLayerEnabled() && provider === 'openai' && /^gpt-image/i.test(model.trim())
+    ? { quality: OXEEGEN_OPENAI_IMAGE_QUALITY }
+    : {}
 }
 
 export function withOxeegenMediaDefaults(media: AiMediaSettings): AiMediaSettings {
@@ -282,6 +311,7 @@ type StoredSettings = Partial<AiSettings> & LegacyAiSettings
  *   not exist here: analysis/video/search go to Oxeegen, images to OpenAI.
  * - Empty Oxeegen base URLs are filled with the default region, so the field
  *   is never blank in Settings.
+ * - A saved OpenAI image model of gpt-image-2 becomes gpt-image-2.5-flare.
  */
 export function migrateToOxeegen<T extends StoredSettings>(stored: T): T {
   if (!oxeegenLayerEnabled() || !stored || typeof stored !== 'object') return stored
@@ -314,6 +344,10 @@ export function migrateToOxeegen<T extends StoredSettings>(stored: T): T {
     const oxee = media.providers?.oxeegen
     if (oxee && !oxee.baseUrl?.trim()) {
       media.providers = { ...media.providers, oxeegen: { ...oxee, baseUrl: OXEEGEN_DEFAULT_BASE_URL } }
+    }
+    const openai = media.providers?.openai
+    if (openai?.imageModel?.trim() === REPLACED_OPENAI_IMAGE_MODEL) {
+      media.providers = { ...media.providers, openai: { ...openai, imageModel: OXEEGEN_OPENAI_IMAGE_MODEL } }
     }
     out.media = media
   }

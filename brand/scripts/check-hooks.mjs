@@ -70,6 +70,15 @@ const HOOKS = [
     must: ["| 'oxeegen' // OxeeOffice brand hook", "'oxeegen' | 'genspark' | 'serper' | 'tavily'", 'oxeegen?: { apiKey: string }', "purpose?: 'compaction'", 'thinking?: boolean | undefined'],
   },
   {
+    file: 'packages/ai-provider/src/media-protocols.ts',
+    why: 'OpenAI gpt-image requests ask for medium quality',
+    must: [
+      "import { oxeegenImageRequestFields } from './oxeegen'",
+      '...oxeegenImageRequestFields(provider, model), // OxeeOffice brand hook',
+      'Object.entries(oxeegenImageRequestFields(provider, model))',
+    ],
+  },
+  {
     file: 'packages/agent-core/src/types.ts',
     why: 'compaction request tagged for worker-model routing',
     must: ["purpose?: 'compaction'"],
