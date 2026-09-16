@@ -7,15 +7,6 @@ apps receive it through auto-update.
 
 ---
 
-## OxeeOffice 0.10.489 — unreleased
-
-- **File-type icons are the familiar ones again**: blue W for Word, green X for Excel,
-  red P for PowerPoint, the red PDF mark, M↓ for Markdown and <> for HTML. The purple
-  tiles in 0.10.488 all looked alike and could not be told apart at small sizes. The
-  app icon stays purple.
-
----
-
 ## OxeeOffice 0.10.488 — 2026-09-16
 
 **Upstream: [GenOffice v0.10.488](https://github.com/genspark-ai/genoffice/releases/tag/v0.10.488)** (2026-09-16),
@@ -38,7 +29,8 @@ history, and every Oxeegen change lives in reviewable commits under
   language, the installer, the settings folder (`%APPDATA%\OxeeOffice`,
   `~/.config/OxeeOffice`) say OxeeOffice. A build fails if any
   visible upstream name survives.
-- **Icons:** a new `.html` file-type icon in the same set.
+- **Icons:** the app icon is OxeeOffice's purple one; file-type icons are upstream's
+  (blue W, green X, red P, the PDF mark, M↓, <>), so documents are easy to tell apart.
 - Built and published by GitHub Actions from a tag, with each package verified before
   release.
 
