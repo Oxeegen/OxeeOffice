@@ -58,36 +58,9 @@ export const OXEEGEN_DEFAULT_BASE_URL: string = OXEEGEN_REGIONS[0].baseUrl
 export const OXEEGEN_CHAT_MODELS = ['Oxee-max', 'Oxee-pro', 'Oxee-flash', 'Oxee-instant']
 export const OXEEGEN_DEFAULT_MODEL = 'Oxee-max'
 
-/** Models that read images and video. Oxee-max and Oxee-ultra reject image input. */
-export const OXEEGEN_VISION_MODELS = ['Oxee-pro', 'Oxee-flash', 'Oxee-instant']
+/** Models that read images and video: all of them (Max verified 2026-09-16). */
+export const OXEEGEN_VISION_MODELS = ['Oxee-max', 'Oxee-pro', 'Oxee-flash', 'Oxee-instant']
 export const OXEEGEN_DEFAULT_VISION_MODEL = 'Oxee-pro'
-
-export function oxeegenModelLacksVision(model: string): boolean {
-  return /(^|\/)oxee-(max|ultra)$/i.test(model.trim())
-}
-
-/**
- * Model for Slides' structured generation steps (style plan, outline, one JSON
- * spec per page). Oxee-max / Oxee-ultra reason at length before answering: on a
- * simple slide spec Max spent 12,927 reasoning tokens and 82 s (Pro: 1,324 and
- * 13 s, both valid JSON; measured 2026-09-16). Per-page generation caps output
- * at 16,384 tokens and 120 s, so richer pages came back "Empty output" and a
- * 3-page deck took over 9 minutes. Those steps use Pro; the chat agent keeps the
- * user's model, and the faster models are used as chosen.
- */
-export const OXEEGEN_DECK_GENERATION_MODEL = 'Oxee-pro'
-
-export function oxeegenGenerationSettings<
-  S extends { provider: string; providers: { [id: string]: { model: string } | undefined } },
->(settings: S): S | null {
-  if (!oxeegenLayerEnabled() || settings.provider !== 'oxeegen') return null
-  const config = settings.providers.oxeegen
-  if (!config || !/^oxee-(max|ultra)$/i.test(config.model.trim())) return null
-  return {
-    ...settings,
-    providers: { ...settings.providers, oxeegen: { ...config, model: OXEEGEN_DECK_GENERATION_MODEL } },
-  }
-}
 
 // ── Chat ────────────────────────────────────────────────────────────────────
 

@@ -64,9 +64,11 @@ underneath can copy `%APPDATA%\GenOffice\ai-settings.json` into
   applies in every open tab.
 - **Oxeegen models use their server settings.** OxeeOffice sends no temperature,
   output-token cap or reasoning level, and hides the Max output tokens field for Oxeegen.
+- **The model in the picker is the model used**, for every step including deck
+  generation, and every Oxee model can read images.
 - **Web and image search on Brave**, behind the Oxeegen search entry.
-- **Image generation on OpenAI** `gpt-image-2`; image and video analysis on Oxeegen
-  (Pro, Flash, Instant).
+- **Image generation on OpenAI** `gpt-image-2`; image and video analysis on any Oxee
+  model (Pro by default).
 - **Slide decks are built by Oxeegen** from a prompt, entirely on your machine.
 - **No Genspark sign-in, account page, credits or cloud tools**, and nothing connects
   to Genspark — including a Genspark login present elsewhere on the computer.

@@ -68,11 +68,9 @@ describe('Oxeegen chat provider', () => {
     }
   })
 
-  it('marks Oxee-max and Oxee-ultra as text-only', () => {
-    expect(api.modelLacksVision('Oxee-max')).toBe(true)
-    expect(api.modelLacksVision('Oxee-ultra')).toBe(true)
-    expect(api.modelLacksVision('Oxee-pro')).toBe(false)
-    expect(api.modelLacksVision('Oxee-flash')).toBe(false)
+  it('treats every Oxee model as able to read images', () => {
+    for (const model of api.OXEEGEN_CHAT_MODELS) expect(api.modelLacksVision(model)).toBe(false)
+    expect(api.OXEEGEN_VISION_MODELS).toEqual(api.OXEEGEN_CHAT_MODELS)
   })
 })
 
@@ -134,33 +132,6 @@ describe('request bodies: the server configuration decides', () => {
   })
 })
 
-describe('Slides generation model', () => {
-  const with_ = (provider: string, model: string) => ({
-    provider,
-    providers: { oxeegen: { apiKey: 'k', model, baseUrl: EU }, anthropic: { apiKey: 'a', model: 'claude-sonnet-5' } },
-  })
-
-  it('generates deck pages on Oxee-pro when the chat model is Max or Ultra', () => {
-    for (const model of ['Oxee-max', 'Oxee-ultra']) {
-      const s = api.oxeegenGenerationSettings(with_('oxeegen', model))
-      expect(s?.providers.oxeegen).toEqual({ apiKey: 'k', model: 'Oxee-pro', baseUrl: EU })
-    }
-  })
-
-  it('keeps the chosen model when it is already fast, and ignores other providers', () => {
-    for (const model of ['Oxee-pro', 'Oxee-flash', 'Oxee-instant']) {
-      expect(api.oxeegenGenerationSettings(with_('oxeegen', model))).toBeNull()
-    }
-    expect(api.oxeegenGenerationSettings(with_('anthropic', 'Oxee-max'))).toBeNull()
-  })
-
-  it('does not modify the settings it was given', () => {
-    const s = with_('oxeegen', 'Oxee-max')
-    api.oxeegenGenerationSettings(s)
-    expect(s.providers.oxeegen.model).toBe('Oxee-max')
-  })
-})
-
 describe('defaults for a fresh install', () => {
   it('selects Oxeegen with the endpoint pre-filled', () => {
     const s = api.defaultAiSettings()
@@ -204,7 +175,7 @@ describe('catalogues', () => {
     expect(api.providerHasCapability(oxee, 'analysis')).toBe(true)
     expect(api.providerHasCapability(oxee, 'video')).toBe(true)
     expect(api.providerHasCapability(oxee, 'image')).toBe(false)
-    expect(oxee.analysisModels).toEqual(['Oxee-pro', 'Oxee-flash', 'Oxee-instant'])
+    expect(oxee.analysisModels).toEqual(['Oxee-max', 'Oxee-pro', 'Oxee-flash', 'Oxee-instant'])
   })
 
   it('search: Oxeegen replaces the sign-in entry and takes a Brave key', () => {

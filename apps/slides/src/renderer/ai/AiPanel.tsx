@@ -1,5 +1,5 @@
 // OxeeOffice brand hook: model picker and Oxee mark
-import { AI_PROVIDERS, oxeegenGenerationSettings, oxeegenLayerEnabled } from '@genoffice/ai-provider/browser'
+import { AI_PROVIDERS, oxeegenLayerEnabled } from '@genoffice/ai-provider/browser'
 import { OxeeModelPicker } from '@genoffice/ui'
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import {
@@ -800,9 +800,8 @@ export function AiPanel({
     // Return on demand a settings copy with the generation model overridden (deep copy, doesn't pollute settingsRef).
     const settingsForGen = (): AiSettings => {
       const cur = settingsRef.current
-      // OxeeOffice brand hook: Oxee-max reasons too long for per-page specs; generate on Oxee-pro
-      const oxee = oxeegenGenerationSettings(cur)
-      if (oxee) return oxee
+      // OxeeOffice brand hook: every step uses the model chosen in the picker, no swap
+      if (oxeegenLayerEnabled()) return cur
       if (cur.provider !== 'anthropic') return cur
       const ap = cur.providers.anthropic
       return {

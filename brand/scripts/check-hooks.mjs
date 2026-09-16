@@ -76,8 +76,8 @@ const HOOKS = [
   },
   {
     file: 'packages/ai-provider/src/registry.ts',
-    why: 'Oxeegen adapter; Oxee-max is text-only',
-    must: ['= withOxeegenAdapters({', 'if (oxeegenModelLacksVision(model)) return true'],
+    why: 'Oxeegen adapter',
+    must: ['= withOxeegenAdapters({'],
   },
   {
     file: 'packages/ai-provider/src/protocols/openai-compatible.ts',
@@ -112,7 +112,7 @@ const HOOKS = [
   {
     file: 'packages/ai-provider/src/browser.ts',
     why: 'Oxeegen layer exported to renderers',
-    must: ["} from './oxeegen'", 'isHiddenProvider', 'OXEEGEN_REGIONS', 'oxeegenGenerationSettings', 'oxeegenLayerEnabled'],
+    must: ["} from './oxeegen'", 'isHiddenProvider', 'OXEEGEN_REGIONS', 'oxeegenLayerEnabled'],
   },
   {
     file: 'packages/ai-search/src/index.ts',
@@ -206,8 +206,8 @@ const HOOKS = [
   ]),
   {
     file: 'apps/slides/src/renderer/ai/AiPanel.tsx',
-    why: 'deck pages generate on Oxee-pro when the chat model is Oxee-max',
-    must: ['const oxee = oxeegenGenerationSettings(cur)'],
+    why: 'deck generation uses the model in the picker (no swap to a larger model)',
+    must: ['if (oxeegenLayerEnabled()) return cur'],
   },
   {
     file: 'apps/markdown/src/renderer/styles.css',

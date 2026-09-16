@@ -88,14 +88,15 @@ never runs:
   switch Genspark cloud tools back on. With it empty, Slides' `generate_deck` takes
   upstream's **local** deck pipeline through the app's own AI (Oxeegen).
 - Search: the Oxeegen entry's key is a **Brave** key (`brave.ts`).
-- Models: Max (default), Pro, Flash, Instant; image/video analysis on Pro/Flash/Instant.
+- Models: Max (default), Pro, Flash, Instant. All four read images and video; analysis
+  defaults to Pro in AI Media & Search.
   Endpoints: US `inference-02`, EU `inference-04` (each region has its own keys).
 - **Requests carry no sampling or length settings.** Oxeegen's endpoint sets
   `omitTemperature` and `omitMaxTokens`, so a chat body is only `model`, `messages`,
   `stream` and `tools`: temperature, output cap and reasoning are configured on the vLLM
   side. The Max output tokens field is hidden for Oxeegen because it has no effect.
-- Slides deck generation asks Oxee Pro when the chosen model is Max
-  (`oxeegenGenerationSettings`): Max's reasoning ran past Slides' 120 s per-page limit.
+- **No model swaps.** Every step uses the model chosen in the picker, including Slides
+  deck generation (upstream's swap to a larger Anthropic model is off).
 
 **Testing.** The layer is **off under vitest** (`oxeegenLayerEnabled()`), so upstream's
 test suites keep asserting upstream's defaults and their files never need merging.
@@ -129,7 +130,7 @@ comment `OxeeOffice brand hook`.
 | `.github/workflows/ci.yml` | Upstream's CI runs in the fork only on demand. |
 | `SECURITY.md` | Vulnerability reports go to this repository's advisories. |
 | `apps/shell/tests/updater.test.ts`, `…/settings-integrations.test.ts` | Assert the hooked values. |
-| `packages/ai-provider/src/{types,providers,registry,media,search-settings,index,browser}.ts` | Oxeegen ids; catalogue wrappers (`withOxeegen*`), defaults, `activeProvider` fallback, `migrateToOxeegen` on read, Oxee-max text-only; exports. |
+| `packages/ai-provider/src/{types,providers,registry,media,search-settings,index,browser}.ts` | Oxeegen ids; catalogue wrappers (`withOxeegen*`), defaults, `activeProvider` fallback, `migrateToOxeegen` on read; exports. |
 | `packages/ai-search/src/{index,search-tools,gsk}.ts` | Brave first for the Oxeegen search entry; Test button against Brave; `gskApiKey()` empty. |
 | `apps/shell/src/preload/index.ts` | Genspark sign-in provider filtered out of the picker. |
 | `apps/shell/src/renderer/src/SettingsModal.tsx` | Account section hidden, opens on AI Model; US/EU region rows; no cloud-tools or analytics switch; Oxeegen and Brave hints. |
