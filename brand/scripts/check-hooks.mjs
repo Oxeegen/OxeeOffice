@@ -139,6 +139,46 @@ const HOOKS = [
     why: 'privacy test asserts the no-analytics statement',
     must: ['sends no usage analytics'],
   },
+  // ── Model picker and Oxee mark in the editors (packages/ui/src/oxee-model-picker.tsx) ──
+  {
+    file: 'packages/ui/src/index.ts',
+    why: 'picker and mark exported',
+    must: ["} from './oxee-model-picker'", "export { OXEE_MARK_DATA_URI } from './oxee-mark'"],
+  },
+  {
+    file: 'packages/ui/src/dropdown.css',
+    why: 'picker sizing',
+    must: ['.oxee-model-picker {'],
+  },
+  ...[
+    ['apps/docs/src/renderer/ai/AiPanel.tsx', 'desktop'],
+    ['apps/sheets/src/renderer/ai/AiChatPanel.tsx', 'desktopApi'],
+    ['apps/slides/src/renderer/ai/AiPanel.tsx', 'slidesApi'],
+    ['apps/pdf/src/renderer/ai/AiPanel.tsx', 'pdfApi'],
+    ['apps/markdown/src/renderer/ai/AiPanel.tsx', 'markdownApi'],
+    ['apps/html/src/renderer/ai/AiPanel.tsx', 'htmlApi'],
+  ].map(([file, api]) => ({
+    file,
+    why: 'model picker in the AI panel header',
+    must: ['<OxeeModelPicker', `save={(s) => window.${api}.setAiSettings(`],
+  })),
+  ...[
+    'apps/docs/src/renderer/components/icons.tsx',
+    'apps/sheets/src/renderer/ribbon-icons.tsx',
+    'apps/slides/src/renderer/components/icons.tsx',
+    'apps/pdf/src/renderer/ai/AiPanel.tsx',
+    'apps/markdown/src/renderer/ai/AiPanel.tsx',
+    'apps/html/src/renderer/ai/AiPanel.tsx',
+  ].map((file) => ({ file, why: 'Oxee mark in place of the Genspark mark', must: ['if (oxeegenLayerEnabled()) return <OxeeMark size={size} />'] })),
+  ...['apps/docs/src/renderer/App.tsx', 'apps/sheets/src/renderer/App.tsx', 'apps/slides/src/renderer/App.tsx'].map((file) => ({
+    file,
+    why: 'follow model changes made in other tabs',
+    must: ['useAiSettingsRefresh(refreshAiSettings)'],
+  })),
+  ...['pdf', 'markdown', 'html'].flatMap((app) => [
+    { file: `apps/${app}/src/preload/index.ts`, why: 'picker can save', must: ["setAiSettings: (settings: unknown) => ipcRenderer.invoke('ai:set-settings', settings)"] },
+    { file: `apps/${app}/src/shared/ipc.ts`, why: 'picker can save (type)', must: ['setAiSettings(settings: unknown): Promise<void>'] },
+  ]),
   // upstream tests updated to assert what ships
   {
     file: 'apps/shell/tests/updater.test.ts',
@@ -159,6 +199,8 @@ const FORK_FILES = [
   'packages/ai-search/src/brave.ts',
   'packages/ai-search/tests/oxeegen-search.test.ts',
   'apps/shell/src/renderer/src/oxeegen-settings.tsx',
+  'packages/ui/src/oxee-model-picker.tsx',
+  'packages/ui/src/oxee-mark.ts',
   'apps/shell/electron-builder.brand.cjs',
 ]
 

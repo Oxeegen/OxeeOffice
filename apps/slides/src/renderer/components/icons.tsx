@@ -1,5 +1,8 @@
 /** Small monochrome SVG icons approximating Word's ribbon glyphs. */
 
+// OxeeOffice brand hook: Oxee mark in place of the Genspark mark
+import { oxeegenLayerEnabled } from '@genoffice/ai-provider/browser'
+import { OxeeMark } from '@genoffice/ui'
 import type { ReactNode } from 'react'
 import type { AnimEffectKind } from '../../shared/ipc'
 
@@ -2128,6 +2131,8 @@ export function IconAiImage(props: IconProps) {
 /** Genspark brand mark (rounded-square sparkle badge), inline so it renders
  * crisply at device resolution instead of going through <img> rasterization */
 export function GensparkMark({ size = 30 }: { size?: number }) {
+  // OxeeOffice brand hook: the Oxee mark
+  if (oxeegenLayerEnabled()) return <OxeeMark size={size} />
   return (
     <svg
       className="genspark-mark"

@@ -774,6 +774,8 @@ export interface PdfApi {
    *  clicks produce no DOM event here) — dismiss open popovers */
   onChromePressed(handler: () => void): () => void
   getAiSettings(): Promise<AiSettings>
+  /** OxeeOffice brand hook: the model picker saves the chosen model */
+  setAiSettings(settings: unknown): Promise<void>
   /** Genspark login state (gsk); gates the cloud-only generate_image tool */
   gskStatus(): Promise<{ loggedIn: boolean }>
   aiStream(request: AiStreamRequest): Promise<void>

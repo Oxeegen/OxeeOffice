@@ -55,6 +55,8 @@ import {
 import { isNumericIdentifierText } from './cell-warning'
 import { consumePendingUndoCarry, undoStackDepth } from './undo-carry'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+// OxeeOffice brand hook: follow AI settings changes (model picker)
+import { useAiSettingsRefresh } from '@genoffice/ui'
 import { useAutoSavePref, type AiScopeQuoteData } from '@genoffice/ui'
 
 import {
@@ -1462,6 +1464,10 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     void window.desktopApi.getAiSettings().then(setAiSettingsState)
   }, [])
+  // OxeeOffice brand hook: settings were read once at mount, so a model picked
+  // in another tab or in Settings was ignored until reload
+  const refreshAiSettings = useCallback(() => void window.desktopApi.getAiSettings().then(setAiSettingsState), [])
+  useAiSettingsRefresh(refreshAiSettings)
 
   useEffect(() => {
     // Univer paints the grid on canvas, so it can't follow the CSS tokens —

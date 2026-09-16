@@ -112,3 +112,11 @@
 .gs-dd-item.selected {
   background: var(--accent-soft);
 }
+
+/* OxeeOffice brand hook: AI panel model picker (oxee-model-picker.tsx) —
+   sits in place of the panel title, beside the mark; a little wider than the
+   default so "Oxee Instant" never truncates */
+.oxee-model-picker {
+  min-width: 132px;
+  font-weight: 600;
+}

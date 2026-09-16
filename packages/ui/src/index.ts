@@ -105,3 +105,14 @@ export type {
   MoveConflictPolicy,
   MoveResult,
 } from './files-pane/types'
+// OxeeOffice brand hook: model picker and Oxee mark (fork-owned files)
+export {
+  modelDisplayName,
+  OXEE_AI_SETTINGS_CHANGED,
+  OxeeMark,
+  OxeeModelPicker,
+  useAiSettingsRefresh,
+  type PickerCatalogEntry,
+  type PickerSettings,
+} from './oxee-model-picker'
+export { OXEE_MARK_DATA_URI } from './oxee-mark'

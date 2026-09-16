@@ -1,3 +1,6 @@
+// OxeeOffice brand hook: Oxee mark in place of the Genspark mark
+import { oxeegenLayerEnabled } from '@genoffice/ai-provider/browser'
+import { OxeeMark } from '@genoffice/ui'
 import type { ReactElement, ReactNode } from 'react'
 
 /// Ribbon icon set drawn to the shared icon standard: 24×24 canvas with
@@ -837,6 +840,8 @@ export const RIBBON_GLYPH_ICONS: Record<string, ReactElement> = {
 /** Genspark brand mark (rounded-square sparkle badge), inline so it renders
  * crisply at device resolution instead of going through <img> rasterization */
 export function GensparkMark({ size = 18 }: { readonly size?: number }): ReactElement {
+  // OxeeOffice brand hook: the Oxee mark
+  if (oxeegenLayerEnabled()) return <OxeeMark size={size} />
   return (
     <svg
       width={size}

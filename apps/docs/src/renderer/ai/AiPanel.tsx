@@ -3,6 +3,9 @@ import type { Editor } from '@tiptap/core'
 import type { Block } from '@genoffice/docx-engine'
 import { AgentLoop, composeSkills, streamText, type AgentImage } from '@genoffice/agent-core'
 import { imageGenerationAvailable } from '@genoffice/ai-provider/browser'
+// OxeeOffice brand hook: model picker
+import { AI_PROVIDERS, oxeegenLayerEnabled } from '@genoffice/ai-provider/browser'
+import { OxeeModelPicker } from '@genoffice/ui'
 import type { AiSettings, AttachmentAddResult, AttachmentMeta } from '../../shared/ipc'
 import { ATTACHMENT_IMAGE_EXTS } from '../../shared/ipc'
 import type { PmNode } from '../editor/convert'
@@ -1281,7 +1284,14 @@ export function AiPanel({
       <div className="ai-panel-header">
         <span className="ai-panel-title">
           <GensparkMark size={22} />
-          {t('aiPanelTitle')}
+          {/* OxeeOffice brand hook: model picker in place of the title */}
+          <OxeeModelPicker
+            enabled={oxeegenLayerEnabled()}
+            catalog={AI_PROVIDERS}
+            load={() => window.desktop.getAiSettings()}
+            save={(s) => window.desktop.setAiSettings(s as unknown as AiSettings)}
+            fallback={t('aiPanelTitle')}
+          />
         </span>
         <div className="ai-panel-header-actions">
           {(chat.length > 0 || historicChat.length > 0) && (

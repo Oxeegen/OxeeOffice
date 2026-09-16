@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+// OxeeOffice brand hook: follow AI settings changes (model picker)
+import { useAiSettingsRefresh } from '@genoffice/ui'
 import type {
   GroupRenderNode,
   RenderFill,
@@ -1197,6 +1199,10 @@ export function App() {
   useEffect(() => {
     void window.slidesApi.getAiSettings().then(setAiSettings)
   }, [])
+  // OxeeOffice brand hook: settings were read once at mount, so a model picked
+  // in another tab or in Settings was ignored until reload
+  const refreshAiSettings = useCallback(() => void window.slidesApi.getAiSettings().then(setAiSettings), [])
+  useAiSettingsRefresh(refreshAiSettings)
 
   // Recent files for the start screen
   useEffect(() => {

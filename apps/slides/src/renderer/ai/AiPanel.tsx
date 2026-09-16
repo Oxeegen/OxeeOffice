@@ -1,3 +1,6 @@
+// OxeeOffice brand hook: model picker and Oxee mark
+import { AI_PROVIDERS, oxeegenLayerEnabled } from '@genoffice/ai-provider/browser'
+import { OxeeModelPicker } from '@genoffice/ui'
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import {
   AgentLoop,
@@ -2077,7 +2080,14 @@ export function AiPanel({
       <div className="ai-panel-header">
         <span className="ai-panel-title">
           <GensparkMark size={22} />
-          {t('aiPanelTitle')}
+          {/* OxeeOffice brand hook: model picker in place of the title */}
+          <OxeeModelPicker
+            enabled={oxeegenLayerEnabled()}
+            catalog={AI_PROVIDERS}
+            load={() => window.slidesApi.getAiSettings()}
+            save={(s) => window.slidesApi.setAiSettings(s as never)}
+            fallback={t('aiPanelTitle')}
+          />
         </span>
         <div className="ai-panel-header-actions">
           {(chat.length > 0 || historicChat.length > 0) && (

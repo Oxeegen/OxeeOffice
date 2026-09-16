@@ -1,3 +1,6 @@
+// OxeeOffice brand hook: model picker and Oxee mark
+import { AI_PROVIDERS, oxeegenLayerEnabled } from '@genoffice/ai-provider/browser'
+import { OxeeMark, OxeeModelPicker } from '@genoffice/ui'
 import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactElement } from 'react'
 import { AgentLoop } from '@genoffice/agent-core'
@@ -621,7 +624,14 @@ export function AiPanel({
       <header className="ai-panel-header">
         <span className="ai-panel-title">
           <GensparkMark size={22} />
-          Genspark
+          {/* OxeeOffice brand hook: model picker in place of the title */}
+          <OxeeModelPicker
+            enabled={oxeegenLayerEnabled()}
+            catalog={AI_PROVIDERS}
+            load={() => window.pdfApi.getAiSettings()}
+            save={(s) => window.pdfApi.setAiSettings(s as never)}
+            fallback={'Genspark'}
+          />
         </span>
         <div className="ai-panel-header-actions">
           {chat.length > 0 && (
@@ -1001,6 +1011,8 @@ function IconCollapse(): ReactElement {
 /** Genspark brand mark (rounded-square sparkle badge), inline so it renders
  * crisply at device resolution instead of going through <img> rasterization */
 export function GensparkMark({ size = 18 }: { size?: number }): React.JSX.Element {
+  // OxeeOffice brand hook: the Oxee mark
+  if (oxeegenLayerEnabled()) return <OxeeMark size={size} />
   return (
     <svg
       width={size}

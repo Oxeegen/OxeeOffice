@@ -1,4 +1,6 @@
 import { DOC_CSS_COMMITTED_EVENT } from './editor/cjk-punct-shrink'
+// OxeeOffice brand hook: follow AI settings changes (model picker)
+import { useAiSettingsRefresh } from '@genoffice/ui'
 import { justifyShrinkPluginKey } from './editor/justify-shrink'
 import {
   useCallback,
@@ -1228,6 +1230,10 @@ export function App() {
     void window.desktop.getRecentFiles().then(setRecent)
     void window.desktop.getAiSettings().then(setSettings)
   }, [])
+  // OxeeOffice brand hook: settings were read once at mount, so a model picked
+  // in another tab or in Settings was ignored until reload
+  const refreshAiSettings = useCallback(() => void window.desktop.getAiSettings().then(setSettings), [])
+  useAiSettingsRefresh(refreshAiSettings)
 
   useEffect(() => {
     localStorage.setItem('aidocs.showAi', showAi ? '1' : '0')
