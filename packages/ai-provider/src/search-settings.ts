@@ -4,8 +4,11 @@ import type {
   AiSearchSettings,
   AiSettings,
 } from './types'
+// OxeeOffice brand hook: the Oxeegen layer
+import { withOxeegenSearch, withOxeegenSearchDefaults } from './oxeegen'
 
-export const AI_SEARCH_PROVIDERS: AiSearchProviderMeta[] = [
+// OxeeOffice brand hook: Oxeegen (Brave-backed) replaces the Genspark entry
+export const AI_SEARCH_PROVIDERS: AiSearchProviderMeta[] = withOxeegenSearch([
   {
     id: 'genspark',
     label: 'Genspark',
@@ -14,10 +17,14 @@ export const AI_SEARCH_PROVIDERS: AiSearchProviderMeta[] = [
   },
   { id: 'serper', label: 'Serper', keyPlaceholder: 'Serper API key', imageSearch: true },
   { id: 'tavily', label: 'Tavily', keyPlaceholder: 'tvly-...', imageSearch: false },
-]
+])
 
 export function defaultAiSearchSettings(): AiSearchSettings {
-  return { provider: 'genspark', providers: { serper: { apiKey: '' }, tavily: { apiKey: '' } } }
+  // OxeeOffice brand hook: Oxeegen is the default search provider
+  return withOxeegenSearchDefaults({
+    provider: 'genspark',
+    providers: { serper: { apiKey: '' }, tavily: { apiKey: '' } },
+  })
 }
 
 export function resolveAiSearchSettings(
@@ -26,7 +33,8 @@ export function resolveAiSearchSettings(
   const defaults = defaultAiSearchSettings()
   if (!stored) return defaults
   const providers = { ...defaults.providers }
-  for (const id of ['serper', 'tavily'] as const) {
+  // OxeeOffice brand hook: keep the Oxeegen (Brave) key too
+  for (const id of ['serper', 'tavily', 'oxeegen'] as const) {
     const key = stored.providers?.[id]?.apiKey
     if (typeof key === 'string') providers[id] = { apiKey: key.trim() }
   }

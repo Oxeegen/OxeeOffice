@@ -89,3 +89,14 @@ export {
   createStreamWatchdog,
 } from './watchdog'
 export type { StreamWatchdog } from './watchdog'
+// OxeeOffice brand hook: the Oxeegen layer (fork-owned, see oxeegen.ts)
+export {
+  isHiddenProvider,
+  migrateToOxeegen,
+  OXEEGEN_CHAT_MODELS,
+  OXEEGEN_DEFAULT_BASE_URL,
+  OXEEGEN_DEFAULT_MODEL,
+  OXEEGEN_REGIONS,
+  OXEEGEN_VISION_MODELS,
+  oxeegenLayerEnabled,
+} from './oxeegen'

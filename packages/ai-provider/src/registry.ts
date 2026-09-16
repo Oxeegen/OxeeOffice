@@ -1,6 +1,8 @@
 import { ANTHROPIC_BASE_URL } from './protocols/anthropic'
 import { GEMINI_BASE_URL } from './protocols/gemini'
 import { AI_PROVIDERS, GENSPARK_LLM_BASE_URLS } from './providers'
+// OxeeOffice brand hook: the Oxeegen layer
+import { oxeegenModelLacksVision, withOxeegenAdapters } from './oxeegen'
 import type { AiProviderConfig, AiProviderId, AiProviderMeta } from './types'
 
 /** Wire protocols every provider maps onto, including the official Codex app-server bridge. */
@@ -58,6 +60,8 @@ export function modelHasFixedSampling(model: string): boolean {
  * branches take images, so they fall through and receive screenshots.
  */
 export function modelLacksVision(model: string): boolean {
+  // OxeeOffice brand hook: Oxee-max / Oxee-ultra are text-only
+  if (oxeegenModelLacksVision(model)) return true
   return /(^|\/)deep-?seek-v4-(?:pro(?:$|-)|flash(?!-vision))/i.test(model)
 }
 
@@ -136,7 +140,8 @@ function fixedEndpoint(
   }
 }
 
-export const AI_PROVIDER_ADAPTERS: Record<AiProviderId, ProviderAdapter> = {
+// OxeeOffice brand hook: adds the Oxeegen adapter (oxeegen.ts)
+export const AI_PROVIDER_ADAPTERS: Record<AiProviderId, ProviderAdapter> = withOxeegenAdapters({
   genspark: {
     meta: metaOf('genspark'),
     capabilities: { auth: 'gsk-login', vision: true },
@@ -269,7 +274,7 @@ export const AI_PROVIDER_ADAPTERS: Record<AiProviderId, ProviderAdapter> = {
       }
     },
   },
-}
+})
 
 /** Throws on ids not in the registry — settings files are user data and can carry anything. */
 export function getProviderAdapter(provider: AiProviderId): ProviderAdapter {

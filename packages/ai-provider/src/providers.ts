@@ -1,4 +1,6 @@
 import { defaultAiMediaSettings, resolveAiMediaSettings } from './media'
+// OxeeOffice brand hook: the Oxeegen layer
+import { migrateToOxeegen, oxeegenFallback, withOxeegenDefaults, withOxeegenProviders } from './oxeegen'
 import { defaultAiSearchSettings, resolveAiSearchSettings } from './search-settings'
 import type { AiProviderId, AiProviderMeta, AiSettings, LegacyAiSettings } from './types'
 
@@ -39,7 +41,8 @@ export function opencodeSessionHeaders(
     : {}
 }
 
-export const AI_PROVIDERS: AiProviderMeta[] = [
+// OxeeOffice brand hook: Oxeegen is prepended (oxeegen.ts)
+export const AI_PROVIDERS: AiProviderMeta[] = withOxeegenProviders([
   {
     id: 'genspark',
     label: 'Genspark',
@@ -266,7 +269,7 @@ export const AI_PROVIDERS: AiProviderMeta[] = [
     keyPlaceholder: 'API Key',
     needsBaseUrl: true,
   },
-]
+])
 
 /**
  * Fresh settings with every provider's default model and an empty key,
@@ -286,13 +289,14 @@ export function defaultAiSettings(
       cliPath: meta.needsCliPath ? '' : undefined,
     }
   }
-  return {
+  // OxeeOffice brand hook: Oxeegen is the default provider, endpoint pre-filled
+  return withOxeegenDefaults({
     provider: 'genspark',
     providers,
     gskToolsEnabled: true,
     media: defaultAiMediaSettings(),
     search: defaultAiSearchSettings(),
-  }
+  })
 }
 
 /** false only on an explicit opt-out; absent (pre-toggle settings files) means on */
@@ -309,6 +313,11 @@ export function cloudToolsEnabled(settings: Pick<AiSettings, 'gskToolsEnabled'>)
  * to the signed-in default instead of silently disabling AI.
  */
 export function activeProvider(settings: AiSettings): AiProviderId {
+  // OxeeOffice brand hook: unusable selections fall back to Oxeegen, not Genspark
+  return oxeegenFallback(activeProviderUpstream(settings))
+}
+
+function activeProviderUpstream(settings: AiSettings): AiProviderId {
   const provider = settings.provider
   if (provider === 'genspark') return 'genspark'
   const meta = AI_PROVIDERS.find((m) => m.id === provider)
@@ -411,9 +420,11 @@ function migrateRetiredModels(providers: AiSettings['providers']): AiSettings['p
  * settings file (already JSON-parsed); this function does no file I/O.
  */
 export function resolveAiSettings(
-  stored: Partial<AiSettings> & LegacyAiSettings,
+  storedRaw: Partial<AiSettings> & LegacyAiSettings,
   defaults: AiSettings,
 ): AiSettings {
+  // OxeeOffice brand hook: stored Genspark selections move to Oxeegen
+  const stored = migrateToOxeegen(storedRaw)
   if (!stored.providers) {
     if (stored.apiKey) {
       defaults.providers.custom = {

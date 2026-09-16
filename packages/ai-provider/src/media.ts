@@ -5,6 +5,8 @@ import type {
   AiMediaSettings,
   AiSettings,
 } from './types'
+// OxeeOffice brand hook: the Oxeegen layer
+import { withOxeegenMedia, withOxeegenMediaDefaults } from './oxeegen'
 
 export const OPENAI_IMAGES_BASE_URL = 'https://api.openai.com/v1'
 export const GEMINI_MEDIA_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta'
@@ -17,7 +19,8 @@ export const MINIMAX_BASE_URL = 'https://api.minimax.io/v1'
 
 // Model ids verified against vendor docs 2026-09; keep chat-capable analysis
 // models in step with the chat catalog in providers.ts.
-export const AI_MEDIA_PROVIDERS: AiMediaProviderMeta[] = [
+// OxeeOffice brand hook: Oxeegen replaces the Genspark sign-in entry (oxeegen.ts)
+export const AI_MEDIA_PROVIDERS: AiMediaProviderMeta[] = withOxeegenMedia([
   {
     id: 'genspark',
     label: 'Genspark',
@@ -155,7 +158,7 @@ export const AI_MEDIA_PROVIDERS: AiMediaProviderMeta[] = [
     defaultAnalysisModel: '',
     videoAnalysis: false,
   },
-]
+])
 
 export type MediaCapability = 'image' | 'analysis' | 'video'
 
@@ -182,12 +185,13 @@ export function defaultAiMediaSettings(): AiMediaSettings {
       baseUrl: meta.needsBaseUrl ? '' : undefined,
     }
   }
-  return {
+  // OxeeOffice brand hook: images → OpenAI, analysis → Oxeegen (oxeegen.ts)
+  return withOxeegenMediaDefaults({
     imageProvider: 'genspark',
     analysisProvider: 'genspark',
     videoAnalysisProvider: 'genspark',
     providers,
-  }
+  })
 }
 
 /**

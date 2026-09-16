@@ -1,6 +1,7 @@
 import type { AgentMessage, AgentToolCall, AgentToolDef } from '@genoffice/agent-core'
 
 export type AiProviderId =
+  | 'oxeegen' // OxeeOffice brand hook: see oxeegen.ts
   | 'genspark'
   | 'codex'
   | 'anthropic'
@@ -53,7 +54,8 @@ export interface AiProviderMeta {
 
 /** Image generation / media analysis backends (separate from the chat provider) */
 export type AiMediaProviderId =
-  'genspark' | 'openai' | 'gemini' | 'doubao' | 'glm' | 'xai' | 'qwen' | 'minimax' | 'custom'
+  | 'oxeegen' // OxeeOffice brand hook: see oxeegen.ts
+  | 'genspark' | 'openai' | 'gemini' | 'doubao' | 'glm' | 'xai' | 'qwen' | 'minimax' | 'custom'
 
 /** wire shape of the image endpoint */
 export type AiImageProtocol = 'openai-images' | 'gemini' | 'dashscope' | 'minimax'
@@ -104,7 +106,7 @@ export interface AiMediaSettings {
 }
 
 /** web/image search backends: Genspark (gsk) or a user key for Serper / Tavily */
-export type AiSearchProviderId = 'genspark' | 'serper' | 'tavily'
+export type AiSearchProviderId = 'oxeegen' | 'genspark' | 'serper' | 'tavily' // OxeeOffice brand hook: oxeegen
 
 export interface AiSearchProviderMeta {
   id: AiSearchProviderId
@@ -116,7 +118,10 @@ export interface AiSearchProviderMeta {
 
 export interface AiSearchSettings {
   provider: AiSearchProviderId
-  providers: Record<Exclude<AiSearchProviderId, 'genspark'>, { apiKey: string }>
+  // OxeeOffice brand hook: oxeegen optional, so upstream's default literal stays valid
+  providers: Record<Exclude<AiSearchProviderId, 'genspark' | 'oxeegen'>, { apiKey: string }> & {
+    oxeegen?: { apiKey: string }
+  }
 }
 
 export interface AiSettings {
