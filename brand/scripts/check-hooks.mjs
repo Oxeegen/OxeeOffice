@@ -97,7 +97,7 @@ const HOOKS = [
   {
     file: 'packages/ai-provider/src/browser.ts',
     why: 'Oxeegen layer exported to renderers',
-    must: ["export { isHiddenProvider, OXEEGEN_REGIONS, oxeegenLayerEnabled } from './oxeegen'"],
+    must: ["} from './oxeegen'", 'isHiddenProvider', 'OXEEGEN_REGIONS', 'oxeegenGenerationSettings', 'oxeegenLayerEnabled'],
   },
   {
     file: 'packages/ai-search/src/index.ts',
