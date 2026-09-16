@@ -122,7 +122,12 @@ const HOOKS = [
   {
     file: 'apps/shell/src/renderer/src/SettingsModal.tsx',
     why: 'no Account page, region buttons, no cloud-tools switch, Brave hint',
-    must: ["initialSettingsSection('account')", 'visibleSettingsSections(SECTIONS)', 'id="set-ai-region"', 'id={`set-ai-${cap}-region`}', '{!oxeegenLayerEnabled() && (', '? OXEEGEN_SEARCH_HINT'],
+    must: ["initialSettingsSection('account')", 'visibleSettingsSections(SECTIONS)', 'id="set-ai-region"', 'id={`set-ai-${cap}-region`}', '{!oxeegenLayerEnabled() && (', '? OXEEGEN_SEARCH_HINT', '? OXEEGEN_CHAT_HINT'],
+  },
+  {
+    file: 'apps/shell/src/renderer/src/Home.tsx',
+    why: 'sidebar button is Settings, not Genspark sign-in',
+    must: ['const settingsOnly = oxeegenLayerEnabled()', '<SettingsGlyph />'],
   },
   {
     file: 'apps/shell/src/renderer/src/provider-logos.tsx',

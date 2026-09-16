@@ -52,6 +52,25 @@ export function OxeegenRegionRow({
   )
 }
 
+/** Shown under the provider in AI Model when Oxeegen is selected. */
+export const OXEEGEN_CHAT_HINT =
+  'Chat runs on Oxeegen with your key. Image generation, media analysis and web search are set in AI Media & Search.'
+
+/** Gear glyph for the Home sidebar button, which opens Settings (there is no account). */
+export function SettingsGlyph() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M6.9 1.5h2.2l.35 1.75a5 5 0 0 1 1.2.7l1.7-.57 1.1 1.9-1.35 1.18a5 5 0 0 1 0 1.38l1.35 1.18-1.1 1.9-1.7-.57a5 5 0 0 1-1.2.7L9.1 14.5H6.9l-.35-1.75a5 5 0 0 1-1.2-.7l-1.7.57-1.1-1.9 1.35-1.18a5 5 0 0 1 0-1.38L2.55 6.98l1.1-1.9 1.7.57a5 5 0 0 1 1.2-.7L6.9 1.5Z"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  )
+}
+
 /** Shown under the search provider when Oxeegen (backed by Brave) is selected. */
 export const OXEEGEN_SEARCH_HINT = 'Brave Search serves both web and image search with your key.'
 

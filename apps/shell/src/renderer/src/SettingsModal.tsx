@@ -31,6 +31,7 @@ import { IntegrationsPane, skillUpdateDue } from './IntegrationsPane'
 // OxeeOffice brand hook: Oxeegen settings pieces (fork-owned file)
 import {
   initialSettingsSection,
+  OXEEGEN_CHAT_HINT,
   OXEEGEN_SEARCH_HINT,
   OxeegenRegionRow,
   oxeegenLayerEnabled,
@@ -411,7 +412,10 @@ function AiModelPane({ t }: { t: TFunc }) {
         />
       </div>
       <div className="set-field-desc set-ai-note">
-        {isGenspark ? t('setAiGensparkHint') : isCodex ? t('setAiCodexHint') : t('setAiByokNote')}
+        {/* OxeeOffice brand hook: Oxeegen hint (upstream's BYOK note mentions the Genspark sign-in) */}
+        {provider === 'oxeegen'
+          ? OXEEGEN_CHAT_HINT
+          : isGenspark ? t('setAiGensparkHint') : isCodex ? t('setAiCodexHint') : t('setAiByokNote')}
       </div>
       <div className="set-field">
         <div className="set-field-text">

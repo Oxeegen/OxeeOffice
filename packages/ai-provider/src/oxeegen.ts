@@ -32,8 +32,14 @@ import type { ProviderAdapter, ResolvedEndpoint } from './registry'
  * tests/oxeegen.test.ts sets OXEEGEN_LAYER=1 to test what OxeeOffice ships.
  */
 export function oxeegenLayerEnabled(): boolean {
-  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process
-    ?.env
+  // Read `process` through a computed name. Bundlers pattern-match the
+  // spelling process.env and rewrite `globalThis.process?.env` into
+  // `globalThis.process.env`, which throws in a sandboxed preload (no
+  // globalThis.process) and took the whole shell preload down.
+  const proc = (globalThis as Record<string, unknown>)['proc' + 'ess'] as
+    | { env?: Record<string, string | undefined> }
+    | undefined
+  const env = proc && typeof proc === 'object' ? proc.env : undefined
   if (env?.OXEEGEN_LAYER === '1') return true
   return !env?.VITEST
 }

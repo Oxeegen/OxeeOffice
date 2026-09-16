@@ -25,6 +25,8 @@ import { useI18n } from './locale'
 import type { I18n, StringKey } from './locale'
 import { SettingsModal } from './SettingsModal'
 import { skillUpdateDue } from './IntegrationsPane'
+// OxeeOffice brand hook: the account button is a plain Settings button
+import { oxeegenLayerEnabled, SettingsGlyph } from './oxeegen-settings'
 
 declare global {
   interface Window {
@@ -749,6 +751,8 @@ function AccountEntry({
   const loggedIn = status?.loggedIn ?? false
   const email = status?.email ?? ''
   const initial = email ? email[0].toUpperCase() : loggedIn ? 'G' : '?'
+  // OxeeOffice brand hook: no account, so no sign-in state on this button
+  const settingsOnly = oxeegenLayerEnabled()
   const errorText = loginError
     ? {
         timeout: t('loginTimeout'),
@@ -877,7 +881,9 @@ function AccountEntry({
         aria-haspopup="dialog"
         aria-expanded={settingsOpen}
         data-tip={
-          loggedIn
+          settingsOnly
+            ? t('settings')
+            : loggedIn
             ? email || t('loggedInGenspark')
             : waiting
               ? t('waitingLogin')
@@ -908,6 +914,8 @@ function AccountEntry({
                 strokeLinecap="round"
               />
             </svg>
+          ) : settingsOnly ? (
+            <SettingsGlyph />
           ) : (
             initial
           )}
@@ -917,7 +925,9 @@ function AccountEntry({
         </span>
         <span className="account-text">
           <span className="account-name">
-            {loggedIn
+            {settingsOnly
+              ? t('settings')
+              : loggedIn
               ? email
                 ? email.split('@')[0]
                 : t('loggedIn')
@@ -925,7 +935,7 @@ function AccountEntry({
                 ? t('waitingShort')
                 : t('login')}
           </span>
-          {!loggedIn && !waiting && errorText && (
+          {!settingsOnly && !loggedIn && !waiting && errorText && (
             <span className="account-sub error">{errorText}</span>
           )}
         </span>
