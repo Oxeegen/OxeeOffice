@@ -2,6 +2,7 @@
   "$comment": "Single source of truth for the OxeeOffice identity. Read by apps/shell/electron-builder.brand.cjs, brand/scripts/*, and the release workflow. See brand/README.md.",
   "productName": "OxeeOffice",
   "appId": "com.oxeegen.oxeeoffice",
+  "description": "AI office suite: documents, spreadsheets, slides, PDF, Markdown and HTML",
   "company": "Oxeegen",
   "maintainer": "Oxeegen",
   "homepage": "https://github.com/Oxeegen/OxeeOffice",

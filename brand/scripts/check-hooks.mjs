@@ -53,6 +53,11 @@ const HOOKS = [
     why: 'agent skill install source',
     must: [`'npx skills add ${REPO}'`],
   },
+  {
+    file: '.github/workflows/ci.yml',
+    why: "upstream's CI runs in the fork only on demand",
+    must: ["if: github.repository == 'genspark-ai/genoffice' || github.event_name == 'workflow_dispatch'"],
+  },
   // upstream tests updated to assert what ships
   {
     file: 'apps/shell/tests/updater.test.ts',

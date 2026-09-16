@@ -38,6 +38,9 @@ const config = {
   extraMetadata: {
     ...upstream.extraMetadata,
     productName: brand.productName,
+    // upstream's reads "Unified GenOffice shell: …" and becomes the deb/rpm
+    // package description shown by Linux software centres
+    description: brand.description,
     author: brand.company,
     homepage: brand.homepage,
   },

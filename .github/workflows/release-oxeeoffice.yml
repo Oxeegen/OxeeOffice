@@ -1,0 +1,226 @@
+name: Release (OxeeOffice)
+
+# Builds the branded, unsigned Windows and Linux installers and publishes them
+# as one GitHub Release on Oxeegen/OxeeOffice — which is also the auto-update
+# feed installed apps poll (brand/config/brand.config.json → publish).
+#
+# Triggers:
+#   push a tag  oxeeoffice-vX.Y.Z   → build, verify, publish
+#   Run workflow (manual)            → build + verify; publish only if asked
+#                                      (use it for test builds)
+#
+# The tag name is the source of truth for the version: it becomes
+# extraMetadata.version, so apps/shell/package.json can keep tracking upstream.
+#
+# macOS is absent on purpose, as in OxeeUI: without an Apple Developer
+# certificate Gatekeeper refuses the DMG.
+
+on:
+  push:
+    tags:
+      - 'oxeeoffice-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version, e.g. 0.10.488 (no 'oxeeoffice-v' prefix)"
+        required: true
+        type: string
+      publish:
+        description: 'Publish a GitHub Release (unchecked = build artifacts only)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - name: Resolve tag and version
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+          else
+            TAG="oxeeoffice-v${{ inputs.version }}"
+          fi
+          VERSION="${TAG#oxeeoffice-v}"
+          # electron-updater compares latest.yml versions as semver; a malformed
+          # one ships a build no installed client can ever see as an upgrade.
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Tag '$TAG' does not yield an X.Y.Z version (got '$VERSION')." >&2
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building $TAG as version $VERSION"
+
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      # nothing enterprise-licensed may be packaged (ee/LICENSE)
+      - name: ee/ licence guard
+        run: node brand/scripts/check-ee.mjs
+      # a merge that silently dropped a brand hook ships upstream behaviour
+      - name: Brand hooks intact
+        run: node brand/scripts/check-hooks.mjs
+
+  build:
+    needs: [version, guard]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # windows-2022 as in OxeeUI: newer images ship a Visual Studio that
+          # native-dependency tooling cannot detect
+          - os: windows-2022
+            platform: win
+            unpacked: win-unpacked
+            artifacts: |
+              release-out/*.exe
+              release-out/*.blockmap
+              release-out/latest.yml
+          # 22.04 as in upstream CI
+          - os: ubuntu-22.04
+            platform: linux
+            unpacked: linux-unpacked
+            artifacts: |
+              release-out/*.AppImage
+              release-out/*.deb
+              release-out/*.rpm
+              release-out/latest-linux.yml
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      BUILD_DIR: ${{ github.workspace }}/release-out
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable branch, 2026-07
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          workspaces: apps/sheets/native/xlsx-engine
+
+      # rpmbuild for the rpm target (upstream: "CI installs it")
+      - name: Linux packaging tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends rpm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # before the builds: renderer images are bundled by Vite
+      - name: Apply brand assets
+        run: node brand/scripts/apply-brand-assets.mjs
+
+      - name: Third-party notices
+        run: npm run notices
+
+      # includes the Rust xlsx-sidecar for the runner's own target
+      - name: Build all apps
+        run: npm run build:all
+
+      # Upstream's config expects the sidecar under the x86_64-pc-windows-gnu
+      # target (its pipeline cross-compiles). Here it is built natively with
+      # MSVC, statically linking the CRT via apps/sheets/native/xlsx-engine/
+      # .cargo/config.toml — upstream's own setting for clean Windows installs.
+      - name: Place Windows sidecar where the package config expects it
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=apps/sheets/native/xlsx-engine/target/release/xlsx-sidecar.exe
+          dst=apps/sheets/native/xlsx-engine/target/x86_64-pc-windows-gnu/release
+          test -f "$src" || { echo "sidecar not built: $src" >&2; exit 1; }
+          mkdir -p "$dst" && cp "$src" "$dst/"
+
+      # beforePack in the brand config renames visible names and fails on any
+      # survivor; --publish never: the release job below publishes everything
+      # at once, so a half-uploaded release is never visible to the updater
+      - name: Package
+        working-directory: apps/shell
+        shell: bash
+        run: >
+          npx electron-builder
+          --config electron-builder.brand.cjs
+          --${{ matrix.platform }}
+          --publish never
+          -c.extraMetadata.version=${{ env.VERSION }}
+
+      - name: Verify the packaged app
+        shell: bash
+        run: node brand/scripts/verify-package.mjs "release-out/${{ matrix.unpacked }}" "$VERSION"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: oxeeoffice-${{ matrix.platform }}
+          path: ${{ matrix.artifacts }}
+          if-no-files-found: error
+
+  release:
+    needs: [version, build]
+    if: github.ref_type == 'tag' || inputs.publish
+    runs-on: ubuntu-latest
+    steps:
+      # full history: an annotated tag's message becomes the release notes
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: artifacts
+
+      - name: Publish GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.version.outputs.tag }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          assets=(artifacts/*/*)
+          [ ${#assets[@]} -gt 0 ] || { echo "No build artifacts were downloaded." >&2; exit 1; }
+          # the updater reads these manifests; without them the release exists
+          # but no installed client can ever see it
+          for manifest in latest.yml latest-linux.yml; do
+            printf '%s\n' "${assets[@]}" | grep -q "/$manifest$" \
+              || { echo "Missing $manifest: installed apps would never see this release." >&2; exit 1; }
+          done
+          NOTES="$(git tag -l --format='%(contents)' "$TAG" 2>/dev/null || true)"
+          [ -n "$NOTES" ] || NOTES="OxeeOffice $VERSION — see CHANGELOG.md for changes and the upstream base."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${assets[@]}" --clobber
+          else
+            gh release create "$TAG" "${assets[@]}" \
+              --target "${{ github.sha }}" \
+              --title "OxeeOffice $VERSION" \
+              --notes "$NOTES"
+          fi
+          echo "Released $TAG with ${#assets[@]} asset(s)."

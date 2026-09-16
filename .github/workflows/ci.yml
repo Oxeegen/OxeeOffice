@@ -21,6 +21,9 @@ permissions:
 
 jobs:
   test:
+    # OxeeOffice brand hook: upstream's gate, run on demand in the fork
+    # (Actions > CI > Run workflow) — e.g. after merging an upstream release
+    if: github.repository == 'genspark-ai/genoffice' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -145,6 +148,8 @@ jobs:
           npm run compat -w @genoffice/sheets
 
   e2e:
+    # OxeeOffice brand hook: see the test job
+    if: github.repository == 'genspark-ai/genoffice' || github.event_name == 'workflow_dispatch'
     # 22.04, not -latest: 24.04's AppArmor hardening blocks Electron renderer
     # spawn under xvfb even with --no-sandbox and the userns sysctl lifted
     runs-on: ubuntu-22.04
