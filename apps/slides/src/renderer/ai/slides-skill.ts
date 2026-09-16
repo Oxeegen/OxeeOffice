@@ -214,6 +214,8 @@ export interface DeckAccess {
   fitWidthPx: number
   /** Base retry backoff in ms for single-page generation failures (default 2000; tests pass 0 to disable backoff) */
   retryBackoffMs?: number
+  /** OxeeOffice brand hook: pages generated at once (default 2) */
+  pageConcurrency?(): number | undefined
   /**
    * Names of text attachments in the current conversation that were never read with
    * read_attachment. When non-empty, generate_deck refuses to run until they are read
@@ -1803,7 +1805,7 @@ async function executeTool(
       const insertMode: 'replace' | 'append' =
         call.input.insert_mode === 'append' ? 'append' : 'replace'
       const PLAN_BATCH = 12 // Per-batch planning cap (kept slightly conservative against truncation)
-      const GEN_BATCH = 2 // Per-page generation concurrency (opus large output + proxy concurrent streams time out easily; lowered to 2, stability first)
+      const GEN_BATCH = access.pageConcurrency?.() ?? 2 // OxeeOffice brand hook. Per-page generation concurrency (opus large output + proxy concurrent streams time out easily; lowered to 2, stability first)
       const BACKOFF_MS = access.retryBackoffMs ?? 2000 // Retry backoff base (rate limits/overload are mostly transient; immediate retries would hit them again)
 
       let coreHook = String(call.input.core_hook ?? '').trim()

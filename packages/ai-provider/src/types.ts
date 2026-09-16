@@ -180,6 +180,8 @@ export interface AiStreamRequest {
   messages: AgentMessage[]
   tools?: AgentToolDef[]
   maxTokens?: number
+  /** OxeeOffice brand hook: 'compaction' marks a chat-summary request (routed to the worker model) */
+  purpose?: 'compaction'
 }
 
 export interface AiStreamChunk {

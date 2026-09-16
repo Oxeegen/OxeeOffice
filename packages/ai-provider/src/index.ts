@@ -97,6 +97,11 @@ export {
   OXEEGEN_DEFAULT_BASE_URL,
   OXEEGEN_DEFAULT_MODEL,
   OXEEGEN_REGIONS,
+  OXEEGEN_DECK_PAGE_CONCURRENCY,
   OXEEGEN_VISION_MODELS,
+  OXEEGEN_WORKER_MODEL,
+  oxeegenDeckPageConcurrency,
   oxeegenLayerEnabled,
+  oxeegenRouteStreamRequest,
+  oxeegenWorkerSettings,
 } from './oxeegen'

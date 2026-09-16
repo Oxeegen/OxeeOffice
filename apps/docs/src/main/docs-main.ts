@@ -96,6 +96,8 @@ import {
   type GenSparkAccountStatus,
   type LegacyAiSettings,
 } from '@genoffice/ai-provider'
+// OxeeOffice brand hook: worker-model routing for compaction summaries
+import { oxeegenRouteStreamRequest } from '@genoffice/ai-provider'
 import { listCodexModels, shutdownCodexAppServers } from '@genoffice/ai-provider/codex-app-server'
 import {
   ensureGenofficeLogin,
@@ -2886,6 +2888,7 @@ export function registerAiIpc(): void {
   })
 
   ipcMain.handle('ai:stream', async (event, request: AiStreamRequest) => {
+    request = oxeegenRouteStreamRequest(request) // OxeeOffice brand hook: compaction on the worker model
     const { requestId, settings, system, messages } = request
     const tools = request.tools ?? []
     const maxTokens = request.maxTokens ?? maxOutputTokensOf(settings)

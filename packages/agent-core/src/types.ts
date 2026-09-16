@@ -94,6 +94,8 @@ export interface AgentStreamRequest {
   system: string
   messages: AgentMessage[]
   tools: AgentToolDef[]
+  /** OxeeOffice brand hook: 'compaction' marks the chat-summary request */
+  purpose?: 'compaction'
 }
 
 export interface AgentStreamCallbacks {

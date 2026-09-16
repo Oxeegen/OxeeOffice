@@ -62,6 +62,42 @@ export const OXEEGEN_DEFAULT_MODEL = 'Oxee-max'
 export const OXEEGEN_VISION_MODELS = ['Oxee-max', 'Oxee-pro', 'Oxee-flash', 'Oxee-instant']
 export const OXEEGEN_DEFAULT_VISION_MODEL = 'Oxee-pro'
 
+// ── Tiers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Bulk steps that carry out a plan the picked model already wrote run on the
+ * fast worker model (reasoning off): Slides page specs, written from the
+ * outline, and chat-compaction summaries. Everything else (the chat agent,
+ * Slides style and outline, the Slides layout-fix agent, the Docs / Markdown /
+ * HTML writers) uses the model in the picker.
+ */
+export const OXEEGEN_WORKER_MODEL = 'Oxee-instant'
+
+/** Slides pages generated at once on the worker model (upstream generates 2). */
+export const OXEEGEN_DECK_PAGE_CONCURRENCY = 4
+
+type SettingsWithModels = { provider: string; providers: { [id: string]: { model: string } | undefined } }
+
+/** A copy of the settings on the worker model, or null when Oxeegen is not the provider. */
+export function oxeegenWorkerSettings<S extends SettingsWithModels>(settings: S): S | null {
+  if (!oxeegenLayerEnabled() || settings.provider !== 'oxeegen') return null
+  const config = settings.providers.oxeegen
+  if (!config) return null
+  return { ...settings, providers: { ...settings.providers, oxeegen: { ...config, model: OXEEGEN_WORKER_MODEL } } }
+}
+
+/** Slides page-generation concurrency, or undefined to keep upstream's. */
+export function oxeegenDeckPageConcurrency(settings: { provider: string }): number | undefined {
+  return oxeegenLayerEnabled() && settings.provider === 'oxeegen' ? OXEEGEN_DECK_PAGE_CONCURRENCY : undefined
+}
+
+/** Main-process `ai:stream` routing: compaction summaries go to the worker model. */
+export function oxeegenRouteStreamRequest<R extends { purpose?: string; settings: SettingsWithModels }>(request: R): R {
+  if (request.purpose !== 'compaction') return request
+  const settings = oxeegenWorkerSettings(request.settings)
+  return settings ? { ...request, settings } : request
+}
+
 // ── Chat ────────────────────────────────────────────────────────────────────
 
 export const OXEEGEN_PROVIDER: AiProviderMeta = {

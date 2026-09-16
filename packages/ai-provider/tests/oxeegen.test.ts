@@ -132,6 +132,46 @@ describe('request bodies: the server configuration decides', () => {
   })
 })
 
+describe('worker tier', () => {
+  const with_ = (provider: string, model: string) => ({
+    provider,
+    providers: { oxeegen: { apiKey: 'k', model, baseUrl: EU }, anthropic: { apiKey: 'a', model: 'claude-sonnet-5' } },
+  })
+
+  it('runs worker steps on Oxee-instant whatever the picker holds', () => {
+    for (const model of api.OXEEGEN_CHAT_MODELS) {
+      expect(api.oxeegenWorkerSettings(with_('oxeegen', model))?.providers.oxeegen).toEqual({
+        apiKey: 'k',
+        model: 'Oxee-instant',
+        baseUrl: EU,
+      })
+    }
+  })
+
+  it('leaves other providers alone and never mutates the settings', () => {
+    expect(api.oxeegenWorkerSettings(with_('anthropic', 'claude-sonnet-5'))).toBeNull()
+    const s = with_('oxeegen', 'Oxee-max')
+    api.oxeegenWorkerSettings(s)
+    expect(s.providers.oxeegen.model).toBe('Oxee-max')
+  })
+
+  it('generates 4 slide pages at once on Oxeegen only', () => {
+    expect(api.oxeegenDeckPageConcurrency({ provider: 'oxeegen' })).toBe(4)
+    expect(api.oxeegenDeckPageConcurrency({ provider: 'anthropic' })).toBeUndefined()
+  })
+
+  it('routes compaction summaries to the worker model and nothing else', () => {
+    const base = { requestId: 'r', system: 's', messages: [], settings: with_('oxeegen', 'Oxee-max') }
+    expect(api.oxeegenRouteStreamRequest({ ...base, purpose: 'compaction' as const }).settings.providers.oxeegen?.model).toBe(
+      'Oxee-instant',
+    )
+    const chat = api.oxeegenRouteStreamRequest(base)
+    expect(chat).toBe(base)
+    const other = { ...base, purpose: 'compaction' as const, settings: with_('anthropic', 'claude-sonnet-5') }
+    expect(api.oxeegenRouteStreamRequest(other)).toBe(other)
+  })
+})
+
 describe('defaults for a fresh install', () => {
   it('selects Oxeegen with the endpoint pre-filled', () => {
     const s = api.defaultAiSettings()

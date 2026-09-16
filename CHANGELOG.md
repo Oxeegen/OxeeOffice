@@ -64,8 +64,10 @@ underneath can copy `%APPDATA%\GenOffice\ai-settings.json` into
   applies in every open tab.
 - **Oxeegen models use their server settings.** OxeeOffice sends no temperature,
   output-token cap or reasoning level, and hides the Max output tokens field for Oxeegen.
-- **The model in the picker is the model used**, for every step including deck
-  generation, and every Oxee model can read images.
+- **Faster decks.** The model in the picker writes the style and outline and fixes the
+  layout; Oxee Instant writes the pages from that outline, four at a time. Long chats
+  are summarized with Oxee Instant too. Every other AI step uses the model in the
+  picker, and every Oxee model can read images.
 - **Web and image search on Brave**, behind the Oxeegen search entry.
 - **Image generation on OpenAI** `gpt-image-2`; image and video analysis on any Oxee
   model (Pro by default).

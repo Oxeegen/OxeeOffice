@@ -1,5 +1,10 @@
 // OxeeOffice brand hook: model picker and Oxee mark
-import { AI_PROVIDERS, oxeegenLayerEnabled } from '@genoffice/ai-provider/browser'
+import {
+  AI_PROVIDERS,
+  oxeegenDeckPageConcurrency,
+  oxeegenLayerEnabled,
+  oxeegenWorkerSettings,
+} from '@genoffice/ai-provider/browser'
 import { OxeeModelPicker } from '@genoffice/ui'
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import {
@@ -1044,6 +1049,8 @@ export function AiPanel({
           return false
         }
       },
+      // OxeeOffice brand hook: page specs on the worker model, several pages at once
+      pageConcurrency: () => oxeegenDeckPageConcurrency(settingsRef.current),
       // Local single-page generation (no gsk needed, e.g. BYOK): one LLM request through the
       // app's own AI transport writes a structured JSON slide spec, and the main process builds
       // it directly into a one-slide pptx with pptx-engine primitives — no HTML intermediate.
@@ -1104,7 +1111,11 @@ export function AiPanel({
               ? userMsg
               : `${userMsg}\n\nYour previous output was rejected: ${lastErr}. Output the corrected JSON object only.`
           // Text-heavy spec JSON can exceed the default 8192 tokens; single-page requests get a higher cap
-          const r = await runLlmOnce(sys, msg, 120000, true, args.signal, 16384)
+          // OxeeOffice brand hook: the page spec follows the outline on the worker model
+          const worker = oxeegenWorkerSettings(settingsRef.current)
+          const r = worker
+            ? await runLlmAttempt(worker, sys, msg, 120000, args.signal, 16384)
+            : await runLlmOnce(sys, msg, 120000, true, args.signal, 16384)
           if (!r.ok || !r.text) {
             lastErr = r.error ?? tGlobal('aiErrEmptyOutput')
             continue

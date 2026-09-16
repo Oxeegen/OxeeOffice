@@ -67,7 +67,32 @@ const HOOKS = [
   {
     file: 'packages/ai-provider/src/types.ts',
     why: 'oxeegen provider ids',
-    must: ["| 'oxeegen' // OxeeOffice brand hook", "'oxeegen' | 'genspark' | 'serper' | 'tavily'", 'oxeegen?: { apiKey: string }'],
+    must: ["| 'oxeegen' // OxeeOffice brand hook", "'oxeegen' | 'genspark' | 'serper' | 'tavily'", 'oxeegen?: { apiKey: string }', "purpose?: 'compaction'"],
+  },
+  {
+    file: 'packages/agent-core/src/types.ts',
+    why: 'compaction request tagged for worker-model routing',
+    must: ["purpose?: 'compaction'"],
+  },
+  {
+    file: 'packages/agent-core/src/loop.ts',
+    why: 'compaction request tagged for worker-model routing',
+    must: ["purpose: 'compaction', // OxeeOffice brand hook"],
+  },
+  {
+    file: 'packages/agent-core/src/electron-transport.ts',
+    why: 'request purpose reaches the main process',
+    must: ["purpose?: 'compaction'", '...(request.purpose ? { purpose: request.purpose } : {})'],
+  },
+  {
+    file: 'apps/docs/src/main/docs-main.ts',
+    why: "shell's ai:stream runs compaction summaries on the worker model",
+    must: ["import { oxeegenRouteStreamRequest } from '@genoffice/ai-provider'", 'request = oxeegenRouteStreamRequest(request)'],
+  },
+  {
+    file: 'apps/slides/src/renderer/ai/slides-skill.ts',
+    why: 'deck pages generated 4 at a time on Oxeegen',
+    must: ['pageConcurrency?(): number | undefined', 'const GEN_BATCH = access.pageConcurrency?.() ?? 2'],
   },
   {
     file: 'packages/ai-provider/src/providers.ts',
@@ -112,7 +137,7 @@ const HOOKS = [
   {
     file: 'packages/ai-provider/src/browser.ts',
     why: 'Oxeegen layer exported to renderers',
-    must: ["} from './oxeegen'", 'isHiddenProvider', 'OXEEGEN_REGIONS', 'oxeegenLayerEnabled'],
+    must: ["} from './oxeegen'", 'isHiddenProvider', 'OXEEGEN_REGIONS', 'oxeegenDeckPageConcurrency', 'oxeegenLayerEnabled', 'oxeegenWorkerSettings'],
   },
   {
     file: 'packages/ai-search/src/index.ts',
@@ -206,8 +231,12 @@ const HOOKS = [
   ]),
   {
     file: 'apps/slides/src/renderer/ai/AiPanel.tsx',
-    why: 'deck generation uses the model in the picker (no swap to a larger model)',
-    must: ['if (oxeegenLayerEnabled()) return cur'],
+    why: 'style/outline on the picker model; page specs on the worker model, 4 at a time',
+    must: [
+      'if (oxeegenLayerEnabled()) return cur',
+      'pageConcurrency: () => oxeegenDeckPageConcurrency(settingsRef.current)',
+      'const worker = oxeegenWorkerSettings(settingsRef.current)',
+    ],
   },
   {
     file: 'apps/markdown/src/renderer/styles.css',
@@ -231,6 +260,8 @@ const HOOKS = [
 const FORK_FILES = [
   'packages/ai-provider/src/oxeegen.ts',
   'packages/ai-provider/tests/oxeegen.test.ts',
+  'packages/agent-core/tests/oxee-compaction-purpose.test.ts',
+  'apps/slides/tests/oxee-page-concurrency.test.ts',
   'packages/ai-search/src/brave.ts',
   'packages/ai-search/tests/oxeegen-search.test.ts',
   'apps/shell/src/renderer/src/oxeegen-settings.tsx',

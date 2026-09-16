@@ -35,6 +35,8 @@ export interface IpcStreamStart<S> {
   system: string
   messages: AgentMessage[]
   tools: AgentToolDef[]
+  /** OxeeOffice brand hook: request purpose, for main-process model routing */
+  purpose?: 'compaction'
 }
 
 /**
@@ -138,6 +140,7 @@ export function createIpcTransport<S>(options: IpcTransportOptions<S>): AgentTra
             system: request.system,
             messages: request.messages,
             tools: request.tools,
+            ...(request.purpose ? { purpose: request.purpose } : {}), // OxeeOffice brand hook
           }),
         ).catch((err: unknown) => {
           fail(err instanceof Error ? err.message : options.unknownErrorText())
