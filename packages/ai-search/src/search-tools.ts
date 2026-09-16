@@ -18,6 +18,10 @@ import { readAiSettingsFile } from './media-tools'
 export function searchOptionsFromSettings(settings: AiSettings): SearchOptions {
   const provider = activeSearchProvider(settings)
   if (provider === 'genspark') return { useGsk: cloudToolsEnabled(settings) }
+  // OxeeOffice brand hook: the Oxeegen entry's key is a Brave key
+  if (provider === 'oxeegen') {
+    return { useGsk: false, braveKey: settings.search!.providers.oxeegen?.apiKey ?? '' }
+  }
   const key = settings.search!.providers[provider].apiKey
   return provider === 'tavily'
     ? { useGsk: false, tavilyKey: key, prefer: 'tavily' }
@@ -40,11 +44,14 @@ export async function testSearchProvider(
   if (provider === 'genspark') return { ok: true }
   if (!apiKey) return { ok: false, error: 'API key is empty' }
   const options: SearchOptions =
-    provider === 'tavily'
+    // OxeeOffice brand hook: the Oxeegen entry is tested against Brave
+    provider === 'oxeegen'
+      ? { useGsk: false, braveKey: apiKey, serperKey: '', tavilyKey: '' }
+      : provider === 'tavily'
       ? { useGsk: false, tavilyKey: apiKey, serperKey: '', prefer: 'tavily' }
       : { useGsk: false, serperKey: apiKey, tavilyKey: '' }
   const r = await webSearch('GenOffice', 1, options)
-  if (r.method === provider) return { ok: true }
+  if (r.method === provider || (provider === 'oxeegen' && r.method === 'brave')) return { ok: true }
   return {
     ok: false,
     error:

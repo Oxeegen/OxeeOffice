@@ -26,6 +26,8 @@ import {
   type WebSearchResult,
 } from './shared'
 import { genofficeApiKey } from './genoffice-auth'
+// OxeeOffice brand hook: no Genspark sign-in in OxeeOffice
+import { oxeegenLayerEnabled } from '@genoffice/ai-provider'
 
 const SEARCH_TIMEOUT_MS = 60_000
 const GENERATE_TIMEOUT_MS = 600_000
@@ -84,6 +86,10 @@ function electronCompatArgs(): string[] {
  * key_name) → shared gsk CLI login (bills to the Claw bucket).
  */
 export function gskApiKey(): string {
+  // OxeeOffice brand hook: never pick up a Genspark key. Without this, a
+  // Genspark CLI login elsewhere on the machine (~/.genspark-tool-cli) or a
+  // GSK_API_KEY variable would silently turn Genspark cloud features back on.
+  if (oxeegenLayerEnabled()) return ''
   if (process.env.GSK_API_KEY) return process.env.GSK_API_KEY
   const own = genofficeApiKey()
   if (own) return own

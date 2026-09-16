@@ -14,6 +14,8 @@ import {
   type WebSearchResult,
 } from './shared'
 import { gskImageSearch, gskWebSearch, hasGskAuth } from './gsk'
+// OxeeOffice brand hook: Brave behind the Oxeegen search entry (brave.ts)
+import { braveImageSearch, braveWebSearch } from './brave'
 
 export type { ImageSearchResult, WebSearchResult } from './shared'
 export * from './gsk'
@@ -36,6 +38,8 @@ export interface SearchOptions {
   tavilyKey?: string
   /** which keyed backend to try first (default serper) */
   prefer?: 'serper' | 'tavily'
+  /** OxeeOffice brand hook: Brave key (the Oxeegen search entry); tried before Serper/Tavily */
+  braveKey?: string
 }
 
 function normalizeOptions(opts: boolean | SearchOptions | undefined): Required<SearchOptions> {
@@ -45,6 +49,7 @@ function normalizeOptions(opts: boolean | SearchOptions | undefined): Required<S
     serperKey: o.serperKey ?? SERPER_KEY(),
     tavilyKey: o.tavilyKey ?? TAVILY_KEY(),
     prefer: o.prefer ?? 'serper',
+    braveKey: o.braveKey ?? '', // OxeeOffice brand hook
   }
 }
 
@@ -149,6 +154,9 @@ export async function webSearch(
       /* fall back to Serper/Tavily/DuckDuckGo */
     }
   }
+  // OxeeOffice brand hook: Brave first when the Oxeegen search entry has a key
+  const brave = await braveWebSearch(o.braveKey, query, maxResults)
+  if (brave) return brave
   const keyed =
     o.prefer === 'tavily'
       ? [
@@ -191,6 +199,9 @@ export async function imageSearch(
       /* fall back to Serper/DuckDuckGo */
     }
   }
+  // OxeeOffice brand hook: Brave first when the Oxeegen search entry has a key
+  const brave = await braveImageSearch(o.braveKey, query, maxResults)
+  if (brave) return brave
   // Tavily has no image endpoint; Serper is the only keyed image backend
   const key = o.serperKey
   if (key) {
