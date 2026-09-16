@@ -63,6 +63,77 @@ const HOOKS = [
     why: "upstream's CI runs in the fork only on demand",
     must: ["if: github.repository == 'genspark-ai/genoffice' || github.event_name == 'workflow_dispatch'"],
   },
+  // ── Oxeegen AI layer (packages/ai-provider/src/oxeegen.ts) ──────────────
+  {
+    file: 'packages/ai-provider/src/types.ts',
+    why: 'oxeegen provider ids',
+    must: ["| 'oxeegen' // OxeeOffice brand hook", "'oxeegen' | 'genspark' | 'serper' | 'tavily'", 'oxeegen?: { apiKey: string }'],
+  },
+  {
+    file: 'packages/ai-provider/src/providers.ts',
+    why: 'Oxeegen chat catalogue, defaults, fallback and settings migration',
+    must: ['withOxeegenProviders([', 'return withOxeegenDefaults({', 'return oxeegenFallback(activeProviderUpstream(settings))', 'const stored = migrateToOxeegen(storedRaw)'],
+  },
+  {
+    file: 'packages/ai-provider/src/registry.ts',
+    why: 'Oxeegen adapter; Oxee-max is text-only',
+    must: ['= withOxeegenAdapters({', 'if (oxeegenModelLacksVision(model)) return true'],
+  },
+  {
+    file: 'packages/ai-provider/src/media.ts',
+    why: 'Oxeegen media entry and defaults',
+    must: ['= withOxeegenMedia([', 'return withOxeegenMediaDefaults({'],
+  },
+  {
+    file: 'packages/ai-provider/src/search-settings.ts',
+    why: 'Oxeegen (Brave) search entry and defaults',
+    must: ['= withOxeegenSearch([', 'return withOxeegenSearchDefaults({', "['serper', 'tavily', 'oxeegen']"],
+  },
+  {
+    file: 'packages/ai-provider/src/index.ts',
+    why: 'Oxeegen layer exported',
+    must: ["} from './oxeegen'"],
+  },
+  {
+    file: 'packages/ai-provider/src/browser.ts',
+    why: 'Oxeegen layer exported to renderers',
+    must: ["export { isHiddenProvider, OXEEGEN_REGIONS, oxeegenLayerEnabled } from './oxeegen'"],
+  },
+  {
+    file: 'packages/ai-search/src/index.ts',
+    why: 'Brave runs first for the Oxeegen search entry',
+    must: ["braveKey: o.braveKey ?? ''", 'await braveWebSearch(o.braveKey, query, maxResults)', 'await braveImageSearch(o.braveKey, query, maxResults)'],
+  },
+  {
+    file: 'packages/ai-search/src/search-tools.ts',
+    why: 'Oxeegen search entry routes to Brave',
+    must: ["braveKey: settings.search!.providers.oxeegen?.apiKey ?? ''", "provider === 'oxeegen' && r.method === 'brave'"],
+  },
+  {
+    file: 'packages/ai-search/src/gsk.ts',
+    why: 'no Genspark sign-in or Genspark CLI key',
+    must: ["if (oxeegenLayerEnabled()) return ''"],
+  },
+  {
+    file: 'apps/shell/src/preload/index.ts',
+    why: 'Genspark sign-in provider not offered',
+    must: ['AI_PROVIDERS.filter((meta) => !isHiddenProvider(meta.id))'],
+  },
+  {
+    file: 'apps/shell/src/renderer/src/SettingsModal.tsx',
+    why: 'no Account page, region buttons, no cloud-tools switch, Brave hint',
+    must: ["initialSettingsSection('account')", 'visibleSettingsSections(SECTIONS)', 'id="set-ai-region"', 'id={`set-ai-${cap}-region`}', '{!oxeegenLayerEnabled() && (', '? OXEEGEN_SEARCH_HINT'],
+  },
+  {
+    file: 'apps/shell/src/renderer/src/provider-logos.tsx',
+    why: 'Oxeegen provider logo',
+    must: ['oxeegen: ('],
+  },
+  {
+    file: 'apps/shell/tests/privacy-doc.test.ts',
+    why: 'privacy test asserts the no-analytics statement',
+    must: ['sends no usage analytics'],
+  },
   // upstream tests updated to assert what ships
   {
     file: 'apps/shell/tests/updater.test.ts',
@@ -76,7 +147,20 @@ const HOOKS = [
   },
 ]
 
+/** Fork-owned files the hooks import; a merge must never lose them. */
+const FORK_FILES = [
+  'packages/ai-provider/src/oxeegen.ts',
+  'packages/ai-provider/tests/oxeegen.test.ts',
+  'packages/ai-search/src/brave.ts',
+  'packages/ai-search/tests/oxeegen-search.test.ts',
+  'apps/shell/src/renderer/src/oxeegen-settings.tsx',
+  'apps/shell/electron-builder.brand.cjs',
+]
+
 const problems = []
+for (const f of FORK_FILES) {
+  try { readFileSync(join(ROOT, f)) } catch { problems.push(`${f}: fork-owned file missing`) }
+}
 for (const h of HOOKS) {
   let text
   try {

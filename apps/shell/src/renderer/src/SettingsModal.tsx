@@ -28,6 +28,14 @@ import type { StringKey, TFunc } from './locale'
 import type { AccountStatus, AiCatalogEntry, UiTheme } from '../../shared/home-api'
 import { ProviderLogo } from './provider-logos'
 import { IntegrationsPane, skillUpdateDue } from './IntegrationsPane'
+// OxeeOffice brand hook: Oxeegen settings pieces (fork-owned file)
+import {
+  initialSettingsSection,
+  OXEEGEN_SEARCH_HINT,
+  OxeegenRegionRow,
+  oxeegenLayerEnabled,
+  visibleSettingsSections,
+} from './oxeegen-settings'
 import './settings.css'
 
 // ── Settings modal (opened from the account menu) ─────────
@@ -497,6 +505,14 @@ function AiModelPane({ t }: { t: TFunc }) {
               onChange={(e) => updateConfig({ baseUrl: e.target.value.trim() })}
             />
           </div>
+          {/* OxeeOffice brand hook: US / EU endpoint buttons */}
+          {provider === 'oxeegen' && (
+            <OxeegenRegionRow
+              id="set-ai-region"
+              value={config.baseUrl ?? ''}
+              onPick={(url) => updateConfig({ baseUrl: url })}
+            />
+          )}
         </>
       ) : null}
       <div className="set-field">
@@ -520,6 +536,8 @@ function AiModelPane({ t }: { t: TFunc }) {
           onBlur={commitMaxTokens}
         />
       </div>
+      {/* OxeeOffice brand hook: no Genspark cloud tools switch (there is no Genspark sign-in) */}
+      {!oxeegenLayerEnabled() && (
       <div className="set-field">
         <div className="set-field-text">
           <div className="set-field-stack">
@@ -540,6 +558,7 @@ function AiModelPane({ t }: { t: TFunc }) {
           }}
         />
       </div>
+      )}
       <div className="set-pane-footer">
         <AiStatusPill
           status={
@@ -860,6 +879,14 @@ function AiMediaPane({ t }: { t: TFunc }) {
             {baseUrlRow(`set-ai-${cap}-base-url`, meta, config.baseUrl ?? '', (v) =>
               updateMediaConfig(id, { baseUrl: v }),
             )}
+            {/* OxeeOffice brand hook: US / EU endpoint buttons */}
+            {id === 'oxeegen' && (
+              <OxeegenRegionRow
+                id={`set-ai-${cap}-region`}
+                value={config.baseUrl ?? ''}
+                onPick={(v) => updateMediaConfig(id, { baseUrl: v })}
+              />
+            )}
           </>
         )}
       </section>
@@ -880,7 +907,10 @@ function AiMediaPane({ t }: { t: TFunc }) {
           setSearch({ ...search, provider: v as AiSearchSettings['provider'] }),
         )}
         <div className="set-field-desc set-ai-note">
-          {search.provider === 'genspark'
+          {/* OxeeOffice brand hook: the Oxeegen search entry is Brave */}
+          {search.provider === 'oxeegen'
+            ? OXEEGEN_SEARCH_HINT
+            : search.provider === 'genspark'
             ? t('setAiSearchGensparkHint')
             : searchMeta?.imageSearch
               ? t('setAiSearchSerperHint')
@@ -1009,7 +1039,8 @@ export function SettingsModal({
   onSkillUpdateDue,
 }: SettingsModalProps) {
   const { lang, setLang, t } = useI18n()
-  const [section, setSection] = useState<SectionId>('account')
+  // OxeeOffice brand hook: no Account page, open on AI Model
+  const [section, setSection] = useState<SectionId>(initialSettingsSection('account'))
   const [theme, setTheme] = useState<UiTheme>('system')
   const [saveDir, setSaveDir] = useState('')
   const [analyticsOn, setAnalyticsOn] = useState(true)
@@ -1103,7 +1134,8 @@ export function SettingsModal({
         </div>
         <div className="set-body">
           <nav className="set-nav" aria-label={t('settings')}>
-            {SECTIONS.map((s) => (
+            {/* OxeeOffice brand hook: Account section hidden */}
+            {visibleSettingsSections(SECTIONS).map((s) => (
               <button
                 key={s.id}
                 className={`set-nav-item${section === s.id ? ' active' : ''}`}
