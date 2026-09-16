@@ -1,0 +1,26 @@
+{
+  "$comment": "Single source of truth for the OxeeOffice identity. Read by apps/shell/electron-builder.brand.cjs, brand/scripts/*, and the release workflow. See brand/README.md.",
+  "productName": "OxeeOffice",
+  "appId": "com.oxeegen.oxeeoffice",
+  "company": "Oxeegen",
+  "maintainer": "Oxeegen",
+  "homepage": "https://github.com/Oxeegen/OxeeOffice",
+  "$copyright": "No upstream name here (unlike OxeeUI): it shows in the exe Properties dialog, and Fred asked for zero visible GenOffice. Apache-2.0 attribution is carried by LICENSE and NOTICE, which ship with the app.",
+  "copyright": "Copyright © 2026 Oxeegen",
+  "publish": {
+    "provider": "github",
+    "owner": "Oxeegen",
+    "repo": "OxeeOffice"
+  },
+  "releaseTagPrefix": "oxeeoffice-v",
+  "linux": {
+    "packageName": "oxeeoffice",
+    "desktopName": "oxeeoffice.desktop",
+    "$executableName": "Stays upstream's lowercase 'genoffice' until the CLI rename lands as one unit: the CLI and the deb/rpm post-install script locate the app binary by that name.",
+    "executableName": "genoffice"
+  },
+  "upstream": {
+    "repo": "genspark-ai/genoffice",
+    "productName": "GenOffice"
+  }
+}
