@@ -21,7 +21,8 @@ This mirrors the layout used by the OxeeUI fork of Orca.
 | `scripts/make-icons.ps1` | Regenerates `assets/build/` from `assets/icon.png` (Windows, GDI+). Outputs are committed. |
 | `scripts/check-ee.mjs` | Licence guard: fails if code appears under upstream's enterprise-licensed `ee/`. |
 | `scripts/check-hooks.mjs` | Fails if a merge dropped a hook, or upstream added a new reference to its own repo. |
-| `scripts/verify-package.mjs` | Checks a **packaged** app: productName, version, update feed, exe name, visible names. |
+| `scripts/verify-package.mjs` | Checks a **packaged** app: productName, version, update feed, exe name, no analytics credentials, visible names. |
+| `scripts/smoke-launch.mjs` | **Launches** the packaged app (or `--dev` build): Home renders, preload bridge up, Oxeegen is the default provider. |
 | `scripts/render-svg.mjs` | Dev helper: rasterize an SVG through the system browser to eyeball it. |
 | `assets/` | `icon.png` master, generated `build/` icon set, renderer app icon and wordmark. |
 | `theme/shell.css` | Style overrides layered after upstream's shell CSS. |
@@ -34,7 +35,11 @@ Outside this directory, fork-owned files:
 | `apps/shell/electron-builder.brand.cjs` | Wraps upstream's `electron-builder.cjs`: identity, GitHub update feed, artifact and package names, brand steps in `beforePack`. Sits next to upstream's file because electron-builder resolves resource paths against the app directory. |
 | `.github/workflows/release-oxeeoffice.yml` | Tag `oxeeoffice-vX.Y.Z` → Windows + Linux build, verify, publish. |
 | `.github/workflows/brand-ci.yml` | `check-ee` + `check-hooks` on every push and PR. |
-| `README.md`, `PRIVACY.md` | Replaced outright with OxeeOffice versions (structure follows upstream's README). On an upstream merge, take ours and port any new upstream section worth having. Upstream's screenshots and translated READMEs under `docs/` show GenOffice branding and are not linked. |
+| `packages/ai-provider/src/oxeegen.ts` (+ `tests/oxeegen.test.ts`) | The Oxeegen AI layer: chat/media/search catalogue entries, US/EU endpoints, models, adapter, defaults, settings migration, layer switch. |
+| `packages/ai-search/src/brave.ts` (+ `tests/oxeegen-search.test.ts`) | Brave web and image search behind the Oxeegen search entry. |
+| `apps/shell/src/renderer/src/oxeegen-settings.tsx` | Settings pieces: region buttons, hints, hidden Account section, Settings button glyph, onboarding slide filter. |
+| `packages/ui/src/oxee-model-picker.tsx`, `oxee-mark.ts` | Model picker for the editors' AI panels, cross-tab settings refresh, the Oxee mark. |
+| `README.md`, `PRIVACY.md` | Replaced outright with OxeeOffice versions (structure follows upstream's README). On an upstream merge, take ours and port any new upstream section worth having. The README uses upstream's app screenshots from `docs/assets/readme/` (Oxeegen's decision; they are credited to GenOffice), but not the hero banner or the translated READMEs. |
 | `NOTICE`, `CHANGELOG.md`, `CONTRIBUTING.md` | Upstream notice kept in full with an Oxeegen section appended; changelog is ours; contributing guide has a fork section prepended. |
 
 ## How the product name is changed
@@ -63,6 +68,44 @@ is rewritten after `build:all` and before packaging:
 Images carry no text, so the wordmark and icons are swapped by an explicit list in
 `apply-brand-assets.mjs`, which fails if upstream moves one.
 
+## The Oxeegen AI layer
+
+Upstream defaults to a **Genspark sign-in provider**: a special `genspark` entry in
+the chat, media and search catalogues that routes through Genspark's cloud. OxeeOffice
+adds **Oxeegen as an ordinary own-key provider** instead of re-purposing that entry.
+Upstream's generic path then handles its settings fields, key checks, Test button and
+error messages, and every `provider === 'genspark'` branch in upstream code simply
+never runs:
+
+- `oxeegen` is first in all three catalogues; the Genspark entry is removed from
+  media/search and hidden from the chat picker (kept so old ids still resolve).
+- Defaults and the unusable-selection fallback are Oxeegen; images default to OpenAI.
+- **Stored settings migrate on read** (`migrateToOxeegen`): 0.9.431 kept the Oxeegen
+  chat config under `genspark`, so upgrades keep their key, endpoint and model. The
+  settings file itself is only rewritten when the user saves.
+- A stray `genspark` id resolves to Oxeegen, never to Genspark's proxy.
+- `gskApiKey()` is always empty: a Genspark CLI login elsewhere on the machine must not
+  switch Genspark cloud tools back on. With it empty, Slides' `generate_deck` takes
+  upstream's **local** deck pipeline through the app's own AI (Oxeegen).
+- Search: the Oxeegen entry's key is a **Brave** key (`brave.ts`).
+- Models: Max (default), Pro, Flash, Instant; image/video analysis on Pro/Flash/Instant.
+  Endpoints: US `inference-02`, EU `inference-04` (each region has its own keys).
+
+**Testing.** The layer is **off under vitest** (`oxeegenLayerEnabled()`), so upstream's
+test suites keep asserting upstream's defaults and their files never need merging.
+`tests/oxeegen.test.ts` and `tests/oxeegen-search.test.ts` set `OXEEGEN_LAYER=1` and
+test what ships.
+
+**Two traps, both hit once:**
+- The switch reads `process` through a computed name. A bundler rewrote
+  `globalThis.process?.env` into `globalThis.process.env`, which throws in a sandboxed
+  preload and left the shell a blank window — while every file-based check passed.
+  That is why the release workflow now **launches** the packaged app
+  (`smoke-launch.mjs`).
+- Docs, Sheets and Slides read AI settings once at mount (upstream behaviour), so a
+  model picked in another tab was ignored until reload. They re-read on focus and when
+  a picker saves (`useAiSettingsRefresh`).
+
 ## Hooks in upstream files
 
 If a merge conflicts, these are the places to re-apply. `check-hooks.mjs` fails when
@@ -80,6 +123,17 @@ comment `OxeeOffice brand hook`.
 | `.github/workflows/ci.yml` | Upstream's CI runs in the fork only on demand. |
 | `SECURITY.md` | Vulnerability reports go to this repository's advisories. |
 | `apps/shell/tests/updater.test.ts`, `…/settings-integrations.test.ts` | Assert the hooked values. |
+| `packages/ai-provider/src/{types,providers,registry,media,search-settings,index,browser}.ts` | Oxeegen ids; catalogue wrappers (`withOxeegen*`), defaults, `activeProvider` fallback, `migrateToOxeegen` on read, Oxee-max text-only; exports. |
+| `packages/ai-search/src/{index,search-tools,gsk}.ts` | Brave first for the Oxeegen search entry; Test button against Brave; `gskApiKey()` empty. |
+| `apps/shell/src/preload/index.ts` | Genspark sign-in provider filtered out of the picker. |
+| `apps/shell/src/renderer/src/SettingsModal.tsx` | Account section hidden, opens on AI Model; US/EU region rows; no cloud-tools or analytics switch; Oxeegen and Brave hints. |
+| `apps/shell/src/renderer/src/{Home,Onboarding,provider-logos}.tsx` | Sidebar button is Settings; no GenTeam/credits slide or analytics notice; Oxeegen logo. |
+| `apps/shell/tests/privacy-doc.test.ts` | Asserts PRIVACY.md's no-analytics statement instead of an event list. |
+| AI panels of docs, sheets, slides, pdf, markdown, html | Model picker in place of the title; `GensparkMark` renders the Oxee mark. |
+| `apps/{docs,sheets,slides}/src/renderer/App.tsx` | Re-read AI settings on focus / picker change. |
+| `apps/{pdf,markdown,html}/src/{preload/index,shared/ipc}.ts` | `setAiSettings`, so their picker can save. |
+| `packages/ui/src/{index.ts,dropdown.css}` | Picker exports and sizing. |
+| `apps/markdown/src/renderer/styles.css` | Page width 90% instead of 860px. |
 
 ## Releasing
 
@@ -149,18 +203,22 @@ failure to the brand layer.
 ## Porting status
 
 The pre-fork OxeeOffice (≤ 0.9.431) was produced by patching upstream's compiled
-bundles. That behaviour is being moved into source here:
+bundles. Where that behaviour now lives in source:
 
 | Area | Status |
 | --- | --- |
 | Visible product name, window/taskbar identity, userData folder | Done |
 | Icons, file-type icons, wordmark, dark-mode logo | Done |
 | Auto-update from GitHub Releases | Done |
-| Windows + Linux release workflow | Done — first CI run pending |
-| Oxeegen as the single provider in AI Model, AI Search and AI Media; no Genspark sign-in, credits or cloud projects. **Blocks the 0.10.488 release:** PRIVACY.md lists every outbound destination, and `www.genspark.ai` (sign-in proxy, cloud projects, image CDN referer) and the `genoffice.ai` link must be gone first | To do |
-| Live model list, Brave search, oxeegen.com links | To do |
-| Model picker in each AI panel, theme toggle, native slide-deck building, Markdown page width | To do |
-| `genoffice` command line, MCP server name and agent skill → `oxeeoffice` (one unit, with the Linux executable name) | To do |
+| Windows + Linux release workflow, package check, launch check | Done |
+| Oxeegen as the provider in AI Model and AI Media & Search, US/EU endpoints pre-filled; no Genspark sign-in, account page, credits, cloud tools or cloud projects | Done |
+| Brave search behind the Oxeegen search entry; OpenAI `gpt-image-2` for images | Done |
+| Model picker in each AI panel (Max, Pro, Flash, Instant) | Done |
+| Native slide-deck building | Done — upstream builds decks locally when Genspark's cloud is off |
+| Markdown page width | Done |
+| Onboarding without GenTeam, credits or analytics claims | Done |
+| Theme toggle in the tab bar | Not ported (not in the 0.10.488 scope) |
+| `genoffice` command line, MCP server name and agent skill → `oxeeoffice` (one unit, with the Linux executable name) | Planned for 0.10.489 |
 
 Until the command-line row is done, the CLI, `~/.genoffice/launcher` and the Linux
 executable keep upstream's lowercase name on purpose: they locate each other by it,

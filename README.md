@@ -53,10 +53,8 @@ touched.
 [Linux](https://github.com/Oxeegen/OxeeOffice/releases/latest) (deb, rpm, AppImage) —
 details and requirements in [Download](#download).
 
-> **Porting in progress.** Up to 0.9.431, OxeeOffice was built by patching the
-> compiled application. It is now built from source, and the Oxeegen AI layer —
-> Oxeegen as the provider in every AI settings pane, the live model list, the
-> model picker in each editor, Brave search — is being moved across. Status:
+> **Built from source since 0.10.488.** Up to 0.9.431, OxeeOffice was produced by
+> patching the compiled application. What changed and where it lives:
 > [brand/README.md](brand/README.md#porting-status).
 
 ## The apps
@@ -221,9 +219,15 @@ document in a visible editor tab while you watch.
 ## AI backends
 
 **Oxeegen** is the default provider: chat, image and video analysis run on
-Oxeegen's models through its OpenAI-compatible endpoint. Enter your Oxeegen API
-key and endpoint in **Settings** — keys are never bundled, because releases are
-public.
+Oxeegen's models (Max, Pro, Flash, Instant) through its OpenAI-compatible
+endpoint. In **Settings → AI Model**, pick your region (**US** or **EU** — each has
+its own keys) and paste your Oxeegen API key; the endpoint is filled in for you.
+Switch models any time from the picker at the top of each editor's AI panel.
+Keys are never bundled, because releases are public.
+
+Under **AI Media & Search**, web and image search run on **Brave Search** — paste a
+Brave API key into the Oxeegen search entry — and image generation uses **OpenAI**
+(`gpt-image-2`) with your OpenAI key, until Oxeegen serves its own image models.
 
 **Or bring your own key.** Settings → AI Model also lists Claude, OpenAI,
 Gemini, DeepSeek, Kimi, GLM, Qwen, Doubao, MiniMax, Grok, Mistral, OpenRouter,

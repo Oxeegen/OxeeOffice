@@ -20,13 +20,17 @@ The application makes these requests, for the reasons given:
 | Destination | When | What is sent |
 | --- | --- | --- |
 | The AI provider you configured (Oxeegen by default) | When you use an AI feature | Your prompt and the document content the AI needs to answer it |
-| The search provider you configured — or, if none is configured, DuckDuckGo | When the AI searches the web | The search query |
+| Brave Search (`api.search.brave.com`), for the Oxeegen search entry — or the other search provider you configured, or DuckDuckGo if no search key is set | When the AI searches the web | The search query |
 | The media provider you configured | When the AI generates or analyzes an image or video | The image or video and the instructions |
 | The website hosting an image | When the AI inserts an image it found | A download request for that image |
 | `github.com` / `api.github.com` | On launch and periodically, to check for updates; when the About page is open, for the repository's star count | Standard HTTPS request metadata; no document or account data |
 
 Documents and HTML pages you open can also reference remote content, such as
 linked images or web fonts, which is loaded when they are displayed.
+
+OxeeOffice does not connect to Genspark. The upstream sign-in, cloud tools and
+cloud projects are disabled, and a Genspark login or key present elsewhere on
+the computer is ignored.
 
 As with any HTTPS request, each recipient sees your public IP address and
 connection metadata.

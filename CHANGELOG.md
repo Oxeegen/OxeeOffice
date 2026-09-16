@@ -54,13 +54,26 @@ underneath can copy `%APPDATA%\GenOffice\ai-settings.json` into
 - **Markdown:** large files open in linear time, spellcheck toggle, resizable outline.
 - **App:** faster file opening, a Folders panel on Home, version in Help → About.
 
-### Not yet carried over from 0.9.431
+### Oxeegen AI
 
-The Oxeegen AI integration is being moved into source and is not in this build yet:
-Oxeegen as the provider in AI Model, AI Search and AI Media; the live model list and
-the model picker in each editor; Brave search; native slide-deck building. Progress is
-tracked in [brand/README.md](brand/README.md#porting-status). Until then, AI features
-are configured with upstream's providers in Settings.
+- **Oxeegen is the provider** in Settings → AI Model and AI Media & Search, with
+  **US / EU** buttons that fill in the endpoint. Only the API key needs pasting.
+  Upgrading from 0.9.431 keeps your key, endpoint and model.
+- **Model picker in every editor.** The top of each AI panel (Docs, Sheets, Slides,
+  PDF, Markdown, HTML) switches between Oxee Max, Pro, Flash and Instant; the choice
+  applies in every open tab.
+- **Web and image search on Brave**, behind the Oxeegen search entry.
+- **Image generation on OpenAI** `gpt-image-2`; image and video analysis on Oxeegen
+  (Pro, Flash, Instant).
+- **Slide decks are built by Oxeegen** from a prompt, entirely on your machine.
+- **No Genspark sign-in, account page, credits or cloud tools**, and nothing connects
+  to Genspark — including a Genspark login present elsewhere on the computer.
+- **No usage analytics**; the first-run slides and Settings no longer mention them.
+- **Wider Markdown page**, so tables no longer squeeze into tall, narrow cells.
+
+Not in this release: renaming the `genoffice` command line, MCP server and agent
+skill to `oxeeoffice` (planned for 0.10.489), and the tab-bar theme toggle from
+earlier builds.
 
 ---
 
