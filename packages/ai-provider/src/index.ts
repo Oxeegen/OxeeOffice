@@ -98,5 +98,6 @@ export {
   OXEEGEN_DEFAULT_MODEL,
   OXEEGEN_REGIONS,
   OXEEGEN_VISION_MODELS,
+  oxeegenGenerationSettings,
   oxeegenLayerEnabled,
 } from './oxeegen'

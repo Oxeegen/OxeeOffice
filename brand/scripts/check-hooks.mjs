@@ -190,6 +190,11 @@ const HOOKS = [
     { file: `apps/${app}/src/shared/ipc.ts`, why: 'picker can save (type)', must: ['setAiSettings(settings: unknown): Promise<void>'] },
   ]),
   {
+    file: 'apps/slides/src/renderer/ai/AiPanel.tsx',
+    why: 'deck pages generate on Oxee-pro when the chat model is Oxee-max',
+    must: ['const oxee = oxeegenGenerationSettings(cur)'],
+  },
+  {
     file: 'apps/markdown/src/renderer/styles.css',
     why: 'wider Markdown page',
     must: ['/* OxeeOffice brand hook: 860px squeezed tables into tall, narrow cells */\n  max-width: 90%;'],
