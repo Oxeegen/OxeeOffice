@@ -161,17 +161,19 @@ test.describe('markdown editor', () => {
       await expect(editor.locator('strong')).toHaveText('Hello style')
 
       // quick-access row: save button writes the file, undo reverts the mark
-      const qaButtons = editorPage.locator('.ribbon-tabs .qa-btn')
-      await qaButtons.nth(0).click()
+      const qaRow = editorPage.locator('.ribbon-tabs')
+      const saveButton = qaRow.locator('.qa-btn').first()
+      const undoButton = qaRow.getByLabel(/^Undo/)
+      await saveButton.click()
       await expect(editorPage.locator('.status-save')).toHaveText(/Saved/)
       const saved = await readFile(mdPath, 'utf8')
       expect(saved).toContain('**Hello style**')
 
-      await qaButtons.nth(1).click()
+      await undoButton.click()
       await expect(editor.locator('strong')).toHaveCount(0)
 
       // save again so the window closes without a dirty-document prompt
-      await qaButtons.nth(0).click()
+      await saveButton.click()
       await expect.poll(() => readFile(mdPath, 'utf8')).not.toContain('**')
     } finally {
       await closeAndSaveVideo(launched, 'markdown-bold-qat')

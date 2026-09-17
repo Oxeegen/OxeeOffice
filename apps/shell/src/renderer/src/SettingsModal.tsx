@@ -8,7 +8,7 @@ import {
   aiPanelFontPx,
   clampAiCustomFontSize,
 } from '@genoffice/ui'
-import type { AiFontSize, AiPanelPrefs } from '@genoffice/ui'
+import type { AiFontSize, AiPanelPrefs, AiPanelSide } from '@genoffice/ui'
 import {
   DEFAULT_MAX_OUTPUT_TOKENS,
   MAX_MAX_OUTPUT_TOKENS,
@@ -1236,6 +1236,21 @@ export function SettingsModal({
                       label: t(opt.labelKey),
                     }))}
                     onPick={(v) => applyTheme(v as UiTheme)}
+                  />
+                </div>
+                <div className="set-field">
+                  <div className="set-field-text">
+                    <label className="set-field-label">{t('setAiPanelSide')}</label>
+                  </div>
+                  <Dropdown
+                    className="set-dd"
+                    value={aiPrefs.side}
+                    ariaLabel={t('setAiPanelSide')}
+                    options={[
+                      { value: 'left', label: t('aiPanelSideLeft') },
+                      { value: 'right', label: t('aiPanelSideRight') },
+                    ]}
+                    onPick={(side) => updateAiPrefs({ side: side as AiPanelSide })}
                   />
                 </div>
                 <div className="set-field">

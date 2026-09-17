@@ -35,11 +35,13 @@ describe('defaultAiSettings', () => {
 })
 
 describe('provider model catalog', () => {
-  it('offers DeepSeek Vision Exp only through the direct BYOK provider', () => {
+  it('offers DeepSeek V4.1 Flash directly and drops the retired Vision Exp id', () => {
     const genspark = AI_PROVIDERS.find((provider) => provider.id === 'genspark')!
     const deepseek = AI_PROVIDERS.find((provider) => provider.id === 'deepseek')!
 
-    expect(deepseek.models).toContain('deepseek-v4-flash-vision-exp')
+    expect(deepseek.models).toContain('deepseek-flash')
+    expect(deepseek.models).not.toContain('deepseek-v4-flash')
+    expect(deepseek.models).not.toContain('deepseek-v4-flash-vision-exp')
     expect(genspark.models).not.toContain('deep-seek-v4-flash')
     expect(genspark.models).not.toContain('deep-seek-v4-flash-vision-exp-openrouter')
   })
@@ -66,6 +68,15 @@ describe('provider model catalog', () => {
     expect(requesty.models).toContain(requesty.defaultModel)
     expect(requesty.needsBaseUrl).toBeUndefined()
     for (const model of requesty.models) {
+      expect(model).not.toContain('/')
+    }
+  })
+
+  it('seeds Opper with pool ids (bare names, no vendor prefix)', () => {
+    const opper = AI_PROVIDERS.find((provider) => provider.id === 'opper')!
+    expect(opper.models).toContain(opper.defaultModel)
+    expect(opper.needsBaseUrl).toBeUndefined()
+    for (const model of opper.models) {
       expect(model).not.toContain('/')
     }
   })
@@ -126,7 +137,17 @@ describe('resolveAiSettings', () => {
       },
       defaultAiSettings(),
     )
-    expect(resolved.providers.deepseek).toEqual({ apiKey: 'sk-user', model: 'deepseek-v4-flash' })
+    expect(resolved.providers.deepseek).toEqual({ apiKey: 'sk-user', model: 'deepseek-flash' })
+  })
+
+  it('rewrites the retired V4 Flash id and the Genspark pool spelling to deepseek-flash', () => {
+    for (const model of ['deepseek-v4-flash', 'deep-seek-v4.1-flash']) {
+      const resolved = resolveAiSettings(
+        { providers: { deepseek: { apiKey: 'sk-user', model } } as never },
+        defaultAiSettings(),
+      )
+      expect(resolved.providers.deepseek.model).toBe('deepseek-flash')
+    }
   })
 
   it('rewrites genspark model ids the proxy no longer serves', () => {
@@ -189,7 +210,7 @@ describe('resolveAiSettings', () => {
       },
       defaultAiSettings(),
     )
-    expect(resolved.providers.deepseek.model).toBe('deepseek-v4-flash')
+    expect(resolved.providers.deepseek.model).toBe('deepseek-flash')
   })
 
   it('trims the legacy single-endpoint key and base URL too', () => {

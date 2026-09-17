@@ -48,8 +48,8 @@ export interface FormatFamily {
 }
 
 /**
- * The editor's format matrix. Order is presentation order: the edit-in-place
- * families first (docs has an MCP session today), then the editor-only ones.
+ * The editor's format matrix. Order is presentation order: the three edit-in-place
+ * families first (they have MCP sessions), then the editor-only ones.
  */
 export const FORMAT_FAMILIES: readonly FormatFamily[] = [
   {
@@ -64,8 +64,12 @@ export const FORMAT_FAMILIES: readonly FormatFamily[] = [
     family: 'xlsx',
     label: 'spreadsheet',
     editorOpen: ['xlsx', 'xlsm', 'xls', 'csv'],
+    // the interactive Save As also offers .xlsm/.csv; the explicit-path save the
+    // MCP bridge uses writes .xlsx only (sheets-main.ts forces the extension),
+    // so mcp.save stays xlsx until that pipeline is widened
     editorSave: ['xlsx', 'xlsm', 'csv'],
     editorExport: ['pdf'],
+    mcp: { generate: 'xlsx', save: ['xlsx'] },
   },
   {
     family: 'pptx',
@@ -98,6 +102,9 @@ export const FORMAT_FAMILIES: readonly FormatFamily[] = [
     editorSave: ['pdf'],
     // the PDF app converts on-device to the three editable formats
     editorExport: ['docx', 'xlsx', 'pptx'],
+    // read-only by design: the pdf app is a viewer, MCP exposes text
+    // extraction only and does not drive the editor
+    mcp: { read: 'pdf' },
   },
 ]
 

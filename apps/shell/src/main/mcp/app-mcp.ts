@@ -2,8 +2,16 @@ import { McpServerService, DEFAULT_MCP_PORT, type McpToolDefinition } from './mc
 import { McpLogger } from './mcp-logger'
 import type { CliRunner } from './cli-runner'
 import { createDocumentTools, documentDriver, type DocsControl } from './tools/document-tools'
+import { createPdfTools } from './tools/pdf-tools'
 import { createSlidesTools, slidesDriver, type SlidesControl } from './tools/slides-tools'
-import { createSessionHost, createSessionTools, type FamilyDriver } from './tools/session-tools'
+import { createSheetsTools, sheetsDriver, type SheetsControl } from './tools/sheets-tools'
+import {
+  createSessionHost,
+  createSessionTools,
+  type FamilyDriver,
+  type TargetResolver,
+} from './tools/session-tools'
+import { createOpenDocumentTools, type OpenDocumentsControl } from './tools/open-documents-tools'
 
 /**
  * Main-process wiring for the MCP server.
@@ -25,8 +33,22 @@ export interface McpRuntimeDeps {
   docsControl?: DocsControl
   /** drive a visible slides deck (main-process session); absent in headless runs */
   slidesControl?: SlidesControl
+  /** drive a visible sheets grid (renderer workbook session); absent in headless runs */
+  sheetsControl?: SheetsControl
   /** the bundled genoffice CLI, backing the headless create/read tools; absent when unavailable */
   cliRunner?: CliRunner
+  /**
+   * documents the user has open (list/read/close); absent in headless runs,
+   * where there is no tab manager to ask
+   */
+  openDocumentsControl?: OpenDocumentsControl
+  /**
+   * resolves a `document` argument (tab id or path) to the webContents of that
+   * open tab, so the content tools can edit what the user is looking at instead
+   * of only the session's own blank tab; absent in headless runs, which drops
+   * the argument from the tool schemas
+   */
+  resolveTarget?: TargetResolver
   /** where the MCP log file lives (userData); logging is unavailable without it */
   logFilePath?: string
 }
@@ -94,7 +116,10 @@ export function revealMcpLogFile(): void {
 function buildTools(): McpToolDefinition[] {
   if (!deps) throw new Error('MCP runtime not configured')
   // get_app_info advertises what the registered tool families can generate
-  const extraFormats = [...(deps.slidesControl ? ['pptx'] : [])]
+  const extraFormats = [
+    ...(deps.slidesControl ? ['pptx'] : []),
+    ...(deps.sheetsControl ? ['xlsx'] : []),
+  ]
   // one session host per tool set: create_session / save_session drive whichever
   // family is active, and each family's content tools address that same tab.
   // buildTools runs once per client session (see the server's toolsFactory), so
@@ -103,6 +128,7 @@ function buildTools(): McpToolDefinition[] {
   const drivers: FamilyDriver[] = [
     ...(deps.docsControl ? [documentDriver(deps.docsControl)] : []),
     ...(deps.slidesControl ? [slidesDriver(deps.slidesControl)] : []),
+    ...(deps.sheetsControl ? [sheetsDriver(deps.sheetsControl)] : []),
   ]
   const cli = deps.cliRunner
   return [
@@ -124,6 +150,7 @@ function buildTools(): McpToolDefinition[] {
         docs: deps.docsControl,
         extraFormats,
         ...(cli ? { cli } : {}),
+        ...(deps.resolveTarget ? { resolveTarget: deps.resolveTarget } : {}),
       },
       host,
     ),
@@ -133,9 +160,28 @@ function buildTools(): McpToolDefinition[] {
         background: currentSettings.background,
         slides: deps.slidesControl,
         ...(cli ? { cli } : {}),
+        ...(deps.resolveTarget ? { resolveTarget: deps.resolveTarget } : {}),
       },
       host,
     ),
+    ...createSheetsTools(
+      {
+        defaultSaveDir: deps.defaultSaveDir,
+        background: currentSettings.background,
+        sheets: deps.sheetsControl,
+        ...(cli ? { cli } : {}),
+        ...(deps.resolveTarget ? { resolveTarget: deps.resolveTarget } : {}),
+      },
+      host,
+    ),
+    // headless, session-free read access (read_pdf); registered whenever the
+    // pdf workspace is bundled in, which the shell always does
+    ...createPdfTools(),
+    // documents the user has open, independent of the session above
+    ...createOpenDocumentTools({
+      defaultSaveDir: deps.defaultSaveDir,
+      ...(deps.openDocumentsControl ? { control: deps.openDocumentsControl } : {}),
+    }),
   ]
 }
 
@@ -207,7 +253,14 @@ export function mcpStatus(): McpStatus {
     background: currentSettings.background,
     logging: currentSettings.logging,
     url: running ? service!.getUrl() : null,
-    capabilities: ['docs', ...(deps?.slidesControl ? ['slides'] : [])],
+    capabilities: [
+      'docs',
+      ...(deps?.slidesControl ? ['slides'] : []),
+      ...(deps?.sheetsControl ? ['sheets'] : []),
+      // read_pdf is headless and always registered, so the family is always
+      // visible (read-only until the pdf editor is driven)
+      'pdf',
+    ],
   }
 }
 

@@ -1,3 +1,4 @@
+export { AiPanelSideButton } from './AiPanelSideButton'
 export { AiComposer } from './AiComposer'
 export { AiScopeQuote, type AiScopeQuoteData } from './AiScopeQuote'
 export {
@@ -12,8 +13,9 @@ export {
   normalizeAiPanelPrefs,
   type AiFontSize,
   type AiPanelPrefs,
+  type AiPanelSide,
 } from './ai-panel-prefs'
-export { applyAiPanelPrefs, useAiPanelPrefs } from './ai-panel-prefs-store'
+export { applyAiPanelPrefs, useAiPanelPrefs, aiPanelWidthAtPointer } from './ai-panel-prefs-store'
 export {
   ColorPicker,
   THEME_COLORS,
@@ -93,18 +95,6 @@ export {
   type AutoSaveDefault,
   type AutoSaveDefaultApi,
 } from './auto-save-pref'
-export { FilesPane, FilesEdgeTab, type FilesPaneProps } from './files-pane/FilesPane'
-export { filesPaneTitle } from './files-pane/strings'
-export type {
-  FileEntry,
-  FileOpResult,
-  FilesPaneApi,
-  FolderEntry,
-  FolderListing,
-  FolderRoot,
-  MoveConflictPolicy,
-  MoveResult,
-} from './files-pane/types'
 // OxeeOffice brand hook: model picker and Oxee mark (fork-owned files)
 export {
   modelDisplayName,

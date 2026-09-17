@@ -52,6 +52,7 @@ export const es = {
   fmtItalic: 'Cursiva',
   openExternal: 'Enlace abierto en el navegador',
   save: 'Guardar (⌘S)',
+  saveAs: 'Guardar como…',
   ribbonCollapse: 'Contraer la cinta de opciones',
   ribbonPin: 'Anclar la cinta de opciones',
   ribbonExpand: 'Expandir la cinta de opciones',

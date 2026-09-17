@@ -18,8 +18,10 @@ import type { DocsControl, McpEditorCommandName } from './tools/document-tools'
  * are dropped on lookup.
  */
 
-// a fresh docs tab boots its renderer and fonts; measured 0.6-8s, occasionally far longer
-const READY_TIMEOUT_MS = 60_000
+// a fresh docs tab boots its renderer and fonts; measured 0.6-8s, occasionally
+// far longer. Capped under the MCP client's own tool timeout (30s) so the
+// caller gets this reason instead of a bare "timed out" from the client.
+const READY_TIMEOUT_MS = 24_000
 const COMMAND_TIMEOUT_MS = 120_000
 
 interface PendingCommand {
@@ -140,6 +142,8 @@ export interface DocsBridgeDeps {
   openBlankTab: () => number
   /** grant the tab's renderer write access to the resolved save target (docs:save-to checks it) */
   authorizeSave: (wcId: number, filePath: string) => void
+  /** close a blank tab whose session never became ready, so a failed create_session leaves no orphan */
+  abandonBlankTab?: (wcId: number) => void
 }
 
 export function createDocsControl(deps: DocsBridgeDeps): DocsControl {
@@ -177,7 +181,12 @@ export function createDocsControl(deps: DocsBridgeDeps): DocsControl {
     // call never races the renderer boot
     openBlankTab: async () => {
       const wcId = deps.openBlankTab()
-      await waitForReady(wcId)
+      try {
+        await waitForReady(wcId)
+      } catch (error) {
+        deps.abandonBlankTab?.(wcId)
+        throw error
+      }
       return wcId
     },
     runCommand,

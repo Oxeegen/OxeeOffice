@@ -47,6 +47,7 @@ export const zh = {
   fmtItalic: '斜体',
   openExternal: '已在浏览器中打开链接',
   save: '保存 (⌘S)',
+  saveAs: '另存为…',
   ribbonCollapse: '折叠功能区',
   ribbonPin: '固定功能区',
   ribbonExpand: '展开功能区',

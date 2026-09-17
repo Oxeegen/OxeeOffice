@@ -50,6 +50,7 @@ export const ko = {
   fmtItalic: '기울임',
   openExternal: '브라우저에서 링크를 열었습니다',
   save: '저장 (⌘S)',
+  saveAs: '다른 이름으로 저장…',
   ribbonCollapse: '리본 축소',
   ribbonPin: '리본 고정',
   ribbonExpand: '리본 확장',

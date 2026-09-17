@@ -3,7 +3,8 @@ import { outlineToOps, parsePptxOutline, type PptxSourceFormat } from '../pptx-o
 import { createPptxViaCli } from '../headless-cli'
 import { resolveOutputPath } from './document-tools'
 import { generateExtension } from './formats'
-import type { FamilyDriver, SessionHost } from './session-tools'
+import type { FamilyDriver, SessionHost, TargetResolver } from './session-tools'
+import { contentTarget } from './session-tools'
 import type { McpToolDefinition } from '../mcp-server'
 import type { CliRunner } from '../cli-runner'
 
@@ -29,6 +30,13 @@ export interface SlidesToolDeps {
   slides?: SlidesControl
   /** the bundled genoffice CLI, used by the headless tool */
   cli?: CliRunner
+  /**
+   * Resolve a caller-supplied document reference (tab id or path) to the
+   * webContents of that open tab, so the deck tools can edit a presentation the
+   * *user* has open rather than only the session's own blank one. Absent in
+   * headless/unit runs, where a `document` argument is refused.
+   */
+  resolveTarget?: TargetResolver
 }
 
 /** transaction request for the visible deck (executor semantics, ops are EMU-space) */
@@ -143,7 +151,15 @@ function createDeckContentTools(deps: SlidesToolDeps, host: SessionHost): McpToo
   const slides = deps.slides
   if (!slides) return []
 
-  const requireActive = (): number => host.require('pptx')
+  const target = contentTarget(host, deps.resolveTarget, 'pptx')
+  const documentField = z
+    .string()
+    .optional()
+    .describe(
+      "tab id or path of an open presentation to edit instead of the session's own tab " +
+        '(from open_documents {action:"list"}); the edit lands in that live deck, and a ' +
+        'mutating tool switches the UI to that tab first so the user sees it happen',
+    )
 
   return [
     {
@@ -152,8 +168,8 @@ function createDeckContentTools(deps: SlidesToolDeps, host: SessionHost): McpToo
         'Read the visible presentation: every slide with its elements (ids, types, text, geometry) ' +
         'so you can target follow-up edits. Element ids and slide indexes are what apply_slide_ops ' +
         'addresses; geometry is document-space EMU (1 px = 9525 EMU on a standard 16:9 deck).',
-      inputSchema: {},
-      handler: async () => slides.readDeck(requireActive()),
+      inputSchema: { document: documentField },
+      handler: async (args) => slides.readDeck(await target(args.document)),
     },
     {
       name: 'apply_slide_ops',
@@ -176,9 +192,10 @@ function createDeckContentTools(deps: SlidesToolDeps, host: SessionHost): McpToo
           .boolean()
           .optional()
           .describe('validate and plan the batch without changing the deck'),
+        document: documentField,
       },
       handler: async (args) => {
-        const wc = requireActive()
+        const wc = await target(args.document, { focus: true })
         const result = (await slides.runTxn(wc, {
           ops: (Array.isArray(args.ops) ? args.ops : []) as unknown[],
           isolation:

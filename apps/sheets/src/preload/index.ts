@@ -14,6 +14,7 @@ import type {
   AttachmentMeta,
   AttachmentReadResult,
   DesktopApi,
+  McpCommandMessage,
   RecoveryPromptPayload,
   ScreenCaptureResult,
   ScreenSourcesResult,
@@ -53,7 +54,6 @@ import {
   SAVE_EDITS_CHUNK_JSON_MAX,
 } from '../shared/ipc-channels'
 import { installDropOpenBridge } from '@genoffice/electron-utils/drop-open'
-import { installFilesPaneBridge } from '@genoffice/electron-utils/files-pane-bridge'
 
 const desktopApi: DesktopApi = {
   getLanguage: () => ipcRenderer.invoke('app:get-language'),
@@ -78,6 +78,7 @@ const desktopApi: DesktopApi = {
     return () => ipcRenderer.removeListener('app:auto-save-default-changed', listener)
   },
   getAiPanelPrefs: () => ipcRenderer.invoke('app:get-ai-panel-prefs'),
+  setAiPanelPrefs: (patch) => ipcRenderer.invoke('app:set-ai-panel-prefs', patch),
   onAiPanelPrefsChanged: (handler) => {
     const listener = (_event: Electron.IpcRendererEvent, prefs: AiPanelPrefs) => handler(prefs)
     ipcRenderer.on('app:ai-panel-prefs-changed', listener)
@@ -526,6 +527,26 @@ const desktopApi: DesktopApi = {
     const result: unknown = await ipcRenderer.invoke('sheets:consume-new-blank')
     return result === true
   },
+  onMcpCommand(callback) {
+    const listener = (_event: unknown, message: unknown): void => {
+      if (
+        isRecord(message) &&
+        typeof message.requestId === 'string' &&
+        typeof message.command === 'string'
+      ) {
+        callback(message as unknown as McpCommandMessage)
+      }
+    }
+    ipcRenderer.on(IPC_CHANNELS.mcpCommand, listener)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.mcpCommand, listener)
+  },
+  reportMcpResult(result) {
+    if (!isRecord(result) || typeof result.requestId !== 'string') return
+    ipcRenderer.send(IPC_CHANNELS.mcpResult, result)
+  },
+  signalMcpReady() {
+    ipcRenderer.send(IPC_CHANNELS.mcpReady)
+  },
   async hasQueuedWorkbook() {
     const result: unknown = await ipcRenderer.invoke('sheets:has-queued-workbook')
     return result === true
@@ -666,8 +687,6 @@ if (process.env.GENOFFICE_DEBUG_HOOKS === '1') {
 
 // open documents dragged from the OS onto this tab as a new shell tab
 installDropOpenBridge()
-// folder tree over the default save folder (Files pane)
-installFilesPaneBridge()
 
 function parseWorkbookFile(input: unknown): WorkbookFile {
   if (!isRecord(input)) throw new Error('Invalid workbook response.')
@@ -1697,6 +1716,15 @@ function parseSaveRequest(input: WorkbookSaveRequest): WorkbookSaveRequest {
   if (input.mode !== 'save' && input.mode !== 'save-as') invalid('mode')
   if (input.restoreWriteBack !== undefined && typeof input.restoreWriteBack !== 'boolean')
     invalid('restore flag')
+  if (
+    input.targetPath !== undefined &&
+    (typeof input.targetPath !== 'string' ||
+      input.targetPath.length === 0 ||
+      input.targetPath.length > 1024)
+  )
+    invalid('target path')
+  if (input.overwrite !== undefined && typeof input.overwrite !== 'boolean')
+    invalid('overwrite flag')
   if (
     input.csvContent !== undefined &&
     (typeof input.csvContent !== 'string' || input.csvContent.length > MAX_CSV_EXPORT_CHARS)

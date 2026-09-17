@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { parseChartXml } from '../src/chart'
 import { buildChartSpaceXml } from '../src/chart-insert'
+import { addChart, addElement, createBlankPptx, openPptx, savePptx } from '../src/index'
 
 const LINE_CHART = `<?xml version="1.0"?><c:chartSpace xmlns:c="c" xmlns:a="a"><c:chart><c:plotArea><c:layout/>
 <c:lineChart><c:ser>
@@ -609,6 +610,122 @@ describe('date axis and stacked area', () => {
     const m = parseChartXml(AREA)!
     expect(m.categories).toEqual(['1/5/2002', '1/6/2002'])
   })
+
+  const withDateSystem = (flag: string) => AREA.replace('<c:chart>', `${flag}<c:chart>`)
+
+  it.each([
+    '<c:date1904 val="1"/>',
+    '<c:date1904 val="true"/>',
+    '<c:date1904 val="True"/>',
+    '<c:date1904 val="on"/>',
+    "<c:date1904 val='1'/>",
+    '<c:date1904/>',
+  ])('uses the 1904 date system for %s', (flag) => {
+    const m = parseChartXml(withDateSystem(flag))!
+    expect(m.categories).toEqual(['1/6/2006', '1/7/2006'])
+    expect(m.series[0]!.values).toEqual([1, 2])
+  })
+
+  it.each([
+    '',
+    '<c:date1904 val="0"/>',
+    '<c:date1904 val="false"/>',
+    '<c:date1904 val="False"/>',
+    '<c:date1904 val="off"/>',
+  ])('preserves the 1900 date system for %s', (flag) => {
+    expect(parseChartXml(withDateSystem(flag))!.categories).toEqual(['1/5/2002', '1/6/2002'])
+  })
+
+  it.each([
+    ['0', '1', 'm/d/yyyy', ['1/1/1904', '1/2/1904']],
+    ['59', '60', 'yyyy-mm-dd', ['1904-02-29', '1904-03-01']],
+    ['24107', '24108', 'dd-mmm-yy', ['01-Jan-70', '02-Jan-70']],
+  ])('formats 1904 serials %s and %s with %s', (first, second, format, expected) => {
+    const xml = withDateSystem('<c:date1904 val="1"/>')
+      .replace('37261', first)
+      .replace('37262', second)
+      .replace('m/d/yyyy', format)
+    expect(parseChartXml(xml)!.categories).toEqual(expected)
+  })
+
+  it.each([
+    'barChart',
+    'bar3DChart',
+    'lineChart',
+    'line3DChart',
+    'areaChart',
+    'area3DChart',
+    'pieChart',
+    'pie3DChart',
+    'doughnutChart',
+    'radarChart',
+    'stockChart',
+  ])('uses the chart date system for %s categories', (plot) => {
+    const xml = withDateSystem('<c:date1904 val="true"/>').replaceAll('c:areaChart', `c:${plot}`)
+    expect(parseChartXml(xml)!.categories).toEqual(['1/6/2006', '1/7/2006'])
+  })
+
+  it('uses the chart date system when a combo gets categories from a later plot', () => {
+    const xml = withDateSystem('<c:date1904/>').replace(
+      '<c:areaChart>',
+      '<c:barChart><c:ser><c:idx val="1"/><c:val><c:numLit><c:ptCount val="2"/><c:pt idx="0"><c:v>3</c:v></c:pt><c:pt idx="1"><c:v>4</c:v></c:pt></c:numLit></c:val></c:ser></c:barChart><c:areaChart>',
+    )
+    const m = parseChartXml(xml)!
+    expect(m.categories).toEqual(['1/6/2006', '1/7/2006'])
+    expect(m.series.map((s) => s.plotKind)).toEqual(['bar', 'area'])
+    expect(m.series.map((s) => s.values)).toEqual([
+      [3, 4],
+      [1, 2],
+    ])
+  })
+
+  it('leaves non-date numeric and string categories unchanged', () => {
+    const numeric = withDateSystem('<c:date1904/>').replace('m/d/yyyy', '0.00')
+    expect(parseChartXml(numeric)!.categories).toEqual(['37261', '37262'])
+    const strings = LINE_CHART.replace('<c:chart>', '<c:date1904/><c:chart>')
+    expect(parseChartXml(strings)).toEqual(parseChartXml(LINE_CHART))
+  })
+
+  it('preserves sparse category indices and nonnumeric cached values', () => {
+    const xml = withDateSystem('<c:date1904/>').replace(
+      '<c:ptCount val="2"/><c:pt idx="0"><c:v>37261</c:v></c:pt><c:pt idx="1"><c:v>37262</c:v></c:pt>',
+      '<c:ptCount val="4"/><c:pt idx="3"><c:v>#N/A</c:v></c:pt><c:pt idx="1"><c:v>37261</c:v></c:pt>',
+    )
+    expect(parseChartXml(xml)!.categories).toEqual(['', '1/6/2006', '', '#N/A'])
+  })
+
+  it.each(['<c:date1904 val="1"/>', '<c:date1904/>'])(
+    'preserves chart bytes and formatted dates through no-op and edited saves with %s',
+    async (flag) => {
+      const opened = await openPptx(await createBlankPptx())
+      const offset = { x: 914400, y: 914400, cx: 6096000, cy: 3657600 }
+      addChart(opened, 0, {
+        kind: 'area',
+        categories: ['A', 'B'],
+        series: [{ name: 'S', values: [1, 2] }],
+        offset,
+      })
+      const staged = await openPptx(await savePptx(opened))
+      const chartPart = [...staged.archive.entries.keys()].find((p) =>
+        /^ppt\/charts\/chart\d+\.xml$/.test(p),
+      )!
+      const chartBytes = new TextEncoder().encode(withDateSystem(flag))
+      staged.archive.entries.set(chartPart, chartBytes)
+      const reopened = await openPptx(await savePptx(staged))
+      const chart = reopened.deck.slides[0]!.elements.find((e) => e.type === 'chart')!
+      expect(chart.chart.categories).toEqual(['1/6/2006', '1/7/2006'])
+      const frameXml = chart.anchor.originalXml
+
+      const noOp = await openPptx(await savePptx(reopened))
+      expect(noOp.archive.readBytes(chartPart)).toEqual(chartBytes)
+      addElement(noOp.deck.slides[0]!, { kind: 'rect', offset: { ...offset, y: 5000000 } })
+      const saved = await openPptx(await savePptx(noOp))
+      expect(saved.archive.readBytes(chartPart)).toEqual(chartBytes)
+      const savedChart = saved.deck.slides[0]!.elements.find((e) => e.type === 'chart')!
+      expect(savedChart.anchor.originalXml).toBe(frameXml)
+      expect(savedChart.chart.categories).toEqual(['1/6/2006', '1/7/2006'])
+    },
+  )
 
   it('area charts carry their grouping; c:dateAx parses as the category axis', () => {
     const m = parseChartXml(AREA)!

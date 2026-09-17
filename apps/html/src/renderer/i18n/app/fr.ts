@@ -52,6 +52,7 @@ export const fr = {
   fmtItalic: 'Italique',
   openExternal: 'Lien ouvert dans le navigateur',
   save: 'Enregistrer (⌘S)',
+  saveAs: 'Enregistrer sous…',
   ribbonCollapse: 'Réduire le ruban',
   ribbonPin: 'Épingler le ruban',
   ribbonExpand: 'Développer le ruban',

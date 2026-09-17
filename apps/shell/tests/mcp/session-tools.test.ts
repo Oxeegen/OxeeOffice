@@ -63,22 +63,22 @@ describe('createSessionTools', () => {
   it('begins a session and saves it to the active family driver, then ends it', async () => {
     const host = createSessionHost()
     const saved: Array<{ wcId: number; path: string; overwrite: boolean }> = []
-    const docx: FamilyDriver = {
-      ...driver('docx', 11),
+    const pptx: FamilyDriver = {
+      ...driver('pptx', 11),
       save: async (wcId, path, overwrite) => {
         saved.push({ wcId, path, overwrite })
         return { ok: true, path }
       },
     }
-    const [create, save] = createSessionTools([docx], host)
+    const [create, save] = createSessionTools([pptx], host)
 
-    const created = (await create!.handler({ family: 'docx' })) as { sessionId: number }
+    const created = (await create!.handler({ family: 'pptx' })) as { sessionId: number }
     expect(created.sessionId).toBe(11)
-    expect(host.current()?.family).toBe('docx')
+    expect(host.current()?.family).toBe('pptx')
 
-    const result = await save!.handler({ path: '/tmp/out.docx', overwrite: true })
-    expect(result).toEqual({ ok: true, path: '/tmp/out.docx' })
-    expect(saved).toEqual([{ wcId: 11, path: '/tmp/out.docx', overwrite: true }])
+    const result = await save!.handler({ path: '/tmp/out.pptx', overwrite: true })
+    expect(result).toEqual({ ok: true, path: '/tmp/out.pptx' })
+    expect(saved).toEqual([{ wcId: 11, path: '/tmp/out.pptx', overwrite: true }])
     expect(host.current()).toBeNull()
   })
 
@@ -130,5 +130,52 @@ describe('createSessionTools', () => {
     await create!.handler({ family: 'docx' })
     await save!.handler({ path: '/tmp/notes' })
     expect(saved).toEqual(['/tmp/notes.docx'])
+  })
+
+  // Drivers disagree on the success shape (docs returns {ok,path}, slides just
+  // {path}). An agent checking `ok` across families would read the slides save
+  // as a failure, so the shared tool normalizes it.
+  it('reports ok:true even when the driver omits it', async () => {
+    const host = createSessionHost()
+    const pptx: FamilyDriver = {
+      ...driver('pptx', 11),
+      save: async (_wcId, path) => ({ path }),
+    }
+    const [create, save] = createSessionTools([pptx], host)
+    await create!.handler({ family: 'pptx' })
+    await expect(save!.handler({ path: '/tmp/deck.pptx' })).resolves.toMatchObject({
+      ok: true,
+      path: '/tmp/deck.pptx',
+    })
+  })
+
+  // A driver may report a failed write as data instead of throwing — sheets
+  // forwards the renderer's SaveOutcome `{ok:false}`. Returning that verbatim
+  // and ending the session told the agent the file was written, then left it
+  // with no session to retry against.
+  it('raises a tool error when the driver reports a failed save, keeping the session', async () => {
+    const host = createSessionHost()
+    const xlsx: FamilyDriver = {
+      ...driver('xlsx', 12),
+      save: async () => ({ ok: false, reason: 'the workbook could not be written' }),
+    }
+    const [create, save] = createSessionTools([xlsx], host)
+    await create!.handler({ family: 'xlsx' })
+
+    await expect(save!.handler({ path: '/tmp/out.xlsx' })).rejects.toThrow(
+      /could not be saved: the workbook could not be written/,
+    )
+    // the edits are still in the tab, so the caller can retry
+    expect(host.current()?.family).toBe('xlsx')
+  })
+
+  it('reports a bare failed save without inventing a reason', async () => {
+    const host = createSessionHost()
+    const xlsx: FamilyDriver = { ...driver('xlsx', 13), save: async () => ({ ok: false }) }
+    const [create, save] = createSessionTools([xlsx], host)
+    await create!.handler({ family: 'xlsx' })
+    await expect(save!.handler({ path: '/tmp/out.xlsx' })).rejects.toThrow(
+      /^the file could not be saved$/,
+    )
   })
 })

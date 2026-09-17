@@ -50,6 +50,7 @@ export const id = {
   fmtItalic: 'Miring',
   openExternal: 'Tautan dibuka di browser',
   save: 'Simpan (⌘S)',
+  saveAs: 'Simpan Sebagai…',
   ribbonCollapse: 'Ciutkan Pita',
   ribbonPin: 'Sematkan Pita',
   ribbonExpand: 'Perluas Pita',

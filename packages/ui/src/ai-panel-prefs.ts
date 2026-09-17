@@ -1,4 +1,5 @@
 export const AI_FONT_SIZES = ['default', 'large', 'xlarge', 'custom'] as const
+export type AiPanelSide = 'left' | 'right'
 export type AiFontSize = (typeof AI_FONT_SIZES)[number]
 
 /** Body text size of `.ai-chat` in every app's stylesheet; the presets scale from it */
@@ -14,6 +15,7 @@ const PRESET_ZOOM: Record<Exclude<AiFontSize, 'custom'>, number> = {
 
 /** AI panel display preferences, persisted by the shell in app-settings.json */
 export interface AiPanelPrefs {
+  readonly side: AiPanelSide
   readonly fontSize: AiFontSize
   /** Body text size in px, used only when `fontSize` is `'custom'` */
   readonly customFontSize: number
@@ -21,6 +23,7 @@ export interface AiPanelPrefs {
 }
 
 export const DEFAULT_AI_PANEL_PREFS: AiPanelPrefs = {
+  side: 'left',
   fontSize: 'default',
   customFontSize: AI_FONT_BASE_PX,
   spellcheck: true,
@@ -52,6 +55,7 @@ export function aiPanelZoom(prefs: AiPanelPrefs): number {
 
 export function sameAiPanelPrefs(a: AiPanelPrefs, b: AiPanelPrefs): boolean {
   return (
+    a.side === b.side &&
     a.fontSize === b.fontSize &&
     a.customFontSize === b.customFontSize &&
     a.spellcheck === b.spellcheck
@@ -62,6 +66,7 @@ export function sameAiPanelPrefs(a: AiPanelPrefs, b: AiPanelPrefs): boolean {
 export function normalizeAiPanelPrefs(raw: unknown): AiPanelPrefs {
   const obj = raw !== null && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
   return {
+    side: obj.side === 'right' ? 'right' : 'left',
     fontSize: isAiFontSize(obj.fontSize) ? obj.fontSize : DEFAULT_AI_PANEL_PREFS.fontSize,
     customFontSize:
       clampAiCustomFontSize(obj.customFontSize) ?? DEFAULT_AI_PANEL_PREFS.customFontSize,

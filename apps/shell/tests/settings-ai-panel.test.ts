@@ -38,7 +38,12 @@ async function click(button: HTMLButtonElement): Promise<void> {
 
 describe('Settings AI panel preferences', () => {
   it('shows the saved spellcheck state and persists the toggle as a patch', async () => {
-    let saved: AiPanelPrefs = { fontSize: 'large', customFontSize: 14, spellcheck: false }
+    let saved: AiPanelPrefs = {
+      fontSize: 'large',
+      customFontSize: 14,
+      spellcheck: false,
+      side: 'left',
+    }
     const setAiPanelPrefs = vi.fn(async (patch: Partial<AiPanelPrefs>) => {
       saved = { ...saved, ...patch }
       return saved
@@ -94,8 +99,78 @@ describe('Settings AI panel preferences', () => {
     expect(host.querySelector('.set-num-input')).toBeNull()
   })
 
+  it('shows the saved panel side and persists switching sides independently', async () => {
+    let saved: AiPanelPrefs = {
+      fontSize: 'large',
+      customFontSize: 14,
+      spellcheck: false,
+      side: 'right',
+    }
+    const setAiPanelPrefs = vi.fn(async (patch: Partial<AiPanelPrefs>) => {
+      saved = { ...saved, ...patch }
+      return saved
+    })
+    window.aiOffice = {
+      getTheme: async () => 'system',
+      getDefaultSaveDir: async () => '',
+      getAnalyticsEnabled: async () => true,
+      setAnalyticsEnabled: async () => true,
+      getAiPanelPrefs: async () => saved,
+      setAiPanelPrefs,
+      getUpdateChannel: async () => 'stable',
+      getAppVersion: async () => '1.0.0',
+      githubStars: async () => null,
+    } as unknown as HomeApi
+
+    await act(async () => {
+      root.render(
+        createElement(
+          LocaleProvider,
+          { initial: 'en' },
+          createElement(SettingsModal, {
+            status: null,
+            loggingOut: false,
+            loginWaiting: false,
+            loginUrl: null,
+            urlCopied: false,
+            onOpenLoginUrl: vi.fn(),
+            onCopyLoginUrl: vi.fn(),
+            onClose: vi.fn(),
+            onLogin: vi.fn(),
+            onLogout: vi.fn(),
+          }),
+        ),
+      )
+      await Promise.resolve()
+    })
+
+    const general = Array.from(host.querySelectorAll<HTMLButtonElement>('.set-nav-item')).find(
+      (button) => button.textContent?.includes('General'),
+    )
+    await click(general!)
+
+    const side = host.querySelector<HTMLButtonElement>('[aria-label="AI sidebar position"]')
+    expect(side).not.toBeNull()
+    expect(side?.textContent).toContain('Right')
+    await click(side!)
+    const left = Array.from(document.querySelectorAll<HTMLButtonElement>('[role="option"]')).find(
+      (option) => option.textContent === 'Left',
+    )
+    expect(left).toBeDefined()
+    await click(left!)
+    expect(setAiPanelPrefs).toHaveBeenLastCalledWith({ side: 'left' })
+    expect(saved.fontSize).toBe('large')
+    expect(saved.spellcheck).toBe(false)
+    expect(side?.textContent).toContain('Left')
+  })
+
   it('shows a px input for the custom size and persists in-range values as typed', async () => {
-    let saved: AiPanelPrefs = { fontSize: 'custom', customFontSize: 20, spellcheck: true }
+    let saved: AiPanelPrefs = {
+      fontSize: 'custom',
+      customFontSize: 20,
+      spellcheck: true,
+      side: 'left',
+    }
     const setAiPanelPrefs = vi.fn(async (patch: Partial<AiPanelPrefs>) => {
       saved = { ...saved, ...patch }
       return saved

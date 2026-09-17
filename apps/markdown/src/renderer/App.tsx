@@ -1,5 +1,11 @@
+import {
+  captureMarkdownSource,
+  roundTripMarkdownEnabled,
+  serializeMarkdown,
+  type MarkdownSourceSnapshot,
+} from './markdown/roundtripSerializer'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ImageViewer, useAutoSavePref, FilesPane, FilesEdgeTab } from '@genoffice/ui'
+import { ImageViewer, useAutoSavePref } from '@genoffice/ui'
 import {
   pollUntilReady,
   runHeadlessRendererExport,
@@ -13,10 +19,10 @@ import {
   buildFrontmatterRaw,
   frontmatterInner,
   parseDocText,
-  serializeDocText,
   stripLegacyFencedDivs,
   type DocEnvelope,
 } from './markdown/docText'
+import { buildSourceMap, spliceMarkdown, type SourceMap } from './markdown/sourceSplice'
 import { buildExtensions } from './editor/extensions'
 import { tiptapFindTarget } from './editor/findTarget'
 import { collectOutline, type OutlineItem } from './editor/outline'
@@ -35,7 +41,8 @@ import { EDIT_QUEUE_MAX, selectionForAnchor, type EditQueueItem } from './ai/edi
 import { addQueueAnchor, clearQueueAnchors, removeQueueAnchors } from './editor/aiQueueAnchors'
 import { DOCX_MAX_IMAGE_PX, exportDocxBytes } from './export/docxExport'
 import { buildPrintHtml } from './export/printHtml'
-import { mermaidSvgToPng, renderMermaid } from './editor/mermaid'
+import { diagramSvgToPng, renderDiagram } from './editor/diagrams'
+import type { DiagramLanguage } from './editor/diagrams'
 import { resolveImageSrc } from './editor/localImage'
 import type { ExportFormat, SaveMode } from '../shared/ipc'
 import { uiOp } from './editor/ops'
@@ -118,7 +125,7 @@ export function deriveAutoFileName(editor: Editor): string {
 }
 
 export default function App() {
-  const { t, lang } = useI18n()
+  const { t } = useI18n()
   const [status, setStatus] = useState<LoadStatus>('loading')
   const [filePath, setFilePath] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
@@ -137,7 +144,6 @@ export default function App() {
   const [showFind, setShowFind] = useState(false)
   const [findFocus, setFindFocus] = useState<FindFocusRequest>({ field: 'find', nonce: 0 })
   const [outlineOpen, setOutlineOpen] = useState(false)
-  const [filesOpen, setFilesOpen] = useState(() => localStorage.getItem('mdapp.showFiles') === '1')
   const [outlineWidth, setOutlineWidth] = useState(
     () => Number(localStorage.getItem('mdapp.outlineWidth')) || undefined,
   )
@@ -160,8 +166,18 @@ export default function App() {
   const statusRef = useRef<LoadStatus>('loading')
   const dirtyRef = useRef(false)
   const savingRef = useRef(false)
+  const [roundTripEnabled] = useState(roundTripMarkdownEnabled)
+  const originalSourceRef = useRef<MarkdownSourceSnapshot | undefined>(undefined)
   const envelopeRef = useRef<DocEnvelope>(EMPTY_ENVELOPE)
   const editorRef = useRef<Editor | null>(null)
+  // blocks of the text on disk paired with the editor's nodes; null until a
+  // file is loaded or saved, and whenever the pairing could not be established
+  const sourceMapRef = useRef<SourceMap | null>(null)
+  /** the body a save writes: unchanged blocks verbatim from disk, edited runs re-serialized */
+  const bodyMarkdown = (current: Editor): string => {
+    const map = sourceMapRef.current
+    return map ? spliceMarkdown(current, current.state.doc, map) : current.getMarkdown()
+  }
   const filePathRef = useRef<string | null>(null)
   const slashMenuRef = useRef<SlashMenuHandle>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -250,11 +266,16 @@ export default function App() {
           setImageBaseDir(dirOf(path))
           // the initial load must not be undoable — Cmd+Z right after opening
           // would otherwise blank the document (and Cmd+S overwrite the file)
+          const body = stripLegacyFencedDivs(envelope.body)
           editor
             .chain()
             .setMeta('addToHistory', false)
-            .setContent(stripLegacyFencedDivs(envelope.body), { contentType: 'markdown' })
+            .setContent(body, { contentType: 'markdown' })
             .run()
+          sourceMapRef.current = buildSourceMap(editor, editor.state.doc, body)
+          originalSourceRef.current = roundTripEnabled
+            ? captureMarkdownSource(raw, envelope, editor.state.doc)
+            : undefined
           setFilePath(path)
           const inner = frontmatterInner(envelope.frontmatter)
           setFmText(inner)
@@ -275,7 +296,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [editor])
+  }, [editor, roundTripEnabled])
 
   const onFrontmatterChange = useCallback(
     (inner: string) => {
@@ -297,15 +318,54 @@ export default function App() {
       // must keep the document dirty — compare doc identity after the await
       const docAtSave = current.state.doc
       const fmAtSave = envelopeRef.current.frontmatter
-      const body = current.getMarkdown()
-      const text = serializeDocText(envelopeRef.current, body)
+      const sourceAtSave = originalSourceRef.current
+      let body: string | undefined
+      const text = serializeMarkdown(
+        envelopeRef.current,
+        current.state.doc,
+        () => (body = bodyMarkdown(current)),
+        sourceAtSave,
+      )
       const imageSources = imageSourcesFromEditor(current)
       const result = await window.markdownApi.save({ text, imageSources, mode, suggestedName })
       if (result.ok && 'path' in result) {
         const unchanged =
           editorRef.current?.state.doc === docAtSave && envelopeRef.current.frontmatter === fmAtSave
+        // Save As can rewrite sources absent from the visual projection (e.g. HTML).
+        // Never reuse a snapshot containing paths from the previous location.
+        if (result.imageRewrites?.length) originalSourceRef.current = undefined
         if (result.imageRewrites?.length && editorRef.current) {
           applyImageRewrites(editorRef.current, result.imageRewrites)
+        }
+        // the next save splices against what is now on disk: after image
+        // rewrites that is writtenText paired with the rewritten document
+        if (result.writtenText === undefined) {
+          sourceMapRef.current = buildSourceMap(
+            current,
+            docAtSave,
+            body ?? stripLegacyFencedDivs(parseDocText(text).body),
+          )
+        } else {
+          sourceMapRef.current =
+            unchanged && editorRef.current
+              ? buildSourceMap(
+                  editorRef.current,
+                  editorRef.current.state.doc,
+                  stripLegacyFencedDivs(parseDocText(result.writtenText).body),
+                )
+              : null
+        }
+        if (
+          unchanged &&
+          sourceAtSave?.source === text &&
+          result.writtenText !== undefined &&
+          editorRef.current
+        ) {
+          originalSourceRef.current = captureMarkdownSource(
+            result.writtenText,
+            envelopeRef.current,
+            editorRef.current.state.doc,
+          )
         }
         setImageBaseDir(dirOf(result.path))
         setFilePath(result.path)
@@ -365,11 +425,11 @@ export default function App() {
         }
         return { base64: data.base64, mime: data.mime, widthPx: width, heightPx: height }
       }
-      const renderDiagram = async (source: string) => {
-        const result = await renderMermaid(source)
-        return result.ok ? mermaidSvgToPng(result.svg, DOCX_MAX_IMAGE_PX) : null
+      const rasterizeDiagram = async (source: string, language: DiagramLanguage) => {
+        const result = await renderDiagram(language, source)
+        return result.ok ? diagramSvgToPng(result.svg, DOCX_MAX_IMAGE_PX) : null
       }
-      const bytes = await exportDocxBytes(current.getJSON(), loadImage, renderDiagram)
+      const bytes = await exportDocxBytes(current.getJSON(), loadImage, rasterizeDiagram)
       const result = await window.markdownApi.exportDocx({
         base64: bytesToBase64(bytes),
         suggestedName,
@@ -471,9 +531,37 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    const offSave = window.markdownApi.onSaveRequest(
-      (mode) => void doSave(mode).then((ok) => window.markdownApi.sendSaveRequestAck(ok)),
-    )
+    const offSave = window.markdownApi.onSaveRequest((mode) => {
+      void (async () => {
+        // same as the close-save path: wait out an in-flight autosave instead of
+        // answering false, or an MCP save-and-close during a blur autosave fails
+        while (savingRef.current) {
+          await new Promise((resolve) => setTimeout(resolve, 50))
+        }
+        window.markdownApi.sendSaveRequestAck(await doSave(mode))
+      })()
+    })
+    // MCP read of this open document: hand back the same serialization a save
+    // would write, so unsaved edits are included. Staying silent while the
+    // editor is still loading keeps the main process retrying its request
+    // instead of failing on a document that is merely not ready yet.
+    const offReadText = window.markdownApi.onReadTextRequest(() => {
+      const current = editorRef.current
+      if (!current || statusRef.current !== 'ready') return
+      try {
+        const text = serializeMarkdown(
+          envelopeRef.current,
+          current.state.doc,
+          () => bodyMarkdown(current),
+          originalSourceRef.current,
+        )
+        window.markdownApi.sendReadTextResult({ text })
+      } catch (err) {
+        window.markdownApi.sendReadTextResult({
+          error: err instanceof Error ? err.message : String(err),
+        })
+      }
+    })
     const offClose = window.markdownApi.onCloseSaveRequest(() => {
       void (async () => {
         // A close-save arriving during an in-flight autosave must wait for it
@@ -523,6 +611,7 @@ export default function App() {
     window.addEventListener('keydown', onKeyDown, true)
     return () => {
       offSave()
+      offReadText()
       offClose()
       offRenamed()
       window.removeEventListener('keydown', onKeyDown, true)
@@ -545,10 +634,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('mdapp.showAi', aiOpen ? '1' : '0')
   }, [aiOpen])
-
-  useEffect(() => {
-    localStorage.setItem('mdapp.showFiles', filesOpen ? '1' : '0')
-  }, [filesOpen])
 
   // autosave: every 30s and on window blur, silently persist pending changes
   // (same policy as the docs app; untitled documents are skipped — the first
@@ -639,7 +724,7 @@ export default function App() {
     // file-text round-trip) so a rollback also reverts set_frontmatter and
     // an untouched block restores byte-for-byte
     getSnapshot: () => ({
-      body: editorRef.current?.getMarkdown() ?? '',
+      body: editorRef.current ? bodyMarkdown(editorRef.current) : '',
       frontmatter: envelopeRef.current.frontmatter,
     }),
     restoreSnapshot: (snapshot) => {
@@ -650,6 +735,7 @@ export default function App() {
       setFmText(inner)
       setFmOpen(inner !== '')
       current.commands.setContent(snapshot.body, { contentType: 'markdown' })
+      sourceMapRef.current = buildSourceMap(current, current.state.doc, snapshot.body)
       markDirty()
     },
     onRunDone: (mutated) => {
@@ -700,6 +786,7 @@ export default function App() {
         disabled={status !== 'ready'}
         dirty={dirty}
         onSave={() => void doSave('save')}
+        onSaveAs={() => void doSave('saveAs')}
         onFind={() => openFind(false)}
         autoSave={autoSave}
         onToggleAutoSave={setAutoSave}
@@ -709,8 +796,6 @@ export default function App() {
         onToggleFrontmatter={() => setFmOpen((v) => !v)}
         outlineOpen={outlineOpen}
         onToggleOutline={() => setOutlineOpen((v) => !v)}
-        filesOpen={filesOpen}
-        onToggleFiles={() => setFilesOpen((v) => !v)}
         hasOutline={outlineItems.length > 0}
         spellcheck={spellcheck}
         onToggleSpellcheck={() => setSpellcheck((v) => !v)}
@@ -750,14 +835,6 @@ export default function App() {
             />
           )}
         </div>
-        {filesOpen && (
-          <FilesPane
-            api={window.filesPaneApi}
-            lang={lang}
-            currentPath={filePath}
-            onClose={() => setFilesOpen(false)}
-          />
-        )}
         {outlineOpen && (
           <OutlinePane
             items={outlineItems}
@@ -767,7 +844,6 @@ export default function App() {
           />
         )}
         <div className="app-content">
-          {!filesOpen && <FilesEdgeTab lang={lang} onOpen={() => setFilesOpen(true)} />}
           {showFind && findTarget && (
             <FindPanel
               target={findTarget}

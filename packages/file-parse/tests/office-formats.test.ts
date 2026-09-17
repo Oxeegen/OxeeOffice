@@ -131,6 +131,113 @@ describe('parseFileToText: pptx', () => {
     const bytes = await zip.generateAsync({ type: 'uint8array' })
     expect(await pptxToText(bytes)).toContain('Col1\tCol2')
   })
+
+  async function presentationFixture(slideIds: string, relationships: string): Promise<JSZip> {
+    const zip = await JSZip.loadAsync(await buildPptxFixture())
+    zip.file(
+      'ppt/presentation.xml',
+      '<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" ' +
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+        `<p:sldIdLst>${slideIds}</p:sldIdLst></p:presentation>`,
+    )
+    zip.file(
+      'ppt/_rels/presentation.xml.rels',
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+        relationships +
+        '</Relationships>',
+    )
+    return zip
+  }
+
+  function slideRelationship(id: string, target: string, extra = ''): string {
+    return (
+      `<Relationship Id="${id}" Target="${target}" ${extra} ` +
+      'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide"/>'
+    )
+  }
+
+  it('follows presentation order with positional numbering and excludes orphan slides', async () => {
+    const zip = await presentationFixture(
+      "<p:sldId id='265' r:id='rId10'/><p:sldId id='256' r:id='rId1'/>",
+      slideRelationship('rId1', 'slides/slide1.xml') +
+        slideRelationship('rId10', 'slides/slide10.xml') +
+        slideRelationship('unused', 'slides/slide2.xml'),
+    )
+    const bytes = await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' })
+    const original = bytes.slice()
+    expect(await pptxToText(bytes)).toBe(
+      '## Slide 1\nSummary Slide\n\n## Slide 2\nProductIntro\nFirst slide subtitle',
+    )
+    expect(bytes).toEqual(original)
+  })
+
+  it.each([
+    'slides/custom.xml',
+    '/ppt/slides/custom.xml',
+    './slides/../slides/custom.xml',
+    '../ppt/slides/custom.xml',
+    ' slides/custom.xml ',
+  ])('resolves a single slide relationship target %s with a custom part name', async (target) => {
+    const zip = await presentationFixture(
+      '<p:sldId id="256" r:id="custom"/>',
+      slideRelationship('custom', target),
+    )
+    zip.file('ppt/slides/custom.xml', await zip.file('ppt/slides/slide10.xml')!.async('text'))
+    expect(await pptxToText(await zip.generateAsync({ type: 'uint8array' }))).toBe(
+      '## Slide 1\nSummary Slide',
+    )
+  })
+
+  it('preserves positions across missing ids, parts, blank slides and rejected relationships', async () => {
+    const zip = await presentationFixture(
+      '<p:sldId id="256"/><p:sldId r:id=""/><p:sldId r:id="unknown"/>' +
+        '<p:sldId r:id="missing"/><p:sldId r:id="external"/><p:sldId r:id="wrongType"/>' +
+        '<p:sldId r:id="noTarget"/><p:sldId r:id="blank"/><p:sldId r:id="last"/>',
+      slideRelationship('', 'slides/slide1.xml') +
+        slideRelationship('missing', 'slides/missing.xml') +
+        slideRelationship('external', 'slides/slide2.xml', 'TargetMode="External"') +
+        '<Relationship Id="wrongType" Target="slides/slide3.xml" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide"/>' +
+        '<Relationship Target="slides/slide1.xml"/>' +
+        '<Relationship Id="noTarget" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide"/>' +
+        slideRelationship('blank', 'slides/blank.xml') +
+        slideRelationship('last', 'slides/slide10.xml'),
+    )
+    zip.file(
+      'ppt/slides/blank.xml',
+      '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree/></p:cSld></p:sld>',
+    )
+    expect(await pptxToText(await zip.generateAsync({ type: 'uint8array' }))).toBe(
+      '## Slide 8\n\n## Slide 9\nSummary Slide',
+    )
+  })
+
+  it.each(['empty list', 'missing list', 'missing relationships'])(
+    'does not fall back to orphan slides when the manifest has %s',
+    async (kind) => {
+      const zip = await presentationFixture('<p:sldId r:id="rId1"/>', '')
+      if (kind === 'empty list') {
+        zip.file('ppt/presentation.xml', '<p:presentation><p:sldIdLst/></p:presentation>')
+      } else if (kind === 'missing list') {
+        zip.file('ppt/presentation.xml', '<p:presentation/>')
+      } else {
+        zip.remove('ppt/_rels/presentation.xml.rels')
+      }
+      expect(await pptxToText(await zip.generateAsync({ type: 'uint8array' }))).toBe('')
+    },
+  )
+
+  it('retains numeric fallback without a manifest and leaves input bytes unchanged', async () => {
+    const bytes = await buildPptxFixture()
+    const original = bytes.slice()
+    const text = await pptxToText(bytes)
+    expect(text.match(/^## Slide \d+$/gm)).toEqual([
+      '## Slide 1',
+      '## Slide 2',
+      '## Slide 3',
+      '## Slide 10',
+    ])
+    expect(bytes).toEqual(original)
+  })
 })
 
 describe('parseFileToText: xlsx', () => {

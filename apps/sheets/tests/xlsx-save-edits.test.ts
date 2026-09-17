@@ -121,7 +121,26 @@ describe('applyCellEditsToXlsx', () => {
 
 describe('applyCellEditsToXlsx style edits', () => {
   it('creates and registers a stylesheet when the workbook has none', async () => {
-    const mutation = await applyCellEditsToXlsx(await blankXlsxBuffer(), [
+    // blankXlsxBuffer ships a stylesheet now (the sidecar's formula engine
+    // refuses to import a workbook without one), so strip it to reach the
+    // "workbook has no stylesheet" state this test is about.
+    const stripped = await (async () => {
+      const zip = await JSZip.loadAsync(await blankXlsxBuffer())
+      zip.remove('xl/styles.xml')
+      const rels = await zip.file('xl/_rels/workbook.xml.rels')!.async('string')
+      zip.file(
+        'xl/_rels/workbook.xml.rels',
+        rels.replace(/<Relationship[^>]*relationships\/styles"[^>]*\/>/, ''),
+      )
+      const types = await zip.file('[Content_Types].xml')!.async('string')
+      zip.file(
+        '[Content_Types].xml',
+        types.replace(/<Override PartName="\/xl\/styles\.xml"[^>]*\/>/, ''),
+      )
+      return zip.generateAsync({ type: 'nodebuffer' })
+    })()
+
+    const mutation = await applyCellEditsToXlsx(stripped, [
       {
         sheetName: 'Sheet1',
         row: 0,

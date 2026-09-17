@@ -1524,7 +1524,8 @@ body.vib .slide-list {
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  border-right: 1px solid var(--border);
+  border-left: var(--ai-panel-border-left, 0px) solid var(--border);
+  border-right: var(--ai-panel-border-right, 1px) solid var(--border);
   box-shadow: var(--slides-shadow-copilot);
   font-family: var(--gs-font-sans);
   color: var(--color-text-primary);
@@ -1615,7 +1616,8 @@ body.vib .slide-list {
   width: 34px;
   padding: 12px 2px;
   border: none;
-  border-right: 1px solid var(--border);
+  border-left: var(--ai-panel-border-left, 0px) solid var(--border);
+  border-right: var(--ai-panel-border-right, 1px) solid var(--border);
   background: var(--surface);
   color: var(--text);
   cursor: pointer;

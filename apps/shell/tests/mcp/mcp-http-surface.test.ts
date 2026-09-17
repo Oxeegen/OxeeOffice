@@ -8,6 +8,8 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { parseDocx } from '@genoffice/docx-engine'
 import { openPptx } from '@genoffice/pptx-engine'
+import JSZip from 'jszip'
+import { PDFDocument, StandardFonts } from 'pdf-lib'
 import {
   applyMcpSettings,
   configureMcpRuntime,
@@ -16,6 +18,7 @@ import {
 } from '../../src/main/mcp/app-mcp'
 import type { DocsControl } from '../../src/main/mcp/tools/document-tools'
 import type { SlidesControl } from '../../src/main/mcp/tools/slides-tools'
+import type { SheetsControl } from '../../src/main/mcp/tools/sheets-tools'
 import { realCliRunner } from './real-cli'
 
 /**
@@ -24,27 +27,31 @@ import { realCliRunner } from './real-cli'
  * Boots the server through the app's own composition path (configureMcpRuntime +
  * applyMcpSettings, i.e. exactly what the Settings toggle drives), then connects
  * an MCP client to `http://127.0.0.1:<port>/mcp` — the same URL an
- * `mcpServers` entry would use. Only the editor bridges are faked (no Electron
- * windows in a headless run); the transport, handshake, tool registration,
- * schema validation, session host and the real docx/pptx headless generation are
- * all exercised for real.
+ * `mcpServers` entry would use. Only the three editor bridges are faked (no
+ * Electron windows in a headless run); the transport, handshake, tool
+ * registration, schema validation, session host and the real docx/pptx/xlsx
+ * headless engines are all exercised for real.
  */
 
 const DEFAULT_NAMES = [
   'apply_ops',
+  'apply_sheet_ops',
   'apply_slide_ops',
   'create_session',
   'get_app_info',
   'insert_content',
+  'open_documents',
   'open_in_genoffice',
   'read_deck',
   'read_document',
   'read_docx',
+  'read_pdf',
+  'read_sheet',
   'replace_blocks',
   'save_session',
 ].sort()
 
-const BACKGROUND_NAMES = [...DEFAULT_NAMES, 'create_docx', 'create_pptx'].sort()
+const BACKGROUND_NAMES = [...DEFAULT_NAMES, 'create_docx', 'create_pptx', 'create_xlsx'].sort()
 
 function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -113,11 +120,37 @@ function slidesControl(): { control: SlidesControl; saved: string[] } {
   }
 }
 
+function sheetsControl(): { control: SheetsControl; saved: string[] } {
+  const saved: string[] = []
+  let wc = 300
+  return {
+    saved,
+    control: {
+      openBlankTab: async () => ++wc,
+      runCommand: async (wcId, command, payload) => {
+        const p = payload as { path?: string; addresses?: string[]; ops?: Array<{ op: string }> }
+        if (command === 'save_sheet') {
+          saved.push(p.path ?? '')
+          return { ok: true, path: p.path }
+        }
+        if (command === 'read_sheet') {
+          return p.addresses?.length
+            ? { cells: { A1: { value: 'hello', rawValue: 'hello' } } }
+            : { context: { sheetId: 's1', wc: wcId, sheets: [] } }
+        }
+        if (p.ops?.some((o) => o.op === 'explode')) return { ok: false, reason: 'boom' }
+        return { ok: true, applied: p.ops?.length ?? 0 }
+      },
+    },
+  }
+}
+
 let port: number
 let workDir: string
 let logPath: string
 const docs = docsControl()
 const slides = slidesControl()
+const sheets = sheetsControl()
 const openedPaths: string[] = []
 
 /** poll /health so we never race a server (re)start — what a real client does */
@@ -179,6 +212,7 @@ beforeAll(async () => {
     },
     docsControl: docs.control,
     slidesControl: slides.control,
+    sheetsControl: sheets.control,
     cliRunner: realCliRunner(workDir),
     logFilePath: logPath,
   })
@@ -197,7 +231,7 @@ describe('MCP surface over Streamable HTTP (/mcp)', () => {
       // ── 1. handshake + tools/list ──────────────────────────────────────────
       const listed = (await client.listTools()).tools.map((t) => t.name).sort()
       expect(listed).toEqual(DEFAULT_NAMES)
-      expect(mcpStatus().capabilities).toEqual(['docs', 'slides'])
+      expect(mcpStatus().capabilities).toEqual(['docs', 'slides', 'sheets', 'pdf'])
 
       // ── 2. get_app_info: editor matrix + exposed formats ──────────────────
       const info = await call(client, 'get_app_info', {})
@@ -211,17 +245,21 @@ describe('MCP surface over Streamable HTTP (/mcp)', () => {
       expect(infoJson.name).toBe('GenOffice')
       expect(infoJson.version).toBe('0.9.0-acceptance')
       expect(infoJson.defaultSaveDir).toBe(workDir)
-      // background generation is off here, so create_docx/create_pptx are not
-      // registered and get_app_info must not advertise a generation format the
-      // client cannot use
+      // background generation is off here, so create_docx/create_pptx/create_xlsx
+      // are not registered and get_app_info must not advertise a generation
+      // format the client cannot use
       expect(infoJson.formats).toEqual([])
       expect(infoJson.families.find((f) => f.family === 'docx')!.mcp).toEqual({
         save: ['docx'],
         read: 'docx',
       })
-      // the slides family follows the same rule: only `generate` is hidden
+      // the slides and sheets families follow the same rule: only `generate` is
+      // hidden
       expect(infoJson.families.find((f) => f.family === 'pptx')!.mcp).toEqual({
         save: ['pptx'],
+      })
+      expect(infoJson.families.find((f) => f.family === 'xlsx')!.mcp).toEqual({
+        save: ['xlsx'],
       })
       expect(infoJson.families.map((f) => f.family)).toEqual([
         'docx',
@@ -274,7 +312,7 @@ describe('MCP surface over Streamable HTTP (/mcp)', () => {
       expect(read.isError).toBe(false)
       expect((read.json as { text: string }).text).toContain('Quarterly Report')
 
-      // ── 5. visible pptx session: create → ops → read ─────────────────────
+      // ── 5. cross-family refusal (schema-valid, host-level) ────────────────
       // a second session switches the family; the docx content tool now refuses
       const pptxSession = await call(client, 'create_session', { family: 'pptx' })
       expect(pptxSession.isError).toBe(false)
@@ -307,25 +345,32 @@ describe('MCP surface over Streamable HTTP (/mcp)', () => {
       expect(savedDeck.isError).toBe(false)
       expect(slides.saved).toEqual([join(workDir, 'deck.pptx')])
 
-      // a fresh docx session saves through the docs driver
-      await call(client, 'create_session', { family: 'docx' })
-      const savedDoc = await call(client, 'save_session', {
-        path: join(workDir, 'report.docx'),
-        overwrite: true,
-      })
-      expect(savedDoc.isError).toBe(false)
-      expect(docs.calls.some((c) => c.command === 'save_document')).toBe(true)
-
       // the save ended the session
-      const afterSave = await call(client, 'apply_ops', { ops: [{ op: 'setFont' }] })
+      const afterSave = await call(client, 'apply_slide_ops', { ops: [{ op: 'addBlankSlide' }] })
       expect(afterSave.isError).toBe(true)
       expect(afterSave.text).toMatch(/no session is open/)
 
-      const saveNoSession = await call(client, 'save_session', { path: join(workDir, 'x.docx') })
+      const saveNoSession = await call(client, 'save_session', { path: join(workDir, 'x.pptx') })
       expect(saveNoSession.isError).toBe(true)
       expect(saveNoSession.text).toMatch(/no session is open/)
 
-      // ── 7. open_in_genoffice routes .docx, refuses others ────────────────
+      // ── 7. sheets session round trip ─────────────────────────────────────
+      const sheetSession = await call(client, 'create_session', { family: 'xlsx' })
+      expect(sheetSession.isError).toBe(false)
+      const overview = await call(client, 'read_sheet', {})
+      expect(overview.isError).toBe(false)
+      const cells = await call(client, 'read_sheet', { addresses: ['A1'] })
+      expect(cells.isError).toBe(false)
+      expect(cells.text).toContain('hello')
+      const sheetOps = await call(client, 'apply_sheet_ops', {
+        ops: [{ op: 'set_cell', sheetId: 's1', address: 'A1', value: 'x' }],
+      })
+      expect(sheetOps.isError).toBe(false)
+      const savedSheet = await call(client, 'save_session', { path: join(workDir, 'book.xlsx') })
+      expect(savedSheet.isError).toBe(false)
+      expect(sheets.saved).toEqual([join(workDir, 'book.xlsx')])
+
+      // ── 8. open_in_genoffice routes .docx, refuses others ────────────────
       const openableDocx = join(workDir, 'open-me.docx')
       await writeFile(openableDocx, 'placeholder')
       const opened = await call(client, 'open_in_genoffice', { path: openableDocx })
@@ -337,6 +382,32 @@ describe('MCP surface over Streamable HTTP (/mcp)', () => {
       const refusedOpen = await call(client, 'open_in_genoffice', { path: notOpenable })
       expect(refusedOpen.isError).toBe(true)
       expect(refusedOpen.text).toMatch(/could not open/)
+
+      // ── 9. read_pdf: real pdfium extraction, session-free ────────────────
+      const pdfPath = join(workDir, 'handout.pdf')
+      const pdfDoc = await PDFDocument.create()
+      pdfDoc.setTitle('Handout')
+      const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
+      const pdfPage = pdfDoc.addPage([400, 300])
+      pdfPage.drawText('Read me through MCP', { x: 40, y: 200, size: 14, font })
+      pdfDoc.addPage([400, 300]) // scanned-page stand-in: no text layer
+      await writeFile(pdfPath, await pdfDoc.save())
+      const pdfRead = await call(client, 'read_pdf', { path: pdfPath })
+      expect(pdfRead.isError).toBe(false)
+      const pdfJson = pdfRead.json as {
+        pageCount: number
+        info: { title?: string }
+        pages: Array<{ page: number; text: string; hasTextLayer: boolean }>
+      }
+      expect(pdfJson.pageCount).toBe(2)
+      expect(pdfJson.info.title).toBe('Handout')
+      expect(pdfJson.pages[0]!.text).toContain('Read me through MCP')
+      expect(pdfJson.pages[1]!.hasTextLayer).toBe(false)
+      const pdfPaged = await call(client, 'read_pdf', { path: pdfPath, pages: '2' })
+      expect(pdfPaged.isError).toBe(false)
+      expect(
+        (pdfPaged.json as { pages: Array<{ page: number }> }).pages.map((p) => p.page),
+      ).toEqual([2])
     } finally {
       await client.close()
     }
@@ -352,7 +423,7 @@ describe('MCP surface over Streamable HTTP (/mcp)', () => {
 
       // with generation on, get_app_info advertises the formats those tools write
       const info = await call(client, 'get_app_info', {})
-      expect((info.json as { formats: string[] }).formats.sort()).toEqual(['docx', 'pptx'])
+      expect((info.json as { formats: string[] }).formats.sort()).toEqual(['docx', 'pptx', 'xlsx'])
 
       // create_docx → a real, reparsable .docx
       const docxPath = join(workDir, 'generated.docx')
@@ -384,11 +455,26 @@ describe('MCP surface over Streamable HTTP (/mcp)', () => {
       const opened = await openPptx(new Uint8Array(await readFile(pptxPath)))
       expect(opened.deck.slides).toHaveLength(2)
 
+      // create_xlsx → a real workbook with a numeric cell
+      const xlsxPath = join(workDir, 'generated.xlsx')
+      const madeBook = await call(client, 'create_xlsx', {
+        title: 'Book',
+        data: [
+          ['Item', 'Qty'],
+          ['Widget', 12],
+        ],
+        path: xlsxPath,
+      })
+      expect(madeBook.isError).toBe(false)
+      const zip = await JSZip.loadAsync(await readFile(xlsxPath))
+      const sheetXml = await zip.file('xl/worksheets/sheet1.xml')!.async('string')
+      expect(sheetXml).toContain('<v>12</v>')
+
       // the clobber guard still holds for explicit paths
-      const clobber = await call(client, 'create_docx', {
-        title: 'Generated',
-        content: 'again',
-        path: docxPath,
+      const clobber = await call(client, 'create_xlsx', {
+        title: 'Book',
+        data: [[1]],
+        path: xlsxPath,
       })
       expect(clobber.isError).toBe(true)
       expect(clobber.text).toMatch(/file already exists/)
@@ -467,6 +553,13 @@ describe('MCP surface over Streamable HTTP (/mcp)', () => {
     )
     expect(badSession.status).toBe(404)
     console.log('[bad session]', badSession.status, badSession.body)
+
+    // a malformed body is the caller's mistake: answer a JSON-RPC parse error,
+    // not a 500 that reads as a server fault
+    const malformed = await rawText(port, 'POST', '/mcp', '{"jsonrpc":"2.0","id":5,"method":')
+    expect(malformed.status).toBe(400)
+    expect(malformed.body).toContain('-32700')
+    console.log('[malformed body]', malformed.status, malformed.body)
   })
 
   it('isolates the active session between two concurrent clients', async () => {
@@ -543,6 +636,38 @@ function raw(
     )
     req.on('error', reject)
     if (data) req.write(data)
+    req.end()
+  })
+}
+
+/** post a raw body verbatim (for malformed-JSON cases the helpers cannot express) */
+function rawText(
+  p: number,
+  method: 'GET' | 'POST',
+  path: string,
+  body: string,
+): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest(
+      {
+        hostname: '127.0.0.1',
+        port: p,
+        path,
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+          Accept: 'application/json, text/event-stream',
+        },
+      },
+      (res) => {
+        let text = ''
+        res.on('data', (c) => (text += c))
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, body: text }))
+      },
+    )
+    req.on('error', reject)
+    req.write(body)
     req.end()
   })
 }

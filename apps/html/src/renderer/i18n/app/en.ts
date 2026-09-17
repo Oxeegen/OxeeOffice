@@ -50,6 +50,7 @@ export const en = {
   fmtItalic: 'Italic',
   openExternal: 'Link opened in your browser',
   save: 'Save (⌘S)',
+  saveAs: 'Save As…',
   ribbonCollapse: 'Collapse the Ribbon',
   ribbonPin: 'Pin the ribbon',
   ribbonExpand: 'Expand the Ribbon',

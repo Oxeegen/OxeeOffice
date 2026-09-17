@@ -52,6 +52,7 @@ export const nl = {
   fmtItalic: 'Cursief',
   openExternal: 'Link geopend in de browser',
   save: 'Opslaan (⌘S)',
+  saveAs: 'Opslaan als…',
   ribbonCollapse: 'Het lint samenvouwen',
   ribbonPin: 'Het lint vastmaken',
   ribbonExpand: 'Het lint uitvouwen',

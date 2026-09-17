@@ -60,6 +60,8 @@ import {
   showSaveDialogWithMemory,
   windowMenuTemplate,
   aboutMenuItem,
+  checkUpdatesMenuItem,
+  setUpdateCheckInvoker,
   installRendererProtocol,
 } from '@genoffice/electron-utils'
 import { readAppSettings, writeAppSetting, writeAppSettings } from './app-settings'
@@ -152,6 +154,8 @@ import { createCliRunner } from './mcp/cli-runner'
 import { DEFAULT_MCP_PORT } from './mcp/mcp-server'
 import { createDocsControl, installDocsBridge } from './mcp/docs-bridge'
 import { createSlidesControl } from './mcp/slides-bridge'
+import { createSheetsControl, installSheetsBridge } from './mcp/sheets-bridge'
+import { createOpenDocumentsControl, createOpenTargetResolver } from './mcp/open-documents-bridge'
 import {
   configureSheetsRuntime,
   exportSheetsPdfHeadless,
@@ -161,6 +165,7 @@ import {
   requestSheetsClose,
   resolveSheetsSessionPath,
   markSheetsUntitledPath,
+  authorizeMcpSheetWrite,
   sendSheetsMenuAction,
   sheetsFileRenamed,
   setSheetsCloseTabHook,
@@ -172,6 +177,7 @@ import {
 } from '../../../sheets/src/main/sheets-main'
 import {
   configureSlidesRuntime,
+  discardSlidesRecovery,
   exportSlidesPdfHeadless,
   installSlidesMenu,
   replaceSlidesRecentFile,
@@ -203,7 +209,10 @@ import { closePdfPasswordDialog, promptPdfPassword } from './pdf-password-dialog
 import {
   configureMarkdownRuntime,
   exportMarkdownPdfHeadless,
+  markdownDiscardPendingAssets,
   markdownFileRenamed,
+  markdownReadText,
+  markdownSaveToPath,
   requestMarkdownClose,
   requestMarkdownSave,
   sendMarkdownExportRequest,
@@ -214,7 +223,10 @@ import {
 import {
   configureHtmlRuntime,
   exportHtmlHeadless,
+  htmlDiscardPendingAssets,
   htmlFileRenamed,
+  htmlReadText,
+  htmlSaveToPath,
   registerPrivilegedSchemes,
   requestHtmlClose,
   requestHtmlSave,
@@ -271,7 +283,7 @@ import {
 } from './folder-tree'
 import { runHeadlessExport, type HeadlessExporters } from './headless-export'
 import { TabManager } from './tab-manager'
-import { applyUpdateChannel, initAutoUpdater } from './updater'
+import { applyUpdateChannel, checkForUpdatesNow, initAutoUpdater } from './updater'
 import { isUpdateChannel, type UpdateChannel } from '../shared/update-api'
 
 /**
@@ -469,6 +481,7 @@ function currentAiPanelPrefs(): AiPanelPrefs {
   if (cachedAiPanelPrefs) return cachedAiPanelPrefs
   const saved = readAppSettings(APP_SETTINGS_PATH())
   cachedAiPanelPrefs = normalizeAiPanelPrefs({
+    side: saved.aiPanelSide,
     fontSize: saved.aiPanelFontSize,
     customFontSize: saved.aiPanelCustomFontSize,
     spellcheck: saved.aiPanelSpellcheck,
@@ -2991,6 +3004,83 @@ function openBlankDocsTabForMcp(): number {
   return view.webContents.id
 }
 
+/**
+ * MCP: open a blank sheets tab and return its webContents id, for the
+ * visible-grid bridge. Like the app's own "new spreadsheet", a real blank
+ * .xlsx is created up front (the save pipeline needs an on-disk workbook;
+ * the fallback in-memory demo grid cannot save) — but the AI auto-rename
+ * marking is skipped, the file name is the agent's business.
+ */
+async function openBlankSheetsTabForMcp(): Promise<number> {
+  if (!tabManager) throw new Error('GenOffice is not ready')
+  const filePath = uniquePathIn(defaultSaveDir(), `${tm('untitledSheet')}.xlsx`)
+  writeFileSync(filePath, await blankXlsxBuffer())
+  const tabId = tabManager.openSheetsTab(filePath)
+  const view = tabManager.sheetsTabs().find((t) => t.id === tabId)
+  if (!view) {
+    // the tab never appeared, so nothing will ever consume this file
+    try {
+      rmSync(filePath)
+    } catch (error) {
+      console.warn('[mcp] could not remove the unused blank workbook:', error)
+    }
+    throw new Error('the new spreadsheet tab could not be opened')
+  }
+  const wcId = view.webContents.id
+  mcpBlankSheetPaths.set(wcId, filePath)
+  view.webContents.once('destroyed', () => mcpBlankSheetPaths.delete(wcId))
+  // Same nudge the interactive path uses: the renderer subscribes to the open
+  // action only after Univer mounts, so a single push can land in the void on a
+  // cold start and leave the tab sitting on a blank in-memory workbook.
+  startQueuedWorkbookNudge()
+  recordStarPromptDocOpen()
+  analytics.track('file_new', { kind: 'xlsx' })
+  return view.webContents.id
+}
+
+/** backing files of blank sheets tabs created by the MCP session tools */
+const mcpBlankSheetPaths = new Map<number, string>()
+
+/**
+ * MCP: drop a blank sheets tab whose session never became ready, and delete the
+ * empty workbook created for it. Without this a failed `create_session` leaves
+ * an orphan tab plus an .xlsx in the default save folder that the user never
+ * asked for — and nothing in the MCP surface can clean either one up.
+ */
+function abandonBlankSheetsTabForMcp(wcId: number): void {
+  const manager = tabManager
+  const filePath = mcpBlankSheetPaths.get(wcId)
+  mcpBlankSheetPaths.delete(wcId)
+  if (!manager) return
+  // the grid may already be usable while the MCP bridge is not: keep anything the user typed
+  if (manager.dirtySheetsTabs().some((t) => t.webContents.id === wcId)) return
+  if (!abandonBlankTabForMcp(manager.sheetsTabs(), wcId)) return
+  if (!filePath) return
+  try {
+    if (existsSync(filePath)) rmSync(filePath)
+  } catch (error) {
+    console.warn('[mcp] could not remove the unused blank workbook:', error)
+  }
+}
+
+/**
+ * MCP: close a tab whose session never became ready. Returns false when the
+ * tab could not be closed (it is already gone, or the close failed).
+ */
+function abandonBlankTabForMcp(
+  tabs: Array<{ id: string; webContents: WebContents }>,
+  wcId: number,
+): boolean {
+  const tab = tabs.find((t) => t.webContents.id === wcId)
+  if (!tab || !tabManager) return false
+  try {
+    return tabManager.closeTabWithoutPrompt(tab.id)
+  } catch (error) {
+    console.warn('[mcp] could not close the unused tab:', error)
+    return false
+  }
+}
+
 /** MCP: open a blank slides tab and return its webContents id, for the visible-deck bridge */
 function openBlankSlidesTabForMcp(): number {
   if (!tabManager) throw new Error('GenOffice is not ready')
@@ -3418,12 +3508,13 @@ function registerHomeIpc(): void {
   ipcMain.handle(HOME_CHANNELS.getAiPanelPrefs, (): AiPanelPrefs => currentAiPanelPrefs())
   ipcMain.handle('app:get-ai-panel-prefs', (): AiPanelPrefs => currentAiPanelPrefs())
 
-  ipcMain.handle(HOME_CHANNELS.setAiPanelPrefs, (_event, patch: unknown): AiPanelPrefs => {
+  const setAiPanelPrefs = (patch: unknown): AiPanelPrefs => {
     const prev = currentAiPanelPrefs()
     const raw =
       patch !== null && typeof patch === 'object' ? (patch as Record<string, unknown>) : {}
     // unknown/malformed fields fall back to the previous value, not the default
     const next = normalizeAiPanelPrefs({
+      side: raw.side === 'left' || raw.side === 'right' ? raw.side : prev.side,
       fontSize: 'fontSize' in raw ? raw.fontSize : prev.fontSize,
       customFontSize: 'customFontSize' in raw ? raw.customFontSize : prev.customFontSize,
       spellcheck: 'spellcheck' in raw ? raw.spellcheck : prev.spellcheck,
@@ -3431,13 +3522,16 @@ function registerHomeIpc(): void {
     if (sameAiPanelPrefs(next, prev)) return prev
     cachedAiPanelPrefs = next
     writeAppSettings(APP_SETTINGS_PATH(), {
+      aiPanelSide: next.side,
       aiPanelFontSize: next.fontSize,
       aiPanelCustomFontSize: next.customFontSize,
       aiPanelSpellcheck: next.spellcheck,
     })
     for (const wc of webContents.getAllWebContents()) wc.send('app:ai-panel-prefs-changed', next)
     return next
-  })
+  }
+  ipcMain.handle(HOME_CHANNELS.setAiPanelPrefs, (_event, patch) => setAiPanelPrefs(patch))
+  ipcMain.handle('app:set-ai-panel-prefs', (_event, patch) => setAiPanelPrefs(patch))
 
   // effective folder where new/untitled files land; the editor mains resolve
   // the same setting themselves (configuredDefaultSaveDir via docs' defaultSaveDir)
@@ -3839,6 +3933,7 @@ function buildHomeMenu(): void {
       submenu: [
         { label: tm('thirdPartyNotices'), click: () => void openThirdPartyNotices() },
         { type: 'separator' },
+        checkUpdatesMenuItem(appMenuLabels(currentLang())),
         aboutMenuItem(appMenuLabels(currentLang())),
       ],
     },
@@ -3921,6 +4016,7 @@ function buildPdfMenu(): void {
       submenu: [
         { label: tm('thirdPartyNotices'), click: () => void openThirdPartyNotices() },
         { type: 'separator' },
+        checkUpdatesMenuItem(appMenuLabels(currentLang())),
         aboutMenuItem(appMenuLabels(currentLang())),
       ],
     },
@@ -4012,6 +4108,7 @@ function buildMarkdownMenu(): void {
       submenu: [
         { label: tm('thirdPartyNotices'), click: () => void openThirdPartyNotices() },
         { type: 'separator' },
+        checkUpdatesMenuItem(appMenuLabels(currentLang())),
         aboutMenuItem(appMenuLabels(currentLang())),
       ],
     },
@@ -4103,6 +4200,7 @@ function buildHtmlMenu(): void {
       submenu: [
         { label: tm('thirdPartyNotices'), click: () => void openThirdPartyNotices() },
         { type: 'separator' },
+        checkUpdatesMenuItem(appMenuLabels(currentLang())),
         aboutMenuItem(appMenuLabels(currentLang())),
       ],
     },
@@ -4799,17 +4897,61 @@ app.whenReady().then(async () => {
   // Register the docs renderer bridge listeners before the MCP server can take
   // a visible-editing request.
   installDocsBridge()
+  installSheetsBridge()
   // MCP server: localhost-only, docx generation for external agents. Deps are
   // injected so the mcp module never imports this file back.
+  // family controls are referenced twice (their own tools + the open-documents
+  // tool), so create them once here
+  const mcpDocsControl = createDocsControl({
+    openBlankTab: () => openBlankDocsTabForMcp(),
+    authorizeSave: authorizeMcpDocWrite,
+    abandonBlankTab: (wcId) => {
+      if (tabManager) abandonBlankTabForMcp(tabManager.docsTabs(), wcId)
+    },
+  })
+  const mcpSlidesControl = createSlidesControl({
+    openBlankTab: () => openBlankSlidesTabForMcp(),
+    abandonBlankTab: (wcId) => {
+      if (tabManager) abandonBlankTabForMcp(tabManager.slidesTabs(), wcId)
+    },
+  })
+  const mcpSheetsControl = createSheetsControl({
+    openBlankTab: () => openBlankSheetsTabForMcp(),
+    authorizeSave: authorizeMcpSheetWrite,
+    abandonBlankTab: (wcId) => abandonBlankSheetsTabForMcp(wcId),
+  })
   configureMcpRuntime({
     version: app.getVersion(),
     defaultSaveDir: () => defaultSaveDir(),
     openPath: (filePath) => routeDocumentPath(filePath),
-    docsControl: createDocsControl({
-      openBlankTab: () => openBlankDocsTabForMcp(),
-      authorizeSave: authorizeMcpDocWrite,
+    docsControl: mcpDocsControl,
+    slidesControl: mcpSlidesControl,
+    sheetsControl: mcpSheetsControl,
+    // documents the user has open: the tab list plus each family's own bridge,
+    // so an agent reaches a tab nobody but the user opened
+    openDocumentsControl: createOpenDocumentsControl({
+      list: () => {
+        if (!tabManager) throw new Error('the tab manager is not ready')
+        return tabManager.openDocuments()
+      },
+      webContentsFor: (tabId) => tabManager?.webContentsForTab(tabId),
+      closeTab: (tabId) => tabManager?.closeTabWithoutPrompt(tabId) ?? false,
+      defaultSaveDir: () => defaultSaveDir(),
+      docs: mcpDocsControl,
+      sheets: mcpSheetsControl,
+      slides: mcpSlidesControl,
+      slidesDiscard: discardSlidesRecovery,
+      markdown: {
+        read: markdownReadText,
+        save: markdownSaveToPath,
+        discard: markdownDiscardPendingAssets,
+      },
+      html: {
+        read: htmlReadText,
+        save: htmlSaveToPath,
+        discard: htmlDiscardPendingAssets,
+      },
     }),
-    slidesControl: createSlidesControl({ openBlankTab: () => openBlankSlidesTabForMcp() }),
     // the headless create_*/read_* tools delegate to the bundled genoffice CLI
     // (the same engines, no second implementation); it runs on the app's own
     // Node runtime via ELECTRON_RUN_AS_NODE
@@ -4818,6 +4960,19 @@ app.whenReady().then(async () => {
       entry: app.isPackaged
         ? join(process.resourcesPath, 'cli', 'genoffice.cjs')
         : join(APPS_ROOT, '..', 'packages', 'cli', 'dist', 'genoffice.cjs'),
+    }),
+    // lets the content tools take a `document` argument (tab id or path) and edit
+    // a tab the *user* has open, with no create_session involved
+    resolveTarget: createOpenTargetResolver({
+      list: () => {
+        if (!tabManager) throw new Error('the tab manager is not ready')
+        return tabManager.openDocuments()
+      },
+      webContentsFor: (tabId) => tabManager?.webContentsForTab(tabId),
+      // an agent editing a background tab would otherwise work where nobody can
+      // see it: switch to that tab and bring the window forward first
+      activate: (tabId) => tabManager?.activateTab(tabId),
+      revealWindow: revealShellWindow,
     }),
     logFilePath: join(app.getPath('userData'), 'mcp-log.txt'),
   })
@@ -4828,6 +4983,7 @@ app.whenReady().then(async () => {
   // deferred to ready: labels need currentLang(), which reads app.getLocale()
   installBackToHomeItems()
   installDockMenu()
+  setUpdateCheckInvoker(() => void checkForUpdatesNow())
   initAutoUpdater(() => shellWindow, currentUpdateChannel())
 
   if (!pendingLaunchPath || !openDocumentPath(pendingLaunchPath)) tabManager?.openHomeTab()

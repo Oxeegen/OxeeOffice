@@ -4,7 +4,8 @@ import { z } from 'zod'
 import { createFileViaCli, readDocxTextViaCli } from '../headless-cli'
 import type { McpToolDefinition } from '../mcp-server'
 import { capabilityReport, generateExtension } from './formats'
-import type { FamilyDriver, SessionHost } from './session-tools'
+import type { FamilyDriver, SessionHost, TargetResolver } from './session-tools'
+import { contentTarget } from './session-tools'
 import type { CliRunner } from '../cli-runner'
 
 /**
@@ -33,6 +34,13 @@ export interface DocToolDeps {
   extraFormats?: string[]
   /** the bundled genoffice CLI, used by the headless tools */
   cli?: CliRunner
+  /**
+   * Resolve a caller-supplied document reference (tab id or path) to the
+   * webContents of that open tab, so the content tools can edit a document the
+   * *user* has open rather than only the session's own blank one. Absent in
+   * headless/unit runs, where a `document` argument is refused.
+   */
+  resolveTarget?: TargetResolver
 }
 
 /** editor commands the docs renderer bridge understands (see docs shared/ipc.ts) */
@@ -261,7 +269,15 @@ function createDocxContentTools(deps: DocToolDeps, host: SessionHost): McpToolDe
   const docs = deps.docs
   if (!docs) return []
 
-  const requireActive = (): number => host.require('docx')
+  const target = contentTarget(host, deps.resolveTarget, 'docx')
+  const documentField = z
+    .string()
+    .optional()
+    .describe(
+      "tab id or path of an open Word document to edit instead of the session's own tab " +
+        '(from open_documents {action:"list"}); the edit lands in that live document, and a ' +
+        'mutating tool switches the UI to that tab first so the user sees it happen',
+    )
 
   return [
     {
@@ -276,9 +292,10 @@ function createDocxContentTools(deps: DocToolDeps, host: SessionHost): McpToolDe
           .int()
           .optional()
           .describe('insert after this block index; default appends at the end'),
+        document: documentField,
       },
       handler: async (args) => {
-        const wc = requireActive()
+        const wc = await target(args.document, { focus: true })
         return docs.runCommand(wc, 'insert_content', args)
       },
     },
@@ -291,9 +308,10 @@ function createDocxContentTools(deps: DocToolDeps, host: SessionHost): McpToolDe
         startBlockIndex: z.number().int().describe('first block index to replace (inclusive)'),
         endBlockIndex: z.number().int().describe('last block index to replace (inclusive)'),
         html: z.string().describe('restricted HTML fragment the range is replaced with'),
+        document: documentField,
       },
       handler: async (args) => {
-        const wc = requireActive()
+        const wc = await target(args.document, { focus: true })
         return docs.runCommand(wc, 'replace_blocks', args)
       },
     },
@@ -309,9 +327,10 @@ function createDocxContentTools(deps: DocToolDeps, host: SessionHost): McpToolDe
           .boolean()
           .optional()
           .describe('validate and plan the batch without changing the document'),
+        document: documentField,
       },
       handler: async (args) => {
-        const wc = requireActive()
+        const wc = await target(args.document, { focus: true })
         return docs.runCommand(wc, 'apply_ops', {
           ops: args.ops,
           dryRun: args.dryRun === true,
@@ -324,9 +343,9 @@ function createDocxContentTools(deps: DocToolDeps, host: SessionHost): McpToolDe
         'Read the visible document as a block list: one "index|type|text" line per block, where the ' +
         'index is what apply_ops and insert_content address. Long blocks are clipped for reading; ' +
         'the list is an overview, not a lossless copy (use read_docx for full text).',
-      inputSchema: {},
-      handler: async () => {
-        const wc = requireActive()
+      inputSchema: { document: documentField },
+      handler: async (args) => {
+        const wc = await target(args.document)
         return docs.runCommand(wc, 'read_document', {})
       },
     },

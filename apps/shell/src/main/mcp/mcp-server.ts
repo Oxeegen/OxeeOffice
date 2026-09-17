@@ -193,7 +193,9 @@ export class McpServerService {
     }
 
     // POST
-    const body = await readJsonBody(req)
+    const read = await this.readBodyOrReject(req, res)
+    if (!read) return
+    const body = read.body
     const existing = sessionId ? this.streamableTransports.get(sessionId) : undefined
     if (sessionId && !existing) {
       this.json(res, 404, {
@@ -296,10 +298,38 @@ export class McpServerService {
       this.json(res, 400, { error: `No transport found for sessionId ${sessionId}` })
       return
     }
-    const body = await readJsonBody(req)
+    const read = await this.readBodyOrReject(req, res)
+    if (!read) return
+    const body = read.body
     // express.json() would have consumed the stream; passing the parsed body
     // keeps the SDK from re-reading an exhausted request
     await transport.handlePostMessage(req, res, body)
+  }
+
+  /**
+   * A malformed body is a client error, not a server fault: answering 500
+   * "internal error" hides the actual problem (bad JSON) from the caller and
+   * reads as a GenOffice bug. Answers the JSON-RPC parse error itself and
+   * returns null; the caller stops there.
+   */
+  private async readBodyOrReject(
+    req: IncomingMessage,
+    res: ServerResponse,
+  ): Promise<{ body: unknown } | null> {
+    try {
+      return { body: await readJsonBody(req) }
+    } catch (error) {
+      const tooLarge = error instanceof Error && error.message === 'request body too large'
+      this.json(res, tooLarge ? 413 : 400, {
+        jsonrpc: '2.0',
+        error: {
+          code: -32700,
+          message: `Parse error: ${error instanceof Error ? error.message : String(error)}`,
+        },
+        id: null,
+      })
+      return null
+    }
   }
 
   // ── guards ────────────────────────────────────────────────────────────────

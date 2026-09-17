@@ -948,6 +948,13 @@ test('maps rounded display fonts before generic cursive fallbacks', () => {
   assert.equal(mapFont('"Open Sans", sans-serif'), 'Arial')
 })
 
+test('maps kana extensions, radicals, and astral CJK to CJK fonts', () => {
+  assert.equal(mapFont('', false, 'ㇰ'), 'Yu Gothic')
+  assert.equal(mapFont('', false, '⺁'), 'Microsoft YaHei')
+  assert.equal(mapFont('', false, '𠀋'), 'Microsoft YaHei')
+  assert.equal(mapFont('', false, 'hello'), 'Arial')
+})
+
 test('preserves colored literal bullets as editable runs', async () => {
   const { xml } = await convertHtml(
     `<!doctype html><html><body>

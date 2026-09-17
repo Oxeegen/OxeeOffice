@@ -4,6 +4,7 @@ import {
   aiPanelFontPx,
   aiPanelZoom,
   normalizeAiPanelPrefs,
+  sameAiPanelPrefs,
 } from '@genoffice/ui/ai-panel-prefs'
 
 describe('normalizeAiPanelPrefs', () => {
@@ -45,5 +46,20 @@ describe('aiPanelZoom', () => {
     const custom = { ...DEFAULT_AI_PANEL_PREFS, fontSize: 'custom' as const, customFontSize: 21 }
     expect(aiPanelZoom(custom)).toBeCloseTo(1.5)
     expect(aiPanelFontPx(custom)).toBe(21)
+  })
+})
+
+describe('AI panel side', () => {
+  it('keeps existing users on the left and accepts the right side', () => {
+    expect(normalizeAiPanelPrefs({}).side).toBe('left')
+    expect(normalizeAiPanelPrefs({ side: 'bottom' }).side).toBe('left')
+    expect(normalizeAiPanelPrefs({ side: 'right' }).side).toBe('right')
+  })
+
+  it('does not discard a side-only preference change', () => {
+    const left = normalizeAiPanelPrefs({ side: 'left' })
+    const right = normalizeAiPanelPrefs({ side: 'right' })
+    expect(sameAiPanelPrefs(left, right)).toBe(false)
+    expect(sameAiPanelPrefs(right, normalizeAiPanelPrefs({ side: 'right' }))).toBe(true)
   })
 })

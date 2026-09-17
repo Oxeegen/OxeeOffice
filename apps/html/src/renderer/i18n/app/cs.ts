@@ -38,6 +38,7 @@ export const cs = {
   fmtItalic: 'Kurzíva',
   openExternal: 'Odkaz byl otevřen v prohlížeči',
   save: 'Uložit (⌘S)',
+  saveAs: 'Uložit jako…',
   ribbonCollapse: 'Sbalit pás karet',
   ribbonPin: 'Připnout pás karet',
   ribbonExpand: 'Rozbalit pás karet',

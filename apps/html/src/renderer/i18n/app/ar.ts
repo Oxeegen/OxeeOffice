@@ -49,6 +49,7 @@ export const ar = {
   fmtItalic: 'مائل',
   openExternal: 'تم فتح الرابط في المتصفح',
   save: 'حفظ (⌘S)',
+  saveAs: 'حفظ باسم…',
   ribbonCollapse: 'طي الشريط',
   ribbonPin: 'تثبيت الشريط',
   ribbonExpand: 'توسيع الشريط',

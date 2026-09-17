@@ -63,8 +63,8 @@ describe('provider registry', () => {
     })
   })
 
-  it('marks the GPT-5 family as fixed-sampling (rejects any non-default temperature)', () => {
-    for (const model of ['gpt-5.6', 'gpt-5.6-terra', 'gpt-5.5', 'gpt-5.4-mini']) {
+  it('marks the GPT-5/GPT-6 families as fixed-sampling (reject any non-default temperature)', () => {
+    for (const model of ['gpt-6-astra', 'gpt-5.6', 'gpt-5.6-terra', 'gpt-5.5', 'gpt-5.4-mini']) {
       expect(AI_PROVIDER_ADAPTERS.openai.resolveEndpoint(config(model))).toEqual({
         protocol: 'openai-compatible',
         baseUrl: 'https://api.openai.com/v1',
@@ -108,6 +108,7 @@ describe('provider registry', () => {
       ['mistral', 'mistral-large-latest', 'https://api.mistral.ai/v1'],
       ['openrouter', 'openrouter/auto', 'https://openrouter.ai/api/v1'],
       ['requesty', 'claude-sonnet-5', 'https://router.requesty.ai/v1'],
+      ['opper', 'claude-sonnet-4-6', 'https://api.opper.ai/v3/compat'],
     ]
     for (const [id, model, baseUrl] of cases) {
       expect(AI_PROVIDER_ADAPTERS[id].resolveEndpoint(config(model))).toEqual({
@@ -292,6 +293,24 @@ describe('fixed-sampling models on indirect routes', () => {
     })
   })
 
+  it('omits temperature for fixed-sampling pools via Opper', () => {
+    const resolve = (model: string) => AI_PROVIDER_ADAPTERS.opper.resolveEndpoint(config(model))
+    for (const model of ['kimi-k3', 'gpt-5.5', 'gemini-3.8-flash', 'openai/gpt-5']) {
+      expect(resolve(model)).toEqual({
+        protocol: 'openai-compatible',
+        baseUrl: 'https://api.opper.ai/v3/compat',
+        omitTemperature: true,
+      })
+    }
+    // pool names and pinned vendor routes share the endpoint; sampling is unrestricted here
+    for (const model of ['claude-sonnet-4-6', 'anthropic/claude-sonnet-4-6']) {
+      expect(resolve(model)).toEqual({
+        protocol: 'openai-compatible',
+        baseUrl: 'https://api.opper.ai/v3/compat',
+      })
+    }
+  })
+
   it('omits temperature for fixed-sampling managed policies via Requesty', () => {
     const resolve = (model: string, baseUrl?: string) =>
       AI_PROVIDER_ADAPTERS.requesty.resolveEndpoint(config(model, baseUrl))
@@ -324,6 +343,7 @@ describe('modelLacksVision', () => {
     expect(modelLacksVision('deep-seek-v4-pro')).toBe(true)
     expect(modelLacksVision('deep-seek-v4.1-flash')).toBe(false)
     expect(modelLacksVision('deepseek-v4-flash-vision-exp')).toBe(false)
+    expect(modelLacksVision('deepseek-flash')).toBe(false)
     expect(modelLacksVision('deep-seek-v4-flash-vision-exp-openrouter')).toBe(false)
     expect(modelLacksVision('claude-opus-4-7')).toBe(false)
   })
@@ -341,6 +361,7 @@ describe('modelEchoesReasoning', () => {
     expect(modelEchoesReasoning('minimax-m2p7')).toBe(true)
     expect(modelEchoesReasoning('deep-seek-v4-flash')).toBe(true)
     expect(modelEchoesReasoning('deepseek-v4-pro')).toBe(true)
+    expect(modelEchoesReasoning('deepseek-flash')).toBe(true)
     expect(modelEchoesReasoning('gpt-5.6-luna')).toBe(false)
     expect(modelEchoesReasoning('kimi-k3')).toBe(false)
   })

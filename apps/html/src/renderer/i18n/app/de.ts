@@ -51,6 +51,7 @@ export const de = {
   fmtItalic: 'Kursiv',
   openExternal: 'Link im Browser geöffnet',
   save: 'Speichern (⌘S)',
+  saveAs: 'Speichern unter…',
   ribbonCollapse: 'Menüband reduzieren',
   ribbonPin: 'Menüband anheften',
   ribbonExpand: 'Menüband erweitern',

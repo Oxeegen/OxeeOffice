@@ -4,7 +4,6 @@ import {
   RibbonExpandButton,
   useDismissablePopover,
   useRibbonCollapse,
-  filesPaneTitle,
 } from '@genoffice/ui'
 import { useI18n } from '../i18n/locale'
 import type { StringKey } from '../i18n/locale'
@@ -14,7 +13,6 @@ import {
   IconBullets,
   IconButton,
   IconChevronDown,
-  IconFolderTree,
   IconCode,
   IconDivider,
   IconExpand,
@@ -65,6 +63,7 @@ interface Props {
   disabled: boolean
   dirty: boolean
   onSave: () => void
+  onSaveAs: () => void
   onFind: () => void
   canUndo: boolean
   canRedo: boolean
@@ -76,8 +75,6 @@ interface Props {
   onView: (view: ViewMode) => void
   aiOpen: boolean
   onToggleAi: () => void
-  filesOpen: boolean
-  onToggleFiles: () => void
   canInsert: boolean
   /** images come from a picked file by default; `url` places a remote image instead; tables take the picker's rows × cols */
   onInsert: (kind: InsertKind, opts?: InsertOptions) => void
@@ -131,7 +128,7 @@ const TABLE_PICKER_COLS = 10
 const ICON = 20
 
 export function Ribbon(p: Props) {
-  const { t, lang } = useI18n()
+  const { t } = useI18n()
   const collapse = useRibbonCollapse('htmlapp.ribbonCollapsed')
   const [themeOpen, setThemeOpen] = useState(false)
   const themeRef = useRef<HTMLDivElement>(null)
@@ -212,6 +209,17 @@ export function Ribbon(p: Props) {
           onClick={p.onSave}
         >
           <IconSave size={16} />
+        </button>
+        <button
+          type="button"
+          className="qa-btn qa-save-as"
+          data-tip={t('saveAs')}
+          aria-label={t('saveAs')}
+          disabled={off}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={p.onSaveAs}
+        >
+          {t('saveAs')}
         </button>
         <button
           type="button"
@@ -523,17 +531,6 @@ export function Ribbon(p: Props) {
                 </button>
               )
             })}
-            <button
-              type="button"
-              className={`rb-btn rb-view${p.filesOpen ? ' active' : ''}`}
-              aria-pressed={p.filesOpen}
-              data-tip={filesPaneTitle(lang)}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={p.onToggleFiles}
-            >
-              <IconFolderTree size={ICON} />
-              <span>{filesPaneTitle(lang)}</span>
-            </button>
           </div>
         </div>
 

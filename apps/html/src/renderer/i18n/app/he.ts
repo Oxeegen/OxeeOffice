@@ -48,6 +48,7 @@ export const he = {
   fmtItalic: 'נטוי',
   openExternal: 'הקישור נפתח בדפדפן',
   save: 'שמירה (⌘S)',
+  saveAs: 'שמירה בשם…',
   ribbonCollapse: 'כווץ את רצועת הכלים',
   ribbonPin: 'הצמד את רצועת הכלים',
   ribbonExpand: 'הרחב את רצועת הכלים',

@@ -48,6 +48,7 @@ export const th = {
   fmtItalic: 'ตัวเอียง',
   openExternal: 'เปิดลิงก์ในเบราว์เซอร์แล้ว',
   save: 'บันทึก (⌘S)',
+  saveAs: 'บันทึกเป็น…',
   ribbonCollapse: 'ยุบ Ribbon',
   ribbonPin: 'ปักหมุด Ribbon',
   ribbonExpand: 'ขยาย Ribbon',

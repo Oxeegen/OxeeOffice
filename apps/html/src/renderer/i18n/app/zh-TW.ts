@@ -48,6 +48,7 @@ export const zhTW = {
   fmtItalic: '斜體',
   openExternal: '已在瀏覽器中開啟連結',
   save: '儲存 (⌘S)',
+  saveAs: '另存新檔…',
   ribbonCollapse: '摺疊功能區',
   ribbonPin: '固定功能區',
   ribbonExpand: '展開功能區',

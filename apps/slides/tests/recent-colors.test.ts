@@ -21,4 +21,13 @@ describe('recent colors', () => {
     localStorage.setItem('slides:recent-colors', JSON.stringify(['#FF000080', '#00ff00']))
     expect(getRecentColors()).toEqual(['#00FF00'])
   })
+
+  it('caps and dedupes oversized stores on read', () => {
+    const stored = Array.from({ length: 12 }, (_, i) => `#${i.toString(16).padStart(6, '0')}`)
+    localStorage.setItem('slides:recent-colors', JSON.stringify([...stored, stored[0], stored[1]]))
+    const colors = getRecentColors()
+    expect(colors).toHaveLength(10)
+    expect(new Set(colors).size).toBe(10)
+    expect(colors[0]).toBe(stored[0])
+  })
 })

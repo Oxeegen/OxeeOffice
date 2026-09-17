@@ -49,6 +49,7 @@ export const ru = {
   fmtItalic: 'Курсив',
   openExternal: 'Ссылка открыта в браузере',
   save: 'Сохранить (⌘S)',
+  saveAs: 'Сохранить как…',
   ribbonCollapse: 'Свернуть ленту',
   ribbonPin: 'Закрепить ленту',
   ribbonExpand: 'Развернуть ленту',

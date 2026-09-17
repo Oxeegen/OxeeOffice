@@ -50,6 +50,7 @@ export const ja = {
   fmtItalic: '斜体',
   openExternal: 'ブラウザでリンクを開きました',
   save: '上書き保存 (⌘S)',
+  saveAs: '名前を付けて保存…',
   ribbonCollapse: 'リボンを折りたたむ',
   ribbonPin: 'リボンの固定',
   ribbonExpand: 'リボンを展開する',

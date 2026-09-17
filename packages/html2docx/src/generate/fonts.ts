@@ -3,8 +3,12 @@
 // (apps/html, apps/shell) must not fail on it.
 // Han + kana + Hangul: Korean previously fell outside this class and whole
 // Korean documents took the Latin/Arial branch (serif Hangul fallback).
+// CJK radicals/supplement, kana extensions, Hangul Jamo Extended-A/B and the
+// astral CJK Extensions B-H (u-flag: for..of yields whole code points, so a
+// BMP-only class never matches them) — without these, kana-ext/radical/Ext-B
+// text falls through to the Latin/Arial branch.
 const CJK_RE =
-  /[\u1100-\u11ff\u3000-\u30ff\u3130-\u318f\u3400-\u9fff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef]/
+  /[\u1100-\u11ff\u2e80-\u2fdf\u3000-\u30ff\u31f0-\u31ff\u3130-\u318f\u3400-\u9fff\ua960-\ua97f\uac00-\ud7af\ud7b0-\ud7ff\uf900-\ufaff\uff00-\uffef\u{20000}-\u{3134f}]/u
 const HANGUL_RE = /[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]/
 const KANA_RE = /[\u3040-\u30ff\u31f0-\u31ff]/
 

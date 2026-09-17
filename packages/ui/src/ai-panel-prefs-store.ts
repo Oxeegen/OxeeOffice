@@ -26,6 +26,7 @@ export function applyAiPanelPrefs(raw: unknown): void {
   if (sameAiPanelPrefs(next, current)) return
   current = next
   const html = document.documentElement
+  html.dataset.aiPanelSide = next.side
   if (next.fontSize === 'default') {
     delete html.dataset.aiFontSize
     html.style.removeProperty('--ai-font-zoom')
@@ -34,6 +35,11 @@ export function applyAiPanelPrefs(raw: unknown): void {
     html.style.setProperty('--ai-font-zoom', String(aiPanelZoom(next)))
   }
   for (const listener of listeners) listener()
+}
+
+/** Panels meet the window edge on either side; each app retains its own width limits. */
+export function aiPanelWidthAtPointer(clientX: number): number {
+  return current.side === 'right' ? window.innerWidth - clientX : clientX
 }
 
 export function useAiPanelPrefs(): AiPanelPrefs {

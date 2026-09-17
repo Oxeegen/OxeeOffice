@@ -25,8 +25,20 @@ describe('format registry', () => {
     for (const family of ['md', 'html'] as const) {
       expect(formatFamily(family).mcp).toBeUndefined()
     }
-    // only the families MCP actually drives carry an mcp block
-    expect(FORMAT_FAMILIES.filter((f) => f.mcp).map((f) => f.family)).toEqual(['docx', 'pptx'])
+    // the three edit-in-place families carry full mcp blocks; pdf is read-only
+    expect(FORMAT_FAMILIES.filter((f) => f.mcp).map((f) => f.family)).toEqual([
+      'docx',
+      'xlsx',
+      'pptx',
+      'pdf',
+    ])
+  })
+
+  it('exposes pdf as read-only until MCP drives the editor', () => {
+    const pdf = formatFamily('pdf')
+    expect(pdf.mcp).toEqual({ read: 'pdf' })
+    expect(pdf.mcp?.save).toBeUndefined()
+    expect(pdf.mcp?.generate).toBeUndefined()
   })
 
   it('records the editor export capabilities even where mcp cannot reach them', () => {
@@ -55,19 +67,21 @@ describe('format registry', () => {
 describe('withSaveExtension', () => {
   it('keeps a correct family extension, case-insensitively', () => {
     expect(withSaveExtension('docx', 'C:/x/Report.DOCX')).toBe('C:/x/Report.DOCX')
+    expect(withSaveExtension('xlsx', '/tmp/books.xlsx')).toBe('/tmp/books.xlsx')
     expect(withSaveExtension('pptx', '/tmp/deck.pptx')).toBe('/tmp/deck.pptx')
   })
 
   it('appends the family extension when the path has none', () => {
     expect(withSaveExtension('docx', '/tmp/report')).toBe('/tmp/report.docx')
+    expect(withSaveExtension('xlsx', '/tmp/books')).toBe('/tmp/books.xlsx')
     expect(withSaveExtension('pptx', '/tmp/deck')).toBe('/tmp/deck.pptx')
   })
 
   it('rejects a mismatched extension rather than silently rewriting it', () => {
-    expect(() => withSaveExtension('docx', '/tmp/report.pdf')).toThrow(
-      /Word document session must be saved as \.docx \(got "\.pdf"\)/,
+    expect(() => withSaveExtension('xlsx', '/tmp/report.docx')).toThrow(
+      /spreadsheet session must be saved as \.xlsx \(got "\.docx"\)/,
     )
-    expect(() => withSaveExtension('pptx', '/tmp/deck.docx')).toThrow(/must be saved as \.pptx/)
+    expect(() => withSaveExtension('pptx', '/tmp/deck.pdf')).toThrow(/must be saved as \.pptx/)
   })
 })
 
@@ -79,8 +93,9 @@ describe('capabilityReport', () => {
     expect(docx.editor.open).toEqual(['docx'])
     expect(docx.editor.export).toEqual(['pdf'])
     expect(docx.mcp).toEqual({ generate: 'docx', save: ['docx'], read: 'docx' })
-    // families MCP does not drive yet carry no mcp key
+    // editor-only family carries no mcp key
     expect(report.find((r) => r.family === 'md')!.mcp).toBeUndefined()
-    expect(report.find((r) => r.family === 'pdf')!.mcp).toBeUndefined()
+    // pdf is the read-only family
+    expect(report.find((r) => r.family === 'pdf')!.mcp).toEqual({ read: 'pdf' })
   })
 })

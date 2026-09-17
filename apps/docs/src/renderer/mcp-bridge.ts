@@ -64,6 +64,16 @@ function clearAiChangedFlags(editor: Editor): void {
   markDocSeen(editor)
 }
 
+/**
+ * The executors are shared with the in-app agent, whose tool set includes
+ * `get_document_context`. That name does not exist on the MCP surface, where the
+ * same readout is `read_document` — so hinting at it would send an external
+ * agent chasing a tool it cannot call. Rename the reference on the way out.
+ */
+function mcpErrorText(output: string): string {
+  return output.replaceAll('get_document_context', 'read_document')
+}
+
 async function runCommand(
   deps: McpBridgeDeps,
   command: McpEditorCommand,
@@ -77,12 +87,28 @@ async function runCommand(
     case 'insert_content': {
       const input = (payload ?? {}) as InsertContentInput
       if (typeof input.html !== 'string') throw new Error('insert_content requires "html"')
+      // The shared executor clamps an out-of-range afterBlockIndex to the last
+      // block, so a mistyped index quietly inserts somewhere unintended while
+      // replace_blocks rejects the same mistake. Reject it here too — the
+      // in-app agent keeps the clamping behavior it was built around.
+      if (input.afterBlockIndex !== undefined) {
+        const last = editor.state.doc.childCount - 1
+        if (!Number.isInteger(input.afterBlockIndex) || input.afterBlockIndex < -1) {
+          throw new Error(`afterBlockIndex must be an integer >= -1 (got ${input.afterBlockIndex})`)
+        }
+        if (input.afterBlockIndex > last) {
+          throw new Error(
+            `afterBlockIndex ${input.afterBlockIndex} is out of range (valid: -1..${last}); ` +
+              'call read_document for fresh block indexes',
+          )
+        }
+      }
       const outcome = await executeTool(
         editor,
         { id: 'mcp', name: 'insert_content', input: { ...input } },
         numIdsFor(ctx),
       )
-      if (outcome.isError) throw new Error(outcome.output)
+      if (outcome.isError) throw new Error(mcpErrorText(outcome.output))
       clearAiChangedFlags(editor)
       return { summary: outcome.summary, mutated: outcome.mutated }
     }
@@ -95,7 +121,7 @@ async function runCommand(
         { id: 'mcp', name: 'replace_blocks', input: { ...input } },
         numIdsFor(ctx),
       )
-      if (outcome.isError) throw new Error(outcome.output)
+      if (outcome.isError) throw new Error(mcpErrorText(outcome.output))
       clearAiChangedFlags(editor)
       return { summary: outcome.summary, mutated: outcome.mutated }
     }
@@ -115,7 +141,7 @@ async function runCommand(
         },
         numIdsFor(ctx),
       )
-      if (outcome.isError) throw new Error(outcome.output)
+      if (outcome.isError) throw new Error(mcpErrorText(outcome.output))
       if (input.dryRun !== true) clearAiChangedFlags(editor)
       return { summary: outcome.summary, output: outcome.output, mutated: outcome.mutated }
     }
@@ -126,7 +152,7 @@ async function runCommand(
         { id: 'mcp', name: 'get_document_context', input: {} },
         numIdsFor(ctx),
       )
-      if (outcome.isError) throw new Error(outcome.output)
+      if (outcome.isError) throw new Error(mcpErrorText(outcome.output))
       return { text: outcome.output }
     }
 
@@ -156,23 +182,31 @@ async function runCommand(
  * A fresh tab boots asynchronously (`newFile()` calls setContent, then setDoc),
  * so a command that lands before `doc` exists would be wiped by that blank
  * reset. Wait for the loaded document before announcing readiness.
+ *
+ * The wait never stops retrying, only slows down: a tab that gave up while its
+ * renderer was still booting would look fine in the UI yet stay unaddressable
+ * over MCP for the rest of its life, because readiness is announced exactly
+ * once and never re-derived.
  */
 const READY_POLL_MS = 50
-const READY_POLL_LIMIT = 400
+const READY_SLOW_POLL_MS = 1_000
+const READY_FAST_WINDOW_MS = 20_000
 
 async function announceWhenLoaded(
   deps: McpBridgeDeps,
   signal: () => void,
   isCancelled: () => boolean,
 ): Promise<void> {
-  for (let i = 0; i < READY_POLL_LIMIT; i++) {
+  const startedAt = Date.now()
+  for (;;) {
     if (isCancelled()) return
     const ctx = deps.getCtx()
     if (ctx?.editor && ctx.doc) {
       signal()
       return
     }
-    await new Promise((resolve) => setTimeout(resolve, READY_POLL_MS))
+    const slow = Date.now() - startedAt > READY_FAST_WINDOW_MS
+    await new Promise((resolve) => setTimeout(resolve, slow ? READY_SLOW_POLL_MS : READY_POLL_MS))
   }
 }
 

@@ -189,6 +189,12 @@ html.genoffice-popover-open .ribbon-tabs {
   color: var(--text-primary);
 }
 
+.qa-save-as {
+  width: auto;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
 .qa-btn svg {
   display: block;
   margin: 0 auto;
@@ -595,7 +601,8 @@ html.genoffice-popover-open .ribbon-tabs {
   width: 34px;
   padding: 12px 2px;
   border: none;
-  border-right: 1px solid var(--border);
+  border-left: var(--ai-panel-border-left, 0px) solid var(--border);
+  border-right: var(--ai-panel-border-right, 1px) solid var(--border);
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
@@ -616,7 +623,8 @@ html.genoffice-popover-open .ribbon-tabs {
   overflow: hidden;
   /* the dock clips at its own width, so the divider must sit inside the 100% width */
   box-sizing: border-box;
-  border-right: 1px solid var(--color-border-strong);
+  border-left: var(--ai-panel-border-left, 0px) solid var(--color-border-strong);
+  border-right: var(--ai-panel-border-right, 1px) solid var(--color-border-strong);
   background: var(--color-bg-page);
   font-family: var(--gs-font-sans);
   color: var(--color-text-primary);

@@ -49,6 +49,7 @@ export const pl = {
   fmtItalic: 'Kursywa',
   openExternal: 'Link otwarty w przeglądarce',
   save: 'Zapisz (⌘S)',
+  saveAs: 'Zapisz jako…',
   ribbonCollapse: 'Zwiń Wstążkę',
   ribbonPin: 'Przypnij Wstążkę',
   ribbonExpand: 'Rozwiń Wstążkę',

@@ -45,7 +45,7 @@ import {
   setActiveSlidesWebContents,
   slidesIsDirty,
 } from '../../../slides/src/main/slides-main'
-import type { TabKind, TabSummary } from '../shared/tabs-api'
+import type { DocumentTabKind, OpenDocumentTab, TabKind, TabSummary } from '../shared/tabs-api'
 
 interface TabRecord {
   id: string
@@ -195,7 +195,53 @@ export class TabManager {
       title: t.title,
       closable: t.id !== HOME_ID,
       active: t.id === this.activeId,
+      ...(t.filePath ? { filePath: t.filePath } : {}),
     }))
+  }
+
+  /**
+   * Documents an MCP agent may act on: every editor tab except Home (no file)
+   * and chrome-free Present tabs (a live preview of another tab's document, so
+   * acting on it would double-count that document).
+   *
+   * Dirtiness is resolved here per family because it is not uniform — five
+   * families answer synchronously in the main process, docs has to ask its
+   * renderer. Hence the async signature.
+   */
+  async openDocuments(): Promise<OpenDocumentTab[]> {
+    const tabs = this.tabs.filter((tab) => tab.kind !== 'home' && !tab.present && tab.view)
+    return Promise.all(
+      tabs.map(async (tab) => ({
+        id: tab.id,
+        kind: tab.kind as DocumentTabKind,
+        title: tab.title,
+        ...(tab.filePath ? { filePath: tab.filePath } : {}),
+        active: tab.id === this.activeId,
+        dirty: await this.tabIsDirty(tab),
+      })),
+    )
+  }
+
+  /** unsaved-changes state of one tab, whichever family owns it */
+  private async tabIsDirty(tab: TabRecord): Promise<boolean> {
+    const wc = tab.view?.webContents
+    if (!wc || wc.isDestroyed()) return false
+    switch (tab.kind) {
+      case 'sheets':
+        return sheetsPendingEditCount(wc.id) > 0
+      case 'pdf':
+        return pdfIsDirty(wc.id)
+      case 'markdown':
+        return markdownIsDirty(wc.id)
+      case 'html':
+        return htmlIsDirty(wc.id)
+      case 'slides':
+        return slidesIsDirty(wc.id)
+      case 'docs':
+        return docsQueryDirty(wc)
+      default:
+        return false
+    }
   }
 
   openHomeTab(): void {
@@ -466,6 +512,13 @@ export class TabManager {
       .map((t) => ({ id: t.id, webContents: t.view!.webContents }))
   }
 
+  /** all live sheets tabs (MCP bridge resolves its new tab's webContents through this) */
+  sheetsTabs(): Array<{ id: string; webContents: WebContents }> {
+    return this.tabs
+      .filter((t) => t.kind === 'sheets' && t.view)
+      .map((t) => ({ id: t.id, webContents: t.view!.webContents }))
+  }
+
   /** closes whichever tab is currently active; no-op for Home (Cmd+W target) */
   closeActiveTab(): void {
     void this.closeTab(this.activeId)
@@ -507,6 +560,26 @@ export class TabManager {
         this.closingIds.delete(id)
       }
     }
+    this.removeTab(id)
+  }
+
+  /**
+   * Close a tab with no save prompt. The caller must have already settled the
+   * document's unsaved changes (the MCP close tool saves or discards first):
+   * this is the plain removal step of `closeTab`, so a dialog never appears in
+   * a flow the user did not start.
+   * Returns false when there is no such tab (already closed) or one is mid-prompt.
+   */
+  closeTabWithoutPrompt(id: string): boolean {
+    if (id === HOME_ID) return false
+    const tab = this.tabs.find((t) => t.id === id)
+    if (!tab || this.closingIds.has(id)) return false
+    this.removeTab(id)
+    return true
+  }
+
+  /** detach + drop one tab and re-activate a neighbour (no guards, no prompts) */
+  private removeTab(id: string): void {
     const idx = this.tabs.findIndex((t) => t.id === id)
     if (idx < 0) return
     if (this.htmlFullScreenId === id) this.htmlFullScreenId = null

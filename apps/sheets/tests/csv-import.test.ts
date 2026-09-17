@@ -31,6 +31,16 @@ describe('decodeCsvBuffer', () => {
     expect(decodeCsvBuffer(be)).toBe(rows)
   })
 
+  it('reads BOM-less UTF-16 instead of keeping NUL garbage', () => {
+    const ascii = 'a,b\n1,2\n'
+    const le = Buffer.from(ascii, 'utf16le')
+    expect(decodeCsvBuffer(le)).toBe(ascii)
+    const be = Buffer.from(ascii, 'utf16le').swap16()
+    expect(decodeCsvBuffer(be)).toBe(ascii)
+    const leRows = Buffer.from(rows, 'utf16le')
+    expect(decodeCsvBuffer(leRows)).toBe(rows)
+  })
+
   it('falls back to the legacy charset Excel actually writes', () => {
     expect(decodeCsvBuffer(gbkBytes(rows))).toBe(rows)
     expect(decodeCsvBuffer(shiftJisBytes(jp), 'shift_jis')).toBe(jp)

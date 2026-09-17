@@ -659,6 +659,19 @@ export async function requestSlidesClose(
   return requestRendererSave(contents)
 }
 
+/**
+ * Drop a session's crash-recovery copies without saving — the dialog-free
+ * counterpart of answering "Don't Save" in `requestSlidesClose`, for the MCP
+ * `open_documents` discard path (which must not raise a prompt the user did not
+ * start). Without this the autosave copy survives, and the next open offers to
+ * restore edits the caller explicitly discarded.
+ */
+export function discardSlidesRecovery(contents: WebContents): void {
+  const session = sessions.get(contents.id)
+  if (session?.path) void rm(autosavePathFor(session.path), { force: true }).catch(() => {})
+  dropUntitledRecovery(contents.id)
+}
+
 /** On open, if a recovery copy newer than the original exists, ask whether to restore (still points at the original path; only save persists it). */
 async function maybeRecoverBytes(
   path: string,

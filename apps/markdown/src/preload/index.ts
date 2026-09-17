@@ -4,7 +4,6 @@ import type { Lang } from '@genoffice/i18n'
 import type { AiStreamChunk } from '@genoffice/ai-provider'
 import type { ProjectApi } from '@genoffice/project-store'
 import { installDropOpenBridge } from '@genoffice/electron-utils/drop-open'
-import { installFilesPaneBridge } from '@genoffice/electron-utils/files-pane-bridge'
 import { AI_CHANNELS, MARKDOWN_CHANNELS } from '../shared/ipc'
 import type { AutoSaveDefault, ExportFormat, MarkdownApi, SaveMode, UiTheme } from '../shared/ipc'
 
@@ -28,6 +27,12 @@ const api: MarkdownApi = {
   },
   sendCloseSaveResult: (ok) => ipcRenderer.send(MARKDOWN_CHANNELS.closeSaveResult, ok),
   sendSaveRequestAck: (ok) => ipcRenderer.send(MARKDOWN_CHANNELS.saveRequestAck, ok),
+  onReadTextRequest: (handler) => {
+    const listener = () => handler()
+    ipcRenderer.on(MARKDOWN_CHANNELS.readTextRequest, listener)
+    return () => ipcRenderer.removeListener(MARKDOWN_CHANNELS.readTextRequest, listener)
+  },
+  sendReadTextResult: (result) => ipcRenderer.send(MARKDOWN_CHANNELS.readTextResult, result),
   onFileRenamed: (handler) => {
     const listener = (_e: Electron.IpcRendererEvent, newPath: string) => handler(newPath)
     ipcRenderer.on(MARKDOWN_CHANNELS.fileRenamed, listener)
@@ -73,6 +78,7 @@ const api: MarkdownApi = {
     return () => ipcRenderer.removeListener(MARKDOWN_CHANNELS.autoSaveDefaultChanged, listener)
   },
   getAiPanelPrefs: () => ipcRenderer.invoke(MARKDOWN_CHANNELS.getAiPanelPrefs),
+  setAiPanelPrefs: (patch) => ipcRenderer.invoke('app:set-ai-panel-prefs', patch),
   onAiPanelPrefsChanged: (handler) => {
     const listener = (_event: Electron.IpcRendererEvent, prefs: AiPanelPrefs) => handler(prefs)
     ipcRenderer.on(MARKDOWN_CHANNELS.aiPanelPrefsChanged, listener)
@@ -114,5 +120,3 @@ contextBridge.exposeInMainWorld('projectApi', projectApi)
 
 // open documents dragged from the OS onto this tab as a new shell tab
 installDropOpenBridge()
-// folder tree over the default save folder (Files pane)
-installFilesPaneBridge()

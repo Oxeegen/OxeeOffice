@@ -49,6 +49,7 @@ export const ms = {
   fmtItalic: 'Condong',
   openExternal: 'Pautan dibuka dalam pelayar',
   save: 'Simpan (⌘S)',
+  saveAs: 'Simpan Sebagai…',
   ribbonCollapse: 'Runtuhkan Reben',
   ribbonPin: 'Semat Reben',
   ribbonExpand: 'Kembangkan Reben',

@@ -51,6 +51,7 @@ export const hi = {
   fmtItalic: 'इटैलिक',
   openExternal: 'लिंक ब्राउज़र में खोला गया',
   save: 'सहेजें (⌘S)',
+  saveAs: 'इस रूप में सहेजें…',
   ribbonCollapse: 'रिबन संक्षिप्त करें',
   ribbonPin: 'रिबन पिन करें',
   ribbonExpand: 'रिबन विस्तृत करें',

@@ -3173,7 +3173,14 @@ button {
 }
 
 @media print {
-  .app {
+  html,
+  body {
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Hide the full-height editor root so it cannot reserve a blank sheet. */
+  #root {
     display: none !important;
   }
 
@@ -3184,7 +3191,13 @@ button {
   .pdf-print-root img {
     display: block;
     width: 100%;
-    page-break-after: always;
+    /* Print viewport units use the printable area, including chosen margins. */
+    max-height: 100vh;
+    object-fit: contain;
+  }
+
+  .pdf-print-root img + img {
+    break-before: page;
   }
 }
 
@@ -3236,7 +3249,8 @@ button {
   width: 34px;
   padding: 12px 2px;
   border: none;
-  border-right: 1px solid var(--border);
+  border-left: var(--ai-panel-border-left, 0px) solid var(--border);
+  border-right: var(--ai-panel-border-right, 1px) solid var(--border);
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
@@ -3255,7 +3269,8 @@ button {
   flex-shrink: 0;
   min-height: 0;
   overflow: hidden;
-  border-right: 1px solid var(--border);
+  border-left: var(--ai-panel-border-left, 0px) solid var(--border);
+  border-right: var(--ai-panel-border-right, 1px) solid var(--border);
   background: var(--surface);
   font-family: var(--gs-font-sans);
   color: var(--color-text-primary);

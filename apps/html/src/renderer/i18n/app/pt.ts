@@ -51,6 +51,7 @@ export const pt = {
   fmtItalic: 'Itálico',
   openExternal: 'Link aberto no navegador',
   save: 'Salvar (⌘S)',
+  saveAs: 'Salvar Como…',
   ribbonCollapse: 'Recolher a Faixa de Opções',
   ribbonPin: 'Fixar a Faixa de Opções',
   ribbonExpand: 'Expandir a Faixa de Opções',

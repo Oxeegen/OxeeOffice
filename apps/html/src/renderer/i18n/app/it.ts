@@ -52,6 +52,7 @@ export const it = {
   fmtItalic: 'Corsivo',
   openExternal: 'Link aperto nel browser',
   save: 'Salva (⌘S)',
+  saveAs: 'Salva con nome…',
   ribbonCollapse: 'Riduci a icona la barra multifunzione',
   ribbonPin: 'Aggiungi la barra multifunzione',
   ribbonExpand: 'Espandi la barra multifunzione',

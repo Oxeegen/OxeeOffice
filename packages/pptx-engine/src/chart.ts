@@ -274,6 +274,16 @@ export function parseChartXml(
   } catch {
     return null
   }
+  const date1904Node = doc['c:chartSpace']?.['c:date1904']
+  const date1904Raw =
+    typeof date1904Node === 'object' && date1904Node !== null
+      ? String(date1904Node['@_val'] ?? '')
+          .trim()
+          .toLowerCase()
+      : ''
+  const date1904 =
+    date1904Node != null &&
+    (date1904Raw === '' || date1904Raw === '1' || date1904Raw === 'true' || date1904Raw === 'on')
   const chart = doc['c:chartSpace']?.['c:chart']
   const plotArea = chart?.['c:plotArea']
   if (!plotArea) return null
@@ -468,7 +478,7 @@ export function parseChartXml(
       }
       series.push(s)
       // Categories: take the first non-empty series' cat
-      if (!categories.length) categories = readStrPoints(ser['c:cat'])
+      if (!categories.length) categories = readStrPoints(ser['c:cat'], date1904)
       // Multi-level category axis: the outer level groups leaf categories (CA | SF, LA)
       if (!categoryGroups) {
         const multi = ser['c:cat']?.['c:multiLvlStrRef']?.['c:multiLvlStrCache']
@@ -880,7 +890,7 @@ function readNumPoints(node: any): Array<number | null> {
 }
 
 /** String cache (strRef/strCache or the innermost lvl of multiLvlStrRef) → string[]. */
-function readStrPoints(node: any): string[] {
+function readStrPoints(node: any, date1904 = false): string[] {
   const strCache = node?.['c:strRef']?.['c:strCache'] ?? node?.['c:strLit']
   if (strCache) return readPoints(strCache).map((v) => v ?? '')
   const lit = node?.['c:v']
@@ -906,15 +916,14 @@ function readStrPoints(node: any): string[] {
       if (v == null) return ''
       if (!isDate) return v
       const serial = parseFloat(v)
-      return Number.isFinite(serial) ? formatDateSerial(serial, fmtStr) : v
+      return Number.isFinite(serial) ? formatDateSerial(serial, fmtStr, date1904) : v
     })
   }
   return []
 }
 
-/** Excel date serial (days since 1899-12-30) formatted per the common date codes. */
-function formatDateSerial(serial: number, fmt: string): string {
-  const ms = (serial - 25569) * 86400000 // 25569 = days 1899-12-30 → 1970-01-01
+function formatDateSerial(serial: number, fmt: string, date1904: boolean): string {
+  const ms = (serial - (date1904 ? 24107 : 25569)) * 86400000
   const d = new Date(ms)
   const yyyy = d.getUTCFullYear()
   const mNum = d.getUTCMonth() + 1

@@ -7,6 +7,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { Editor } from '@tiptap/core'
 import { editorExtensions } from '../src/renderer/editor/extensions'
 import { AiPanel } from '../src/renderer/ai/AiPanel'
+import { t } from '../src/renderer/i18n/locale'
 import { AI_PROVIDERS, type AiSettings } from '../src/shared/ipc'
 
 const settings: AiSettings = {
@@ -51,8 +52,6 @@ function mount(element: React.ReactElement): {
 }
 
 function panelProps(editor: Editor) {
-  // No onCollapse: the New chat button is then the only .ai-header-btn,
-  // which keeps the selector independent of the active i18n locale.
   return {
     editor,
     blocks: [],
@@ -98,14 +97,16 @@ describe('AiPanel new chat', () => {
         // the previous conversation is painted above the live turn…
         expect(container.querySelectorAll('.ai-msg-historic').length).toBe(1)
         // …and New chat is offered even though the live turn is empty
-        const button = container.querySelector<HTMLButtonElement>('.ai-header-btn')
+        const button = container.querySelector<HTMLButtonElement>(
+          `button[aria-label="${t('aiNewChatTitle')}"]`,
+        )
         expect(button).not.toBeNull()
 
         act(() => button!.click())
 
         // both the transcript and the button are gone
         expect(container.querySelectorAll('.ai-msg-historic').length).toBe(0)
-        expect(container.querySelector('.ai-header-btn')).toBeNull()
+        expect(container.querySelector(`button[aria-label="${t('aiNewChatTitle')}"]`)).toBeNull()
       } finally {
         cleanup()
         editor.destroy()
