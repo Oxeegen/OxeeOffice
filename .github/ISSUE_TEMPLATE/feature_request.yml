@@ -7,11 +7,11 @@ body:
     attributes:
       label: App
       options:
-        - GenOffice Docs (docs)
-        - GenOffice Sheets (sheets)
-        - GenOffice Slides (slides)
-        - GenOffice PDF (pdf)
-        - GenOffice Markdown (markdown)
+        - OxeeOffice Docs (docs)
+        - OxeeOffice Sheets (sheets)
+        - OxeeOffice Slides (slides)
+        - OxeeOffice PDF (pdf)
+        - OxeeOffice Markdown (markdown)
         - Shell / home screen
         - AI panel / providers
         - Whole suite

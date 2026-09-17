@@ -1,86 +1,80 @@
 <p align="center">
-  <a href="https://genoffice.ai/">
-    <picture>
-      <source srcset="../assets/readme/hero-dark.webp" media="(prefers-color-scheme: dark)">
-      <img src="../assets/readme/hero.webp" alt="GenOffice — la suite bureautique IA open source : Docs, Sheets, Slides, PDF, Markdown et HTML avec un panneau IA intégré" width="100%">
-    </picture>
-  </a>
+  <img src="../../brand/assets/icon.png" alt="OxeeOffice" width="128">
 </p>
 
-<h1 align="center">GenOffice</h1>
-
-<p align="center"><b>La première suite bureautique IA open source complète au monde.</b><br>
-Fichiers Word, Excel, PowerPoint et PDF, modifiés par vous et votre IA, enregistrés dans les formats natifs.</p>
+<h1 align="center">OxeeOffice</h1>
 
 <p align="center">
-  <a href="../../LICENSE"><img src="https://img.shields.io/github/license/genspark-ai/genoffice" alt="License: Apache-2.0"></a>
-  <a href="https://github.com/genspark-ai/genoffice/releases/latest"><img src="https://img.shields.io/github/v/release/genspark-ai/genoffice" alt="Latest release"></a>
-  <a href="https://github.com/genspark-ai/genoffice/releases"><img src="https://img.shields.io/github/downloads/genspark-ai/genoffice/total" alt="Downloads"></a>
-  <a href="https://github.com/genspark-ai/genoffice/stargazers"><img src="https://img.shields.io/github/stars/genspark-ai/genoffice?style=flat" alt="GitHub stars"></a>
+  <sub><a href="../../README.md">English</a> · <strong>Français</strong></sub>
 </p>
 
-<p align="center"><a href="../../README.md">English</a> · <a href="README.es.md">Español</a> · <a href="README.pt-BR.md">Português (Brasil)</a> · <a href="README.de.md">Deutsch</a> · <b>Français</b> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.zh-TW.md">繁體中文</a> · <a href="README.ko.md">한국어</a> · <a href="README.ja.md">日本語</a> · <a href="README.ar.md">العربية</a> · <a href="README.ru.md">Русский</a> · <a href="README.it.md">Italiano</a> · <a href="README.nl.md">Nederlands</a> · <a href="README.pl.md">Polski</a> · <a href="README.cs.md">Čeština</a> · <a href="README.id.md">Bahasa Indonesia</a> · <a href="README.ms.md">Bahasa Melayu</a> · <a href="README.th.md">ไทย</a> · <a href="README.hi.md">हिन्दी</a> · <a href="README.he.md">עברית</a></p>
+<p align="center"><b>La suite bureautique IA d'Oxeegen.</b><br>
+Fichiers Word, Excel, PowerPoint et PDF, modifiés par vous et votre IA, enregistrés dans leurs formats natifs —
+sur les modèles d'Oxeegen.</p>
+
+<p align="center">
+  <a href="../../LICENSE"><img src="https://img.shields.io/github/license/Oxeegen/OxeeOffice?color=5E4AF5" alt="Licence : Apache-2.0"></a>
+  <a href="https://github.com/Oxeegen/OxeeOffice/releases/latest"><img src="https://img.shields.io/github/v/release/Oxeegen/OxeeOffice?color=5E4AF5" alt="Dernière version"></a>
+  <a href="https://github.com/Oxeegen/OxeeOffice/releases"><img src="https://img.shields.io/github/downloads/Oxeegen/OxeeOffice/total?color=5E4AF5" alt="Téléchargements"></a>
+  <img src="https://img.shields.io/badge/plateforme-Windows%20%7C%20Linux-5E4AF5" alt="Plateformes : Windows et Linux">
+</p>
 
 <p align="center">
   <a href="#download"><b>Télécharger</b></a> ·
   <a href="#command-line-and-agent-skill"><b>CLI</b></a> ·
   <a href="#mcp-server"><b>MCP</b></a> ·
-  <a href="https://genoffice.ai/"><b>Site web</b></a> ·
-  <a href="https://genoffice.ai/join"><b>Communauté</b></a> ·
+  <a href="https://www.oxeegen.com"><b>Oxeegen</b></a> ·
   <a href="../../PRIVACY.md"><b>Confidentialité</b></a>
 </p>
 
-GenOffice est une alternative gratuite et open source à Microsoft Office pour
-macOS, Windows et Linux. Elle ouvre et enregistre des fichiers natifs
-`.docx`, `.xlsx` et `.pptx`, permet d'éditer des PDF, du Markdown et du HTML,
-et place un agent IA au cœur de chaque document — pas une simple fenêtre de
-chat greffée sur le côté, mais un éditeur qui lit le fichier, effectue la
-modification, et vous montre exactement ce qu'il a touché.
+OxeeOffice est une suite bureautique de bureau pour Windows et Linux. Elle ouvre et
+enregistre des fichiers natifs `.docx`, `.xlsx` et `.pptx`, permet d'éditer des PDF,
+du Markdown et du HTML, et place un agent IA à côté de chaque document — pas une
+simple fenêtre de chat greffée sur le côté, mais un éditeur qui lit le fichier,
+effectue la modification, et vous montre exactement ce qu'il a touché.
 
-- **Formats natifs, préservation au bit près.** Seul ce que vous modifiez est
-  réécrit. Le reste du fichier est conservé à l'identique, si bien que vos
-  documents continuent de fonctionner dans Word, Excel et PowerPoint.
-- **Une IA que vous pouvez vérifier.** Les modifications arrivent sous forme
-  de suivi des modifications et de diffs, avec une annulation en un clic. Les
-  feuilles de calcul reçoivent de vraies formules, pas des chiffres collés.
-  Les diapositives et les pages sont générées directement sur le canevas et
-  restent entièrement modifiables.
+- **Formats natifs, préservés à l'octet près.** Seul ce que vous modifiez est
+  réécrit. Le reste du fichier est conservé à l'identique, si bien que vos documents
+  continuent de fonctionner dans Word, Excel et PowerPoint.
+- **Une IA que vous pouvez vérifier.** Les modifications arrivent sous forme de suivi
+  des modifications et de diffs, avec une restauration en un clic. Les feuilles de
+  calcul reçoivent de vraies formules, pas des chiffres collés. Les diapositives et
+  les pages sont générées directement sur le canevas et restent entièrement
+  modifiables.
 - **Local par conception.** L'ouverture, l'édition, l'enregistrement et la
   conversion des fichiers se font sur votre machine. Les conversions
-  PDF → Word / Excel / PowerPoint, Markdown → Word et HTML → Word s'exécutent
-  toutes en local. Seuls les appels à l'IA quittent la machine, vers le
-  fournisseur de votre choix.
-- **Vos clés ou aucune.** Connectez-vous avec Genspark pour vous dispenser de
-  clé, ou utilisez votre propre clé pour Claude, OpenAI, Gemini, DeepSeek,
-  Kimi, GLM, Qwen, Doubao, MiniMax, Grok, Mistral, OpenRouter, Requesty, ou tout point
-  de terminaison compatible OpenAI, y compris les serveurs locaux.
+  PDF → Word / Excel / PowerPoint, Markdown → Word et HTML → Word s'exécutent toutes
+  en local. Seuls les appels à l'IA quittent la machine, vers le fournisseur de
+  votre choix.
+- **Les modèles Oxeegen par défaut.** L'IA tourne sur l'inférence auto-hébergée
+  d'Oxeegen, compatible OpenAI. Vous pouvez aussi utiliser votre propre clé pour
+  Claude, OpenAI, Gemini, DeepSeek, Mistral, OpenRouter et d'autres, ou tout point de
+  terminaison compatible OpenAI, serveurs locaux compris.
 - **Scriptable et prêt pour les agents.** L'application embarque une ligne de
-  commande `genoffice` et un skill pour Claude Code, Codex, Cursor, Gemini
-  CLI, GitHub Copilot, OpenCode et Windsurf, si bien qu'un agent de codage
-  peut créer, convertir, lire et modifier de vrais fichiers Office sur votre
-  machine sans ouvrir de fenêtre.
+  commande et un skill pour Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot,
+  OpenCode et Windsurf, si bien qu'un agent de codage peut créer, convertir, lire et
+  modifier de vrais fichiers Office sur votre machine sans ouvrir de fenêtre.
+- **Mises à jour automatiques.** Les applications installées consultent les versions
+  publiées sur ce dépôt et proposent chaque nouvelle version.
 
-**À télécharger :** [macOS](https://github.com/genspark-ai/genoffice/releases/latest) (Apple Silicon et Intel) ·
-[Windows](https://github.com/genspark-ai/genoffice/releases/latest) (x64 et Arm) ·
-[Linux](https://github.com/genspark-ai/genoffice/releases/latest) (deb, rpm, AppImage) —
+**À télécharger :** [Windows](https://github.com/Oxeegen/OxeeOffice/releases/latest) (x64) ·
+[Linux](https://github.com/Oxeegen/OxeeOffice/releases/latest) (deb, rpm, AppImage) —
 détails et prérequis dans la section [Télécharger](#download).
 
-## Démonstration
+## Les applications
 
-Six applications, un seul panneau IA, et une ligne de commande pour votre
-agent de codage. Chaque capture d'écran montre l'application réelle sur
-macOS, avec l'IA pilotée par le prompt que vous pouvez lire dans le panneau.
+Six éditeurs, un seul panneau IA, et une ligne de commande pour votre agent de codage.
 
 ### 1 · Docs — ouvrez et modifiez des `.docx` avec une IA que vous pouvez vérifier
 
 <table>
 <tr>
-<td width="50%"><img src="../assets/readme/docs-report.webp" alt="GenOffice Docs affichant une page de rapport annuel à deux colonnes avec une image de couverture pleine largeur, un tableau de KPI ombré, un en-tête et un pied de page, à un zoom de 80 % avec le panneau IA réduit"></td>
-<td width="50%"><img src="../assets/readme/docs-ai.webp" alt="GenOffice Docs : une présentation d'entreprise avec une image de bannière ; l'IA a resserré la section Overview et inséré une nouvelle section à puces, et le panneau propose une annulation en un clic"></td>
+<td width="50%"><img src="../assets/readme/docs-report.webp" alt="Docs affichant une page de rapport annuel à deux colonnes avec une image de couverture pleine largeur, un tableau de KPI ombré, un en-tête et un pied de page, à un zoom de 80 % avec le panneau IA réduit"></td>
+<td width="50%"><img src="../assets/readme/docs-ai.webp" alt="Docs : une présentation d'entreprise avec une image de bannière ; l'IA a resserré la section Overview et inséré une nouvelle section à puces, et le panneau propose une restauration en un clic"></td>
 </tr>
 <tr>
 <td><b>Ouvre le fichier comme Word le met en page</b> — sections à deux colonnes, images pleine page, tableaux ombrés, en-têtes et pieds de page, pagination fondée sur les métriques de ligne de Word. Styles, commentaires, suivi des modifications, équations et annotations manuscrites font l'aller-retour sans être altérés.</td>
-<td><b>Demandez la modification</b> — l'IA lit les blocs dont elle a besoin, réécrit la section Overview et insère une nouvelle section à puces. Chaque intervention de l'IA est un instantané que vous pouvez annuler ; avec le <b>suivi des modifications</b> activé, les changements arrivent sous forme de révisions au style de Word.</td>
+<td><b>Demandez la modification</b> — l'IA lit les blocs dont elle a besoin, réécrit la section Overview et insère une nouvelle section à puces. Chaque intervention de l'IA est un instantané que vous pouvez restaurer ; avec le <b>Suivi des modifications</b> activé, les changements arrivent sous forme de révisions à la manière de Word.</td>
 </tr>
 </table>
 
@@ -88,27 +82,27 @@ macOS, avec l'IA pilotée par le prompt que vous pouvez lire dans le panneau.
 
 <table>
 <tr>
-<td width="50%"><img src="../assets/readme/sheets-ai.webp" alt="GenOffice Sheets : l'IA a ajouté une feuille Summary avec le chiffre d'affaires par région et par catégorie à l'aide de formules SUMIF, ainsi qu'un graphique en colonnes, et indique 43 modifications appliquées avec un bouton Annuler"></td>
-<td width="50%"><img src="../assets/readme/sheets-qa.webp" alt="GenOffice Sheets : interrogée sur la région ayant généré le plus de chiffre d'affaires au T2, l'IA répond Europe avec la répartition par catégorie et cite les cellules utilisées sous forme de liens, à côté de la feuille Orders"></td>
+<td width="50%"><img src="../assets/readme/sheets-ai.webp" alt="Sheets : l'IA a ajouté une feuille Summary avec le chiffre d'affaires par région et par catégorie à l'aide de formules SUMIF, ainsi qu'un graphique en colonnes, et indique 43 modifications appliquées avec un bouton Annuler"></td>
+<td width="50%"><img src="../assets/readme/sheets-qa.webp" alt="Sheets : interrogée sur la région ayant généré le plus de chiffre d'affaires au T2, l'IA répond Europe avec la répartition par catégorie et cite les cellules utilisées sous forme de liens, à côté de la feuille Orders"></td>
 </tr>
 <tr>
-<td><b>Construisez-la</b> — à partir d'une seule phrase, l'agent ajoute une feuille Summary avec de vraies formules <code>SUMIF</code> par région et par catégorie, insère un graphique en colonnes, et applique les 43 modifications sous forme d'un seul lot annulable.</td>
-<td><b>Interrogez-la</b> — les questions sur le classeur reviennent avec le raisonnement et les cellules exactes utilisées, présentées comme des citations cliquables. En arrière-plan : un moteur `.xlsx` Rust maison, des tableaux croisés dynamiques, des segments, une mise en forme conditionnelle et le traçage des formules.</td>
+<td><b>Construisez-la</b> — à partir d'une seule phrase, l'agent ajoute une feuille Summary avec de vraies formules <code>SUMIF</code> par région et par catégorie, insère un graphique en colonnes, et applique les 43 modifications en un seul lot annulable.</td>
+<td><b>Interrogez-la</b> — les questions sur le classeur reviennent avec le raisonnement et les cellules exactes utilisées, sous forme de citations cliquables. En coulisses : un moteur <code>.xlsx</code> en Rust, des tableaux croisés dynamiques, des segments, la mise en forme conditionnelle et le traçage des formules.</td>
 </tr>
 </table>
 
-### 3 · Slides — d'un prompt à un jeu de diapositives `.pptx`
+### 3 · Slides — d'un prompt à une présentation `.pptx`
 
-<img src="../assets/readme/slides-generate.webp" alt="Time-lapse de GenOffice Slides générant le deck investisseurs Aurora Home : l'IA planifie la trame narrative dans le panneau, les diapositives apparaissent une à une sur le canevas, et le deck terminé se conclut sur la demande finale" width="100%">
+<img src="../assets/readme/slides-generate.webp" alt="Time-lapse de Slides générant la présentation investisseurs Aurora Home : l'IA planifie la trame narrative dans le panneau, les diapositives apparaissent une à une sur le canevas, et la présentation terminée se conclut sur la demande finale" width="100%">
 
 <table>
 <tr>
-<td width="50%"><img src="../assets/readme/slides-cover.webp" alt="GenOffice Slides : la diapositive de couverture d'un jeu de diapositives Aurora Home pour investisseurs généré par l'IA sur le canevas, avec le prompt original d'une ligne et le résumé de l'IA de ce qu'elle a construit dans le panneau"></td>
-<td width="50%"><img src="../assets/readme/slides-ai.webp" alt="GenOffice Slides : la diapositive de clôture, designée, du même jeu de 11 diapositives, avec le bandeau de miniatures à gauche et le panneau IA résumant la trame narrative"></td>
+<td width="50%"><img src="../assets/readme/slides-cover.webp" alt="Slides : la diapositive de couverture d'une présentation investisseurs Aurora Home générée par l'IA sur le canevas, avec le prompt d'origine d'une ligne et le résumé par l'IA de ce qu'elle a construit dans le panneau"></td>
+<td width="50%"><img src="../assets/readme/slides-ai.webp" alt="Slides : la diapositive de clôture, mise en forme, de la même présentation de 11 diapositives, avec le bandeau de miniatures à gauche et le panneau IA résumant la trame narrative"></td>
 </tr>
 <tr>
-<td><b>Une ligne en entrée</b> — « Créer un jeu de 10 diapositives pour un pitch investisseur pour Aurora Home… ». GenOffice planifie la trame narrative, recherche les chiffres, et rédige chaque diapositive directement sur le canevas sous forme d'un véritable `.pptx`.</td>
-<td><b>Un jeu de diapositives fini en sortie</b> — onze diapositives designées avec une typographie et une iconographie cohérentes, et un appel à l'action final ; continuez à modifier avec les masques, les mises en page, les guides intelligents et le recadrage non destructif, ou demandez au panneau de restyliser, réécrire et réorganiser.</td>
+<td><b>Une ligne en entrée</b> — « Créer une présentation investisseurs de 10 diapositives pour Aurora Home… ». L'IA planifie la trame narrative, recherche les chiffres, et rédige chaque diapositive directement sur le canevas, sous forme d'un véritable <code>.pptx</code>.</td>
+<td><b>Une présentation terminée en sortie</b> — des diapositives mises en forme avec une typographie et des visuels cohérents et un appel à l'action final ; continuez à modifier avec les masques, les mises en page, les repères intelligents et le recadrage non destructif, ou demandez au panneau de restyler, réécrire et réorganiser.</td>
 </tr>
 </table>
 
@@ -116,178 +110,176 @@ macOS, avec l'IA pilotée par le prompt que vous pouvez lire dans le panneau.
 
 <table>
 <tr>
-<td width="50%"><img src="../assets/readme/pdf-edit.webp" alt="GenOffice PDF : le mode Modifier le texte délimite chaque bloc de texte de la page pour une modification sur place tandis que le panneau IA répond à une question sur le rapport avec des citations de page"></td>
-<td width="50%"><img src="../assets/readme/pdf-convert.webp" alt="GenOffice Docs affichant un document Word converti localement à partir du PDF de bilan trimestriel Helios, ouvert dans un second onglet à côté du PDF d'origine"></td>
+<td width="50%"><img src="../assets/readme/pdf-edit.webp" alt="PDF : le mode Modifier le texte délimite chaque bloc de texte de la page pour une modification sur place, tandis que le panneau IA répond à une question sur le rapport avec des citations de page"></td>
+<td width="50%"><img src="../assets/readme/pdf-convert.webp" alt="Docs affichant un document Word converti localement à partir du PDF de bilan trimestriel Helios, ouvert dans un second onglet à côté du PDF d'origine"></td>
 </tr>
 <tr>
-<td><b>Modifiez à l'intérieur de la page</b> — le mode Modifier le texte délimite chaque bloc de texte pour une nouvelle saisie sur place ; le flux de contenu est réécrit via PDFium avec les polices d'origine, et non par une annotation de recouvrement. Interrogez l'IA sur un long rapport et obtenez des réponses avec citations de page.</td>
-<td><b>Convertissez en local</b> — <b>Convertisseur PDF → PDF vers Word</b> produit un `.docx` modifiable qui s'ouvre dans Docs à côté de la source, avec titres, lignes de statistiques et paragraphes intacts. Les cibles Excel et PowerPoint fonctionnent de la même façon ; les pages scannées passent par l'OCR du système.</td>
+<td><b>Modifiez à l'intérieur de la page</b> — le mode <b>Modifier le texte</b> délimite chaque bloc de texte pour une nouvelle saisie sur place ; le flux de contenu est réécrit via PDFium avec les polices d'origine, et non par une annotation de recouvrement. Interrogez l'IA sur un long rapport et obtenez des réponses avec citations de page.</td>
+<td><b>Convertissez en local</b> — <b>Convertisseur PDF → PDF vers Word</b> produit un <code>.docx</code> modifiable qui s'ouvre dans Docs à côté de la source, avec titres, lignes de statistiques et paragraphes intacts. Les cibles Excel et PowerPoint fonctionnent de la même façon ; les pages scannées passent par l'OCR du système.</td>
 </tr>
 </table>
 
-### 5 · HTML — un générateur IA de pages et d'interfaces, avec un brief de design d'abord
+### 5 · HTML — un générateur IA de pages et d'interfaces, brief de design d'abord
 
 Indiquez à quoi sert la page et à qui elle s'adresse. L'IA propose d'abord un
-**brief de design** — accroche, palette, typographie et orientations
-stylistiques — puis construit un fichier `.html` autonome à partir de ces
-jetons.
+**brief de design** — accroche, palette, typographie et orientations stylistiques —
+puis construit un fichier `.html` autonome à partir de ces jetons.
 
-<img src="../assets/readme/html-restyle-motion.webp" alt="Time-lapse de GenOffice HTML relookant la page d'accueil Lumen : une seule requête Restyle dans le panneau transforme la page sombre Midnight Studio en version chaleureuse Solar Daybreak, tandis que chaque section et tout le contenu restent en place" width="100%">
+<img src="../assets/readme/html-restyle-motion.webp" alt="Time-lapse de HTML restylant la page d'accueil Lumen : une seule demande dans le panneau transforme la page sombre Midnight Studio en version chaleureuse Solar Daybreak, tandis que chaque section et tout le texte restent en place" width="100%">
 
 <table>
 <tr>
-<td width="50%"><img src="../assets/readme/html-ai.webp" alt="GenOffice HTML : une page de destination générée pour une lampe de bureau solaire dans l'orientation sombre Midnight Studio, affichée dans l'aperçu en direct avec le panneau IA résumant la page qu'elle vient de construire"></td>
-<td width="50%"><img src="../assets/readme/html-restyle.webp" alt="La même page de destination Lumen restylisée par l'IA dans l'orientation chaude Solar Daybreak : fond papier, titres en serif et une couleur d'accent orange, avec toutes les sections et tout le texte conservés"></td>
+<td width="50%"><img src="../assets/readme/html-ai.webp" alt="HTML : une page d'accueil générée pour une lampe de bureau solaire dans l'orientation sombre Midnight Studio, affichée dans l'aperçu en direct avec le panneau IA résumant la page qu'elle vient de construire"></td>
+<td width="50%"><img src="../assets/readme/html-restyle.webp" alt="La même page d'accueil Lumen restylée par l'IA dans l'orientation chaleureuse Solar Daybreak : fond papier, titres à empattements et accent orange, avec toutes les sections et tout le texte conservés"></td>
 </tr>
 <tr>
-<td><b>Générée à partir d'un seul prompt</b> — une accroche audacieuse, des cartes de fonctionnalités, une grille tarifaire et un formulaire de liste d'attente pour Lumen, construits dans l'orientation Midnight Studio. Cliquez sur n'importe quel élément pour le restyliser, double-cliquez pour modifier le texte, ou passez à la vue source CodeMirror.</td>
-<td><b>Même design, nouvelle orientation</b> — une seule demande de <b>restylisation</b> remplace les jetons du brief et la page suit : papier chaud, serif éditorial, accent orange soleil, rien n'est réécrit. Présentez en plein écran, ou exportez en PDF ou en document Word natif et modifiable.</td>
+<td><b>Générée à partir d'un seul prompt</b> — une accroche forte, des cartes de fonctionnalités, une grille tarifaire et un formulaire de liste d'attente, construits dans l'orientation Midnight Studio. Cliquez sur n'importe quel élément pour le restyler, double-cliquez pour modifier le texte, ou passez à la vue source CodeMirror.</td>
+<td><b>Même design, nouvelle orientation</b> — une seule demande <b>Affiner l'UI</b> remplace les jetons du brief et la page suit : papier chaud, typographie éditoriale à empattements, accent orange soleil, sans rien réécrire. Présentez en plein écran, ou exportez en PDF ou en document Word natif et modifiable.</td>
 </tr>
 </table>
 <table>
 <tr>
-<td width="50%"><img src="../assets/readme/html-dashboard.webp" alt="GenOffice HTML : un tableau de bord personnel généré pour un designer freelance dans un style lin chaleureux, avec un rail latéral gauche, une salutation en serif et quatre cartes de métriques"></td>
-<td width="50%"><img src="../assets/readme/html-report.webp" alt="GenOffice HTML : un rapport de données sur le marché des véhicules électriques généré dans un style broadsheet, avec un bandeau de titre en serif, un chiffre principal de 17,3 millions et une ligne de statistiques"></td>
+<td width="50%"><img src="../assets/readme/html-dashboard.webp" alt="HTML : un tableau de bord personnel généré pour un designer freelance dans un style lin chaleureux, avec un rail latéral gauche, une salutation à empattements et quatre cartes de métriques"></td>
+<td width="50%"><img src="../assets/readme/html-report.webp" alt="HTML : un rapport de données sur le marché des véhicules électriques généré dans un style journal grand format, avec un titre à empattements, un chiffre phare de 17,3 millions et une ligne de statistiques"></td>
 </tr>
 <tr>
-<td><b>Maquettes d'interface</b> — le modèle de démarrage « tableau de bord personnel » transforme un persona en une mise en page fonctionnelle : rail latéral, salutation, sparkline d'heures facturables, cartes de factures et de taux d'occupation, tout en vrai HTML que vous pouvez confier à un développeur.</td>
-<td><b>Récits de données</b> — le modèle de démarrage « rapport de données » construit un broadsheet éditorial : bandeau de titre en serif, un chiffre principal, une ligne de statistiques séparée par une règle, des graphiques SVG intégrés et une note méthodologique.</td>
-</tr>
-</table>
-
-### 6 · Markdown — un éditeur par blocs sur du `.md` brut, avec Ask AI
-
-<table>
-<tr>
-<td width="50%"><img src="../assets/readme/markdown-ai.webp" alt="GenOffice Markdown : un paragraphe sélectionné affiche une bulle Ask AI avec une instruction saisie et des puces de suggestion telles que Polish, Make more concise, Expand et Fix grammar, ainsi que des boutons Send now et Add to queue"></td>
-<td width="50%"><img src="../assets/readme/markdown-render.webp" alt="GenOffice Markdown affichant un document de notes de lancement avec un tableau, un diagramme de flux Mermaid et une liste de tâches, avec les prompts de démarrage du panneau IA à gauche"></td>
-</tr>
-<tr>
-<td><b>Demandez à l'IA à propos d'une sélection</b> — sélectionnez n'importe quel passage et une puce <b>Ask AI</b> apparaît : saisissez une instruction ou choisissez une suggestion, envoyez-la immédiatement, ou mettez en file plusieurs modifications ancrées et exécutez-les en une seule passe. La même entrée existe dans chaque application.</td>
-<td><b>Rendu, enregistré en Markdown brut</b> — titres, listes, tableaux, images, blocs de code et diagrammes Mermaid dans un éditeur par blocs Tiptap, réécrits en `.md` brut, avec un export <b>Markdown → Word</b> entièrement local.</td>
+<td><b>Maquettes d'interface</b> — le modèle « tableau de bord personnel » transforme un persona en une mise en page fonctionnelle : rail latéral, salutation, courbe des heures facturables, cartes de factures et de taux d'occupation, le tout en vrai HTML que vous pouvez confier à un développeur.</td>
+<td><b>Récits de données</b> — le modèle « rapport de données » construit une page éditoriale grand format : titre à empattements, un chiffre phare, une ligne de statistiques séparée par un filet, des graphiques SVG intégrés et une note méthodologique.</td>
 </tr>
 </table>
 
-### 7 · CLI — votre agent de codage pilote GenOffice, sur votre machine
-
-GenOffice embarque une ligne de commande `genoffice` et un skill d'agent.
-Installez le skill et Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot,
-OpenCode ou Windsurf peuvent créer, convertir, lire et modifier de vrais
-fichiers Office via les mêmes moteurs que les applications, sans ouvrir de
-fenêtre.
-
-<img src="../assets/readme/cli-deck-in-app.webp" alt="GenOffice Slides affichant un deck de huit diapositives sur le Système solaire qu'un agent de codage a construit via la ligne de commande genoffice : la diapositive de couverture sur le canevas, huit miniatures à gauche et le panneau IA ouvert" width="100%">
+### 6 · Markdown — un éditeur par blocs sur du `.md` brut, avec Demander à l'IA
 
 <table>
 <tr>
-<td width="50%"><img src="../assets/readme/cli-slides-grid.webp" alt="Les huit diapositives rendues du deck Système solaire côte à côte : couverture, chronologie de l'exploration, quatre chiffres clés, graphique en barres des diamètres planétaires, mondes rocheux contre géantes, le chiffre phare des 99,8 % du Soleil, la grille des quatre géantes et les points à retenir"></td>
-<td width="50%"><img src="../assets/readme/cli-integrations.webp" alt="GenOffice, page Réglages → Intégrations : le skill genoffice installé dans Claude Code, avec des boutons Installer à côté de Codex et Cursor"></td>
+<td width="50%"><img src="../assets/readme/markdown-ai.webp" alt="Markdown : un paragraphe sélectionné affiche une bulle de demande à l'IA avec une instruction saisie et des suggestions telles que Polish, Make more concise, Expand et Fix grammar, ainsi que des boutons Send now et Add to queue"></td>
+<td width="50%"><img src="../assets/readme/markdown-render.webp" alt="Markdown affichant un document de notes de lancement avec un tableau, un diagramme de flux Mermaid et une liste de tâches, avec les prompts de démarrage du panneau IA à gauche"></td>
 </tr>
 <tr>
-<td><b>Un seul prompt à votre agent</b> — « Construis un deck de huit diapositives sur le Système solaire. » L'agent lit le skill, écrit une feuille de style, un plan et une spécification de page par diapositive, génère les deux photos avec <code>genoffice image</code>, et laisse <code>genoffice slides check</code> rejeter tout ce qui déborde ou se chevauche avant que <code>genoffice create</code> n'assemble le <code>.pptx</code> et que <code>slides render</code> ne renvoie un PNG par diapositive à examiner.</td>
-<td><b>Installez une fois, depuis Réglages → Intégrations</b> — GenOffice liste les agents de codage qu'il trouve sur cet ordinateur et écrit le skill dans chacun de ceux que vous choisissez. Ou téléchargez le skill en zip, ou lancez <code>npx skills add genspark-ai/genoffice</code>. Les commandes et le flux de travail complet sont dans <a href="#command-line-and-agent-skill">Ligne de commande et skill d'agent</a>.</td>
+<td><b>Interrogez l'IA sur une sélection</b> — sélectionnez n'importe quel passage et le bouton <b>Demander à l'IA</b> apparaît : saisissez une instruction ou choisissez une suggestion, envoyez-la immédiatement, ou mettez en file plusieurs modifications ancrées et exécutez-les en une seule passe. La même entrée existe dans chaque application.</td>
+<td><b>Rendu à l'écran, enregistré en Markdown brut</b> — titres, listes, tableaux, images, blocs de code et diagrammes Mermaid dans un éditeur par blocs Tiptap, réécrits en <code>.md</code> brut, avec un export <b>Markdown → Word</b> entièrement local.</td>
+</tr>
+</table>
+
+### 7 · CLI — votre agent de codage pilote OxeeOffice, sur votre machine
+
+OxeeOffice embarque une ligne de commande et un skill d'agent. Installez le skill et
+Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, OpenCode ou Windsurf peuvent
+créer, convertir, lire et modifier de vrais fichiers Office avec les mêmes moteurs que
+les applications, sans ouvrir de fenêtre.
+
+<img src="../assets/readme/cli-deck-in-app.webp" alt="Slides affichant une présentation de huit diapositives sur le Système solaire qu'un agent de codage a construite via la ligne de commande : la diapositive de couverture sur le canevas, huit miniatures à gauche et le panneau IA ouvert" width="100%">
+
+<table>
+<tr>
+<td width="50%"><img src="../assets/readme/cli-slides-grid.webp" alt="Les huit diapositives rendues de la présentation Système solaire côte à côte : couverture, chronologie de l'exploration, quatre chiffres clés, graphique en barres des diamètres planétaires, mondes rocheux contre géantes, le chiffre phare des 99,8 % du Soleil, la grille des quatre géantes et les points à retenir"></td>
+<td width="50%"><img src="../assets/readme/cli-integrations.webp" alt="Réglages, page Intégrations : le skill installé dans Claude Code, avec des boutons Installer à côté de Codex et Cursor"></td>
+</tr>
+<tr>
+<td><b>Un seul prompt à votre agent</b> — « Construis une présentation de huit diapositives sur le Système solaire. » L'agent lit le skill, écrit une feuille de style, un plan et une spécification de page par diapositive, et laisse <code>slides check</code> rejeter tout ce qui déborde ou se chevauche avant que <code>create</code> n'assemble le <code>.pptx</code> et que <code>slides render</code> ne renvoie un PNG par diapositive à examiner.</td>
+<td><b>Installez une fois, depuis Réglages → Intégrations</b> — OxeeOffice liste les agents de codage qu'il trouve sur cet ordinateur et écrit le skill dans chacun de ceux que vous choisissez. Ou téléchargez le skill en zip, ou lancez <code>npx skills add Oxeegen/OxeeOffice</code>. Voir <a href="#command-line-and-agent-skill">Ligne de commande et skill d'agent</a>.</td>
 </tr>
 </table>
 
 ### 8 · MCP — les mêmes outils via le Model Context Protocol
 
-Chaque commande `genoffice` est aussi un outil MCP. Claude Code, Claude
-Desktop, Cursor et tout autre client MCP peuvent démarrer `genoffice mcp`
-eux-mêmes, sans skill à installer ni fenêtre à ouvrir, et obtiennent 29
-outils ainsi que les références d'opérations sous forme de ressources. Un
-second serveur HTTP dans l'application permet à un agent de construire un
-document Word dans un onglet d'éditeur visible pendant que vous regardez.
+Chaque commande est aussi un outil MCP. Claude Code, Claude Desktop, Cursor et tout
+autre client MCP peuvent démarrer le serveur eux-mêmes, sans skill à installer ni
+fenêtre ouverte. Un second serveur, HTTP, intégré à l'application permet à un agent de
+construire un document Word dans un onglet d'éditeur visible pendant que vous regardez.
 
-<img src="../assets/readme/mcp-deck-motion.webp" alt="Time-lapse de Claude Code construisant un dossier d'investissement de huit diapositives sur les énergies renouvelables via le serveur MCP de genoffice : recherche des figures et des photos, vérifie chaque image candidate avec media, deck_start écrit la feuille de style et le plan, deck_page ajoute une page vérifiée à la fois, deck_build assemble le .pptx et slides_render renvoie une image de chaque diapositive ; le deck terminé s'ouvre ensuite dans GenOffice Slides" width="100%">
+<img src="../assets/readme/mcp-deck-motion.webp" alt="Time-lapse de Claude Code construisant un dossier investisseurs de huit diapositives sur les énergies renouvelables via le serveur MCP : il recherche des chiffres et des photos, vérifie chaque image candidate, écrit la feuille de style et le plan, ajoute une page vérifiée à la fois, assemble le .pptx et rend chaque diapositive ; la présentation terminée s'ouvre ensuite dans Slides" width="100%">
 
 <table>
 <tr>
-<td width="50%"><img src="../assets/readme/mcp-deck-in-app.webp" alt="GenOffice Slides affichant le deck Renewable Energy 2026 de huit diapositives que Claude Code a construit via le serveur MCP de genoffice : la diapositive de couverture avec une photographie d'un parc éolien sur le canevas et huit miniatures à gauche"></td>
-<td width="50%"><img src="../assets/readme/mcp-integrations.webp" alt="GenOffice, page Réglages → Intégrations, partie MCP : la commande claude mcp add en une ligne pour Claude Code, le bloc JSON pour Cursor, Claude Desktop et d'autres clients MCP, et l'option de serveur HTTP local en dessous"></td>
+<td width="50%"><img src="../assets/readme/mcp-deck-in-app.webp" alt="Slides affichant la présentation Renewable Energy 2026 de huit diapositives que Claude Code a construite via le serveur MCP : la diapositive de couverture avec une photographie de parc éolien sur le canevas et huit miniatures à gauche"></td>
+<td width="50%"><img src="../assets/readme/mcp-integrations.webp" alt="Réglages, page Intégrations, partie MCP : la commande claude mcp add en une ligne pour Claude Code, le bloc JSON pour Cursor, Claude Desktop et les autres clients MCP, et l'option de serveur HTTP local en dessous"></td>
 </tr>
 <tr>
-<td><b>Un prompt, 38 appels d'outils, aucun terminal</b> — « Construis un dossier d'investissement de huit diapositives sur les énergies renouvelables en 2026, avec une vraie photo en couverture et partout où une photo est utile. » L'agent récupère les figures et les photos avec <code>search</code>, demande à <code>media</code> si chaque image candidate est une véritable photographie, appelle <code>deck_start</code> avec une feuille de style et un plan, puis <code>deck_page</code> une fois par diapositive ; chaque page est vérifiée par rapport au plan et à la palette avant d'être conservée, <code>deck_build</code> assemble le <code>.pptx</code>, <code>slides_audit</code> recherche les débordements, <code>slides_render</code> renvoie un PNG par diapositive sous forme de contenu image que le modèle peut regarder, et <code>deck_replace</code> retravaille les trois pages qui ne lui plaisaient pas.</td>
-<td><b>Connectez-vous une fois, depuis Réglages → Intégrations</b> — copiez la ligne <code>claude mcp add</code> pour Claude Code, ou le bloc JSON dans Cursor, Claude Desktop ou tout autre client MCP. L'option B active le serveur HTTP local pour l'éditeur Word visible. Les deux sont décrites dans <a href="#mcp-server">Serveur MCP</a>.</td>
+<td><b>Un prompt, aucun terminal</b> — « Construis un dossier investisseurs de huit diapositives sur les énergies renouvelables en 2026, avec une vraie photo en couverture. » L'agent récupère chiffres et photos avec <code>search</code>, vérifie chaque image avec <code>media</code>, construit la présentation page par page en vérifiant chacune par rapport au plan et à la palette, puis rend chaque diapositive sous forme d'image qu'il peut examiner et reprend les pages qui ne lui conviennent pas.</td>
+<td><b>Connectez une fois, depuis Réglages → Intégrations</b> — copiez la ligne <code>claude mcp add</code> pour Claude Code, ou le bloc JSON dans Cursor, Claude Desktop ou tout autre client MCP. Voir <a href="#mcp-server">Serveur MCP</a>.</td>
 </tr>
 </table>
 
-## Pourquoi GenOffice
+## Pourquoi OxeeOffice
 
-- **Open source**, licence Apache-2.0, développé au grand jour sur GitHub.
-- **À vous de l'exécuter.** Applications natives pour macOS, Windows et
-  Linux ; les fichiers restent sur votre disque et chaque modification,
-  enregistrement et conversion s'effectue sur votre machine.
-- **De vrais fichiers Office.** `.docx`, `.xlsx` et `.pptx` natifs, préservés
-  au bit près : les parties du fichier non modifiées sont copiées telles
-  quelles.
-- **Une IA qui modifie le document lui-même.** Suivi des modifications dans
-  Docs, formules et graphiques vivants dans Sheets, diapositives dessinées
-  directement sur le canevas, chaque étape de l'IA laissant un instantané que
-  vous pouvez restaurer.
-- **Votre modèle, votre clé.** Connectez-vous avec Genspark, ou apportez une
-  clé pour Claude, OpenAI, Gemini, DeepSeek et d'autres, serveurs locaux et
-  tout point de terminaison compatible OpenAI inclus.
-- **Le PDF fait sérieusement.** Modifiez le texte directement dans la page,
-  et convertissez le PDF en Word, Excel ou PowerPoint en local, avec OCR
-  système pour les scans.
-- **Markdown et HTML aussi**, avec le même panneau IA et un export local vers
-  Word.
-- **Scriptable.** Une ligne de commande `genoffice`, un skill d'agent et un
-  serveur MCP mettent chaque moteur au service de Claude Code, Claude
-  Desktop, Codex, Cursor et d'autres agents, toujours en local.
-- **Gratuit**, pour les particuliers comme pour les équipes.
+- **Propulsé par Oxeegen.** L'IA tourne sur l'inférence d'Oxeegen, avec un point de
+  terminaison régional configurable par utilisateur — sans compte ni abonnement tiers.
+- **À vous de l'exécuter.** Applications natives pour Windows et Linux ; les fichiers
+  restent sur votre disque et chaque modification, enregistrement et conversion
+  s'effectue sur votre machine.
+- **De vrais fichiers Office.** `.docx`, `.xlsx` et `.pptx` natifs, préservés à
+  l'octet près : les parties du fichier que vous n'avez pas touchées sont copiées
+  telles quelles.
+- **Une IA qui modifie le document lui-même.** Suivi des modifications dans Docs,
+  formules et graphiques vivants dans Sheets, diapositives dessinées sur le canevas,
+  chaque intervention de l'IA étant un instantané que vous pouvez restaurer.
+- **Le PDF, sérieusement.** Modifiez le texte à l'intérieur de la page, et convertissez
+  un PDF en Word, Excel ou PowerPoint en local, avec l'OCR du système pour les scans.
+- **Markdown et HTML aussi**, avec le même panneau IA et un export local vers Word.
+- **Scriptable.** Une ligne de commande, un skill d'agent et un serveur MCP mettent
+  chaque moteur au service de vos agents de codage, toujours en local.
+- **Open source**, sous licence Apache-2.0, et gratuit.
 
 ## Moteurs IA
 
-**Connectez-vous avec Genspark** et il n'y a rien à configurer : les appels
-aux modèles passent par le proxy Genspark (familles Claude, GPT et Gemini) et
-les agents ont accès à la recherche web et d'images, à la génération
-d'images, et à l'analyse d'images, d'audio et de vidéo.
+**Oxeegen** est le fournisseur par défaut : le chat et l'analyse d'images et de vidéos
+tournent sur les modèles d'Oxeegen (Max, Pro, Flash, Instant) via son point de
+terminaison compatible OpenAI. Dans **Réglages → Modèle IA**, choisissez votre région
+(**US** ou **EU** — chacune a ses propres clés) et collez votre clé API Oxeegen ; le
+point de terminaison est renseigné pour vous. Changez de modèle à tout moment depuis le
+sélecteur en haut du panneau IA de chaque éditeur : ce modèle planifie avec le
+raisonnement activé, puis rédige les diapositives, vérifie leur mise en page et rédige
+les longs documents avec le raisonnement désactivé.
+Aucune clé n'est jamais intégrée aux builds, puisque les versions sont publiques.
 
-**Ou utilisez votre propre clé.** Paramètres → IA propose Claude, OpenAI,
+Sous **Médias IA et recherche**, la recherche web et d'images passe par **Brave
+Search** — collez une clé API Brave dans l'entrée de recherche Oxeegen — et la
+génération d'images utilise **OpenAI** (`gpt-image-2.5-flare`, qualité moyenne) avec
+votre clé OpenAI, en attendant qu'Oxeegen propose ses propres modèles d'images.
+
+**Ou utilisez votre propre clé.** Réglages → Modèle IA propose aussi Claude, OpenAI,
 Gemini, DeepSeek, Kimi, GLM, Qwen, Doubao, MiniMax, Grok, Mistral, OpenRouter, Requesty
-et OpenCode Zen/Go, ainsi qu'un emplacement personnalisé pour tout point de
-terminaison compatible OpenAI (URL de base + clé), y compris les serveurs de
-modèles locaux. La recherche et les médias disposent de leurs propres
-fournisseurs par fonctionnalité sous **IA Médias et Recherche** : Serper ou
-Tavily pour la recherche web, et OpenAI, Gemini, Doubao/Seedream, GLM, Grok,
-Qwen, MiniMax ou tout point de terminaison d'images compatible OpenAI pour la
-génération d'images et l'analyse d'images/vidéos.
+et OpenCode Zen/Go, ainsi qu'un emplacement personnalisé pour tout point de terminaison
+compatible OpenAI (URL de base + clé), serveurs de modèles locaux compris. La recherche
+et les médias ont leurs propres fournisseurs par fonctionnalité sous **Médias IA et
+recherche**.
 
-Toute la suite propose les thèmes clair, sombre et système. Les thèmes ne
-changent que ce qui est affiché à l'écran : les exports, les impressions et
-les fichiers enregistrés conservent toujours les couleurs propres au
-document.
+Toute la suite propose les thèmes clair, sombre et système. Les thèmes ne changent que
+l'affichage : les exports, les impressions et les fichiers enregistrés conservent
+toujours les couleurs propres au document.
 
 <a id="command-line-and-agent-skill"></a>
 
 ## Ligne de commande et skill d'agent
 
-Tout ce que les applications peuvent faire à un fichier, la ligne de commande
-`genoffice` peut le faire depuis un terminal : inspecter, convertir, créer,
-lire et modifier du Word, de l'Excel, du PowerPoint, du PDF, du Markdown et
-du HTML sur les mêmes moteurs, sans interface graphique. Elle s'installe avec
-GenOffice, n'a besoin d'aucun runtime propre et n'envoie jamais un document
-où que ce soit. Associée au **skill d'agent** fourni, elle transforme un
-agent de codage en un ouvrier documentaire qui produit de vrais fichiers
-Office plutôt que des approximations en Markdown.
+Tout ce que les applications peuvent faire à un fichier, la ligne de commande peut le
+faire depuis un terminal : inspecter, convertir, créer, lire et modifier du Word, de
+l'Excel, du PowerPoint, du PDF, du Markdown et du HTML avec les mêmes moteurs, sans
+interface graphique. Elle s'installe avec OxeeOffice, ne nécessite aucun runtime
+propre et n'envoie jamais un document nulle part. Associée au **skill d'agent**
+fourni, elle transforme un agent de codage en un véritable assistant documentaire qui
+produit de vrais fichiers Office plutôt que des approximations en Markdown.
 
-**Fonctionne avec :** Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot,
-OpenCode et Windsurf dès l'installation, tout autre agent qui lit des
-skills, et, via le [serveur MCP](#mcp-server), Claude Desktop et tout client
-MCP.
+> Dans cette version, la commande s'appelle encore **`genoffice`** ; elle deviendra
+> `oxeeoffice` dans une prochaine version, tout comme le nom du serveur MCP et le
+> skill. Les exemples ci-dessous utilisent le nom actuel.
+
+**Fonctionne avec :** Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, OpenCode
+et Windsurf dès l'installation, tout autre agent qui lit des skills, et, via le
+[serveur MCP](#mcp-server), Claude Desktop et tout client MCP.
 
 ### Installer le skill
 
-| Comment                                        | Ce qui se passe                                                                                                                                                                                                   |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Réglages → Intégrations** dans l'application | Liste les agents trouvés sur cet ordinateur ; un clic écrit le skill dans chacun de ceux que vous choisissez. Un bouton **Mettre à jour** apparaît lorsqu'une version de GenOffice embarque un skill plus récent. |
-| **Télécharger en zip** sur la même page        | Le format que claude.ai, les applications de bureau Claude et d'autres assistants acceptent comme skill téléversé.                                                                                                |
-| `npx skills add genspark-ai/genoffice`         | Installe depuis ce dépôt dans tout agent compatible avec les skills.                                                                                                                                              |
+| Comment | Ce qui se passe |
+| --- | --- |
+| **Réglages → Intégrations** dans l'application | Liste les agents trouvés sur cet ordinateur ; un clic écrit le skill dans chacun de ceux que vous choisissez. Un bouton **Mettre à jour** apparaît lorsqu'une version embarque un skill plus récent. |
+| **Télécharger en zip** sur la même page | Le format que claude.ai, les applications de bureau Claude et d'autres assistants acceptent comme skill téléversé. |
+| `npx skills add Oxeegen/OxeeOffice` | Installe depuis ce dépôt dans tout agent compatible avec les skills. |
 
-Ouvrez ensuite une nouvelle conversation et demandez un document. Le skill
-apprend à l'agent quand recourir à `genoffice`, comment lire un fichier avant
-de le modifier, et comment vérifier son propre travail.
+Ouvrez ensuite une nouvelle conversation et demandez un document. Le skill apprend à
+l'agent quand recourir à la ligne de commande, comment lire un fichier avant de le
+modifier, et comment vérifier son propre travail.
 
 ### Démarrage rapide depuis le terminal
 
@@ -302,52 +294,47 @@ genoffice render report.docx --out shots/          # one PNG per page, to look a
 genoffice open sales.xlsx                          # hand the result to the editor
 ```
 
-Chaque commande affiche un résumé d'une ligne, ou un seul objet JSON avec
-`--json`. Les modifications sont atomiques : une opération rejetée laisse le
-fichier intact et renvoie une erreur guidée. `genoffice help` liste les
-commandes actuellement disponibles ; la référence complète se trouve dans
-[packages/cli/README.md](../../packages/cli/README.md).
+Chaque commande affiche un résumé d'une ligne, ou un seul objet JSON avec `--json`.
+Les modifications sont atomiques : une opération rejetée laisse le fichier intact et
+renvoie une erreur explicative. `genoffice help` liste les commandes disponibles ; la
+référence complète se trouve dans [packages/cli/README.md](../../packages/cli/README.md)
+(en anglais).
 
-### Ce que l'agent exécute réellement
+### Construire une présentation depuis un agent
 
-Le deck Système solaire de la démonstration ci-dessus a demandé un seul
-prompt dans Claude Code. En coulisses, l'agent a suivi le flux de travail par
-étapes du skill, et la CLI a vérifié chaque étape avant de passer à la
-suivante :
+Un agent qui suit le flux de travail par étapes du skill exécute à peu près ceci, et
+la ligne de commande vérifie chaque étape avant de passer à la suivante :
 
 ```bash
-genoffice capabilities --json                        # which cloud tools GenOffice has configured
+genoffice capabilities --json                        # which cloud tools are configured
 genoffice guide slides design                        # the deck workflow and layout library
-genoffice image "the eight planets in a row …" --aspect 16:9 --out deck/assets/cover.jpg
-genoffice slides check deck/outline.json --json      # 8 pages, no findings
+genoffice slides check deck/outline.json --json      # outline checked
 genoffice slides check deck/pages/01.json --json     # builds one slide, audits overflow and overlap
 …                                                    # one page file per slide, fixed until each check is clean
-genoffice create --type pptx --spec deck/pages --outline deck/outline.json --out deck/solar-system.pptx --json
-genoffice slides render deck/solar-system.pptx --out deck/shots --json
-genoffice slides audit deck/solar-system.pptx --json    # 8 slides, no layout issues
-genoffice slides replace deck/solar-system.pptx --slide 4 --spec deck/pages/05.json --json
-genoffice open deck/solar-system.pptx
+genoffice create --type pptx --spec deck/pages --outline deck/outline.json --out deck/briefing.pptx --json
+genoffice slides render deck/briefing.pptx --out deck/shots --json
+genoffice slides audit deck/briefing.pptx --json
+genoffice open deck/briefing.pptx
 ```
 
-Aucun appel à un modèle n'a lieu dans `genoffice` : l'agent réfléchit, la CLI
-construit et vérifie, et le résultat s'ouvre dans GenOffice ou PowerPoint
-comme un `.pptx` ordinaire.
+Aucun appel à un modèle n'a lieu dans la ligne de commande : l'agent réfléchit, la
+ligne de commande construit et vérifie, et le résultat s'ouvre dans OxeeOffice ou
+PowerPoint comme un `.pptx` ordinaire.
 
 <a id="mcp-server"></a>
 
-### Serveur MCP
+## Serveur MCP
 
 Les mêmes commandes sont disponibles comme outils
-[Model Context Protocol](https://modelcontextprotocol.io), pour les
-assistants qui ne peuvent pas exécuter de terminal ou auxquels vous
-préférez ne pas en donner un. Il existe deux façons de vous connecter,
-toutes deux présentées avec des extraits prêts à copier dans
-**Réglages → Intégrations → MCP** :
+[Model Context Protocol](https://modelcontextprotocol.io), pour les assistants qui ne
+peuvent pas exécuter de terminal ou auxquels vous préférez ne pas en donner un. Il
+existe deux façons de s'y connecter, toutes deux présentées avec des extraits prêts à
+copier dans **Réglages → Intégrations → MCP** :
 
-| Voie                                 | Ce que c'est                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **A · `genoffice mcp`** (recommandé) | Un serveur stdio que l'assistant démarre lui-même ; GenOffice n'a pas besoin d'être ouvert. Un outil par commande (`info`, `convert`, `create_docx`, `create_xlsx`, `create_pptx`, `create_pdf`, `docs_read` / `docs_apply` / `docs_check`, `sheet_*`, `slides_*`, `render`, `guide`, `search`, `image`, `media`, `open`) plus le flux de deck par étapes `deck_start` → `deck_page` → `deck_build` → `deck_replace`. Les opérations, les spécifications et le Markdown sont passés en ligne, donc un client sans système de fichiers fonctionne quand même. |
-| **B · Serveur HTTP local**           | Tourne dans l'application GenOffice sur `http://127.0.0.1:3093/mcp` (Streamable HTTP, avec SSE hérité). Ses outils pilotent un onglet d'éditeur Word visible : `create_session`, `insert_content`, `replace_blocks`, `apply_ops`, `read_document`, `save_session`, et vous regardez le document prendre forme. Désactivé par défaut ; activez-le dans le même panneau de réglages.                                                                                                                                                                           |
+| Voie | Ce que c'est |
+| --- | --- |
+| **A · `genoffice mcp`** (recommandé) | Un serveur stdio que l'assistant démarre lui-même ; OxeeOffice n'a pas besoin d'être ouvert. Un outil par commande (`info`, `convert`, `create_*`, `docs_*`, `sheet_*`, `slides_*`, `render`, `guide`, `search`, `image`, `media`, `open`), plus le flux de présentation par étapes `deck_start` → `deck_page` → `deck_build` → `deck_replace`. |
+| **B · Serveur HTTP local** | Tourne dans l'application sur `http://127.0.0.1:3093/mcp`. Ses outils pilotent un onglet d'éditeur Word visible, pour que vous voyiez le document prendre forme. Désactivé par défaut ; activez-le dans le même panneau de réglages. |
 
 ```bash
 # Claude Code
@@ -359,308 +346,177 @@ claude mcp add --transport stdio genoffice -- genoffice mcp
 { "mcpServers": { "genoffice": { "command": "genoffice", "args": ["mcp"] } } }
 ```
 
-`genoffice` désigne ici la CLI fournie dans l'application (sur macOS
-`/Applications/GenOffice.app/Contents/Resources/cli/genoffice` ; le panneau
-de réglages affiche le chemin exact de votre installation). Le serveur
-embarque ses propres instructions de workflow et expose les références
-d'opérations comme ressources `genoffice://guide/*`, donc aucun skill n'est
-nécessaire ; le skill et le serveur MCP peuvent coexister, et l'assistant
-en choisit un. Les fonctionnalités cloud (`search`, `image`, `media`)
-passent toujours par le fournisseur configuré dans GenOffice ; tout le
-reste tourne en local, et `GENOFFICE_ALLOWED_ROOTS` limite chaque outil aux
-dossiers que vous indiquez.
-
-Le deck sur les énergies renouvelables de la démonstration ci-dessus, c'est
-à quoi ressemble, côté protocole, un seul prompt dans Claude Code avec
-uniquement le serveur MCP `genoffice` connecté :
-
-```text
-capabilities · guide(slides, spec) · guide(slides, design)
-search(query) ×4                         → IEA, BNEF and IRENA figures for the slides
-search(query, images) ×7 · media(url, ask) ×7
-                                         → candidate photos, each one checked to be a real photograph
-deck_start(dir, style, outline)          → outline checked: 8 pages to write
-deck_page(dir, 0, page) … deck_page(dir, 7, page)
-                                         → each page checked against the outline and the palette; one page sent again
-deck_build(dir, out)                     → renewables-2026.pptx, no image failures
-slides_audit(file) · slides_render(file, out)
-                                         → no layout findings; 8 PNGs come back as image content
-deck_replace(dir, n, page) ×3 · slides_render(file, out)
-                                         → three pages fixed after looking at the renders
-```
-
-Trente-huit appels, environ treize minutes, et l'assistant n'a jamais
-touché de terminal : les figures, les photos, les guides, les vérifications
-et les rendus ont tous voyagé sous forme de résultats d'outils MCP. Seuls
-`search` et `media` ont quitté la machine, vers le fournisseur configuré
-dans GenOffice.
+`genoffice` désigne ici la ligne de commande fournie avec l'application — sous Windows
+`%LOCALAPPDATA%\Programs\OxeeOffice\resources\cli\genoffice.cmd`, sous Linux
+`/usr/bin/genoffice` ; le panneau de réglages affiche le chemin exact de votre
+installation. Les fonctionnalités cloud (`search`, `image`, `media`) passent par le
+fournisseur configuré dans OxeeOffice ; tout le reste tourne en local, et
+`GENOFFICE_ALLOWED_ROOTS` limite chaque outil aux dossiers que vous indiquez.
 
 <a id="download"></a>
 
 ## Télécharger
 
-| Plateforme                           | Prérequis                                             | Téléchargement                                                                                |
-| ------------------------------------ | ----------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| **macOS** — Apple Silicon (arm64)    | macOS 11+                                             | [Dernier `.dmg` (arm64)](https://github.com/genspark-ai/genoffice/releases/latest)            |
-| **macOS** — Intel (x64)              | macOS 11+                                             | [Dernier `.dmg` (x64)](https://github.com/genspark-ai/genoffice/releases/latest)              |
-| **Windows** (x64, la plupart des PC) | Windows 10+, Intel/AMD                                | [Dernier installateur `-x64.exe`](https://github.com/genspark-ai/genoffice/releases/latest)   |
-| **Windows** sur Arm (ARM64)          | Windows 11 sur Arm (Snapdragon X et similaires)       | [Dernier installateur `-arm64.exe`](https://github.com/genspark-ai/genoffice/releases/latest) |
-| **Linux** — Debian / Ubuntu          | x86_64, glibc 2.34+ (Ubuntu 22.04 ou plus récent)     | [Dernier `.deb`](https://github.com/genspark-ai/genoffice/releases/latest)                    |
-| **Linux** — Fedora / RHEL / openSUSE | x86_64, glibc 2.34+ (Fedora 35+, RHEL 9+, Leap 15.6+) | [Dernier `.rpm`](https://github.com/genspark-ai/genoffice/releases/latest)                    |
-| **Linux** — autres distributions     | x86_64, glibc 2.34+, FUSE 2                           | [Dernier `.AppImage`](https://github.com/genspark-ai/genoffice/releases/latest)               |
+| Plateforme | Prérequis | Téléchargement |
+| --- | --- | --- |
+| **Windows** (x64) | Windows 10+, Intel/AMD | [`OxeeOffice-<version>-setup.exe`](https://github.com/Oxeegen/OxeeOffice/releases/latest) |
+| **Linux** — Debian / Ubuntu | x86_64, glibc 2.34+ (Ubuntu 22.04 ou plus récent) | [`oxeeoffice_<version>_amd64.deb`](https://github.com/Oxeegen/OxeeOffice/releases/latest) |
+| **Linux** — Fedora / RHEL / openSUSE | x86_64, glibc 2.34+ (Fedora 35+, RHEL 9+, Leap 15.6+) | [`oxeeoffice-<version>.x86_64.rpm`](https://github.com/Oxeegen/OxeeOffice/releases/latest) |
+| **Linux** — autres distributions | x86_64, glibc 2.34+, FUSE 2 | [`OxeeOffice-<version>.AppImage`](https://github.com/Oxeegen/OxeeOffice/releases/latest) |
 
-Toutes les versions proviennent de `main` ; les installateurs macOS et
-Windows sont signés. Les versions plus anciennes se trouvent sur la page des
-[Releases](https://github.com/genspark-ai/genoffice/releases).
+L'installateur Windows et l'AppImage se mettent à jour d'eux-mêmes ; les installations
+deb et rpm se mettent à jour via le gestionnaire de paquets. Les installateurs ne sont
+pas signés : au premier lancement, Windows SmartScreen affiche un avertissement —
+choisissez **Informations complémentaires → Exécuter quand même**. Aucune version macOS
+n'est proposée : sans certificat Apple Developer, Gatekeeper refuse l'application.
+
+Les nouveautés de chaque version sont dans [CHANGELOG.md](../../CHANGELOG.md) (en anglais).
 
 <details>
-<summary><b>Installation sur Linux</b></summary>
+<summary><b>Installation sous Linux</b></summary>
 
-Le paquet deb s'installe avec apt — il récupère les dépendances et ajoute
-GenOffice au menu des applications :
+Le paquet deb s'installe avec apt — il récupère les dépendances et ajoute OxeeOffice
+au menu des applications :
 
 ```bash
-sudo apt install ./genoffice_<version>_amd64.deb
+sudo apt install ./oxeeoffice_<version>_amd64.deb
 ```
 
 Sur Fedora / la famille RHEL / openSUSE, installez plutôt le paquet rpm :
 
 ```bash
-sudo dnf install ./genoffice-<version>.x86_64.rpm     # Fedora / famille RHEL
-sudo zypper install ./genoffice-<version>.x86_64.rpm  # openSUSE
+sudo dnf install ./oxeeoffice-<version>.x86_64.rpm     # Fedora / famille RHEL
+sudo zypper install ./oxeeoffice-<version>.x86_64.rpm  # openSUSE
 ```
 
-L'AppImage s'exécute sur place : installez le runtime FUSE 2
-(`sudo apt install libfuse2` ; sur Ubuntu 24.04 le paquet se nomme
-`libfuse2t64`), rendez le fichier exécutable, puis lancez-le :
+L'AppImage s'exécute sur place : installez le runtime FUSE 2 (`sudo apt install libfuse2` ;
+sur Ubuntu 24.04 le paquet s'appelle `libfuse2t64`), rendez le fichier exécutable, puis
+lancez-le :
 
 ```bash
-chmod +x GenOffice-<version>.AppImage
-./GenOffice-<version>.AppImage
+chmod +x OxeeOffice-<version>.AppImage
+./OxeeOffice-<version>.AppImage
 ```
 
 </details>
 
 ## Fonctionnement
 
-Sept applications Electron — Docs, Sheets, Slides, PDF, Markdown, HTML et la
-coquille à onglets — partagent une même couche moteur composée de paquets
-TypeScript purs, ainsi qu'un sidecar Rust pour le `.xlsx`. Le fichier
-d'origine est toujours la source de vérité : les modifications sont
-appliquées sous forme de correctifs ciblés, et tout ce que l'éditeur n'a pas
-touché survit à l'aller-retour sans altération.
+Sept applications Electron — Docs, Sheets, Slides, PDF, Markdown, HTML et la fenêtre à
+onglets qui les réunit — partagent une même couche moteur faite de paquets TypeScript
+purs, plus un sidecar Rust pour le `.xlsx`. Le fichier d'origine fait toujours foi :
+les modifications sont appliquées sous forme de correctifs ciblés, et tout ce que
+l'éditeur n'a pas touché traverse l'aller-retour intact.
 
 ```
-open docx ─► archive l'original par hachage (jamais touché)
-          ─► analyse word/document.xml en un arbre de blocs, chaque bloc ancré à son XML d'origine
-          ─► éditeur Tiptap (édition manuelle + IA, suivi des modifications non enregistrées)
-save      ─► blocs modifiés → fragments OOXML (référençant uniquement les styles existants)
-          ─► insertion dans le document.xml d'origine ; les blocs non touchés conservent leurs octets
-          ─► reconstruction du zip ; chaque autre entrée est copiée octet pour octet
+open docx ─► archive original by hash (never touched)
+          ─► parse word/document.xml into a block tree, each block anchored to its original XML
+          ─► Tiptap editor (manual + AI editing, dirty tracking)
+save      ─► dirty blocks → OOXML fragments (referencing existing styles only)
+          ─► splice into the original document.xml; untouched blocks keep their bytes
+          ─► repack the zip; every other entry is copied byte-for-byte
 ```
-
-La visite guidée paquet par paquet (moteurs docx/pptx, `pdf2docx`,
-`html2docx`, le cœur de l'agent et les fournisseurs) se trouve dans
-[CONTRIBUTING.md](../../CONTRIBUTING.md#engine-packages).
 
 ## Développement
 
 ```bash
 npm install
-npm run fixtures     # génère les fixtures .docx de test
-npm test             # tests unitaires moteur + applications (docs/sheets/slides n'ont pas besoin d'affichage)
-npm run typecheck    # tsc --noEmit sur tout le workspace
-npm run dev          # les six éditeurs + la coquille avec les serveurs de dev Vite
-npm run dev:docs     # une seule application (le même schéma fonctionne par workspace)
-npm run dist:mac     # empaquette le dmg macOS (régénère les mentions tierces)
-npm run dist:win     # empaquette l'installateur nsis Windows
-npm run dist:linux   # empaquette l'AppImage + deb + rpm Linux
+npm test             # engine + app unit tests
+npm run typecheck    # tsc --noEmit across every workspace
+npm run dev          # all six editors + shell against Vite dev servers
+npm run dev:docs     # a single app (same pattern works per workspace)
 ```
 
-L'application sheets a en outre besoin d'une chaîne d'outils Rust pour son
-sidecar xlsx (`cargo` dans le PATH) ; `npm run build -w @genoffice/sheets` le
-compile automatiquement. Consultez
-[CONTRIBUTING.md](../../CONTRIBUTING.md) pour les vérifications que chaque
-modification doit passer et la façon dont les pull requests sont intégrées.
+L'application Sheets nécessite une chaîne d'outils Rust pour son sidecar xlsx (`cargo`
+dans le PATH). Les installateurs sont construits par le workflow de release. La
+configuration, les vérifications, les releases et les pull requests sont décrites dans
+[CONTRIBUTING.md](../../CONTRIBUTING.md) (en anglais).
 
-## Communauté
+## Assistance
 
-GenOffice est en développement actif et vos retours contribuent à le
-façonner.
-
-- **Signalez un bug ou proposez une fonctionnalité** sur
-  [GitHub Issues](https://github.com/genspark-ai/genoffice/issues).
-- **Rejoignez le salon de discussion GenOffice** sur
-  [GenTeam](https://genoffice.ai/join) pour échanger avec l'équipe et les
-  autres utilisateurs.
-- **Mettez une étoile au dépôt** si GenOffice vous est utile — c'est la
-  meilleure façon de soutenir le projet.
+- **Signalez un bug ou proposez une fonctionnalité** dans les
+  [issues GitHub](https://github.com/Oxeegen/OxeeOffice/issues).
 
 ## FAQ
 
 <details>
-<summary><b>GenOffice est-il gratuit ?</b></summary>
+<summary><b>OxeeOffice est-il gratuit ?</b></summary>
 
-Oui. GenOffice est gratuit et open source sous licence Apache-2.0 — pas
-d'essai, pas de palier payant pour les applications elles-mêmes.
-
-</details>
-
-<details>
-<summary><b>GenOffice peut-il ouvrir des fichiers Microsoft Word, Excel et PowerPoint ?</b></summary>
-
-Oui. GenOffice ouvre et enregistre des fichiers natifs `.docx`, `.xlsx` et
-`.pptx`. L'enregistrement préserve les octets : les parties du fichier que
-vous n'avez pas modifiées sont réécrites telles quelles, si bien que vos
-documents continuent de fonctionner dans Microsoft Office.
+Oui. Les applications sont gratuites et open source, sous licence Apache-2.0. Les
+fonctionnalités IA utilisent l'inférence Oxeegen ou la clé du fournisseur que vous
+configurez.
 
 </details>
 
 <details>
-<summary><b>GenOffice fonctionne-t-il hors ligne ?</b></summary>
+<summary><b>OxeeOffice peut-il ouvrir les fichiers Microsoft Word, Excel et PowerPoint ?</b></summary>
 
-L'édition de documents est entièrement locale — les fichiers ne quittent
-jamais votre machine pour être ouverts, modifiés, enregistrés ou convertis.
-Les fonctionnalités IA (agents, recherche, outils d'image) nécessitent une
-connexion réseau, avec soit une connexion Genspark, soit votre propre clé
-d'API de modèle.
-
-</details>
-
-<details>
-<summary><b>GenOffice peut-il modifier des fichiers PDF ?</b></summary>
-
-Oui — une véritable édition du texte et des images du PDF, qui réécrit le
-flux de contenu de la page en préservant les polices d'origine, et non de
-simples annotations de recouvrement.
+Oui. OxeeOffice ouvre et enregistre des fichiers natifs `.docx`, `.xlsx` et `.pptx`.
+L'enregistrement préserve le fichier à l'octet près : les parties que vous n'avez pas
+touchées sont réécrites à l'identique, si bien que les documents continuent de
+fonctionner dans Microsoft Office.
 
 </details>
 
 <details>
-<summary><b>GenOffice peut-il convertir un PDF en Word, Excel ou PowerPoint ?</b></summary>
+<summary><b>OxeeOffice fonctionne-t-il hors ligne ?</b></summary>
 
-Oui — entièrement en local : extraction au niveau des caractères via PDFium
-combinée à une analyse de mise en page fondée sur la géométrie, sans service
-cloud, sans envoi. Les pages scannées sont également prises en charge : sur
-macOS et Windows, l'OCR du système les lit, si bien qu'elles sont converties
-en texte modifiable plutôt qu'en image de page.
-
-</details>
-
-<details>
-<summary><b>Puis-je utiliser mon propre modèle IA ou ma propre clé d'API ?</b></summary>
-
-Oui. Outre la connexion Genspark sans clé, GenOffice prend en charge
-l'utilisation de votre propre clé pour Claude, OpenAI, Gemini, DeepSeek,
-Kimi, GLM, Qwen, Doubao, MiniMax, Grok, Mistral, OpenRouter, Requesty et OpenCode
-Zen/Go, ainsi que tout point de terminaison compatible OpenAI — y compris les
-serveurs de modèles locaux. La recherche, la génération d'images et
-l'analyse d'images/vidéos utilisent leurs propres clés sous Paramètres → IA
-Médias et Recherche.
+L'édition des documents est entièrement locale — les fichiers ne quittent jamais votre
+machine pour être ouverts, modifiés, enregistrés ou convertis. Les fonctionnalités IA
+ont besoin d'une connexion réseau vers Oxeegen ou vers le fournisseur que vous avez
+configuré.
 
 </details>
 
 <details>
-<summary><b>GenOffice peut-il convertir du HTML en Word ?</b></summary>
+<summary><b>OxeeOffice peut-il modifier des PDF, ou les convertir en Word ?</b></summary>
 
-Oui — Exporter en Word dans l'application HTML produit un `.docx` natif et
-modifiable, entièrement en local. La page est rendue dans le moteur Chromium
-intégré puis réduite à de véritables structures Word : titres, paragraphes,
-listes, tableaux, cartes, lignes de KPI, champs de formulaire et arrière-plans
-de page ; seuls les éléments visuels sans équivalent Word (graphiques,
-icônes, encadrés décorés) sont intégrés sous forme d'images.
+Oui aux deux : une véritable édition du texte et des images d'un PDF, qui réécrit le
+flux de contenu de la page avec les polices d'origine, et des conversions PDF → Word /
+Excel / PowerPoint entièrement en local, avec l'OCR du système pour les pages scannées.
 
 </details>
 
 <details>
-<summary><b>Puis-je piloter GenOffice depuis Claude Code, Codex, Cursor ou un script ?</b></summary>
+<summary><b>Puis-je utiliser un autre modèle d'IA ou ma propre clé API ?</b></summary>
 
-Oui. GenOffice installe une ligne de commande `genoffice` qui exécute les
-mêmes moteurs sans interface graphique : inspectez, convertissez, créez,
-lisez et modifiez des documents depuis un terminal ou un script, avec une
-sortie `--json` pour les programmes. Le skill d'agent fourni apprend à
-Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, OpenCode et Windsurf
-à l'utiliser ; installez-le depuis **Réglages → Intégrations**. Voir
-[Ligne de commande et skill d'agent](#command-line-and-agent-skill).
+Oui. Oxeegen est le fournisseur par défaut, et les réglages acceptent aussi des clés
+pour Claude, OpenAI, Gemini, DeepSeek et d'autres, ou tout point de terminaison
+compatible OpenAI, serveurs de modèles locaux compris.
 
 </details>
 
 <details>
-<summary><b>GenOffice collecte-t-il des données ?</b></summary>
+<summary><b>Puis-je piloter OxeeOffice depuis Claude Code, Codex, Cursor ou un script ?</b></summary>
 
-Les versions officielles empaquetées envoient par défaut des analyses
-d'usage limitées, et vous pouvez désactiver ce signalement à tout moment sous
-Paramètres → Général. Les analyses n'envoient jamais le contenu des
-documents, les noms de fichiers, les chemins de fichiers, l'identité du
-compte ou les adresses e-mail. Consultez
-[GenOffice Privacy](../../PRIVACY.md) pour la liste complète des événements
-et des données divulguées.
+Oui, avec la ligne de commande et le skill d'agent fournis, ou avec le serveur MCP.
+Voir [Ligne de commande et skill d'agent](#command-line-and-agent-skill).
+
+</details>
+
+<details>
+<summary><b>OxeeOffice collecte-t-il des données ?</b></summary>
+
+Non. Les builds d'OxeeOffice n'envoient aucune statistique d'utilisation : ils ne
+reçoivent jamais d'identifiants d'analytics, et le workflow de release échoue si un
+paquet en contient. Les documents restent sur votre machine ; seules les requêtes IA
+que vous faites sont envoyées, au fournisseur que vous avez configuré.
+Voir [PRIVACY.md](../../PRIVACY.md) (en anglais).
 
 </details>
 
 ## Sécurité
 
-Consultez [SECURITY.md](../../SECURITY.md) pour la posture de sécurité des
-processus (isolation du renderer, validation IPC, contrôle des liens
-externes) et les modèles de menace concernant le contenu généré par l'IA.
-
-## Remerciements
-
-GenOffice ne serait pas possible sans ces projets open source :
-
-- [Electron](https://www.electronjs.org/) — le runtime de bureau pour chaque
-  application.
-- [Univer](https://github.com/dream-num/univer) (Apache-2.0) — le cœur
-  d'interface de feuille de calcul que Sheets étend.
-- [PDFium](https://pdfium.googlesource.com/pdfium/) (BSD-3-Clause, intégré
-  via [@embedpdf/pdfium](https://github.com/embedpdf/embed-pdf-viewer)) — le
-  moteur de flux de contenu derrière la véritable édition de texte et
-  d'images des PDF.
-- [pdf.js](https://github.com/mozilla/pdf.js) (Apache-2.0) et
-  [pdf-lib](https://github.com/Hopding/pdf-lib) (MIT) — le rendu PDF et
-  l'assemblage de documents.
-- [Tiptap](https://tiptap.dev/) / [ProseMirror](https://prosemirror.net/) —
-  les éditeurs par blocs de Docs et Markdown.
-- [CodeMirror](https://codemirror.net/) (MIT) — l'éditeur de source dans
-  HTML.
-- [Konva](https://konvajs.org/) — le rendu canevas pour Slides et les
-  graphiques de Sheets.
-- [HarfBuzz](https://github.com/harfbuzz/harfbuzz) (wasm) — les métriques de
-  mise en forme de texte pour les écritures complexes.
-- [calamine](https://github.com/tafia/calamine) et
-  [IronCalc](https://github.com/ironcalc/IronCalc) — les couches de lecture
-  et de calcul du sidecar xlsx en Rust.
-- [libeot](https://github.com/umanwizard/libeot) (MPL-2.0) — le décodeur
-  MicroType Express pour les polices PowerPoint intégrées, porté en
-  TypeScript.
-- [React](https://react.dev/) (MIT) — la couche d'interface utilisateur de
-  chaque application.
-- [Mermaid](https://mermaid.js.org/) (MIT) et [KaTeX](https://katex.org/)
-  (MIT) — les diagrammes et les formules mathématiques dans Markdown et
-  Docs.
-- [opentype.js](https://opentype.js.org/) (MIT) — l'analyse des polices pour
-  les métriques et la recherche de glyphes.
-- [JSZip](https://stuk.github.io/jszip/) (MIT) et
-  [fast-xml-parser](https://github.com/NaturalIntelligence/fast-xml-parser)
-  (MIT) — les couches de conteneur OOXML et de XML.
-- [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons)
-  (MIT) — le jeu d'icônes des rubans.
-- [electron-updater](https://www.electron.build/) (MIT) — les mises à jour
-  intégrées à l'application.
-- Les polices Liberation, Carlito, Caladea et Noto CJK (OFL/Apache-2.0) — les
-  polices de document intégrées.
-
-`npm run notices` régénère le résumé des licences tierces intégrées
-(`tools/gen-third-party-notices.mjs`) ; toutes les dépendances d'exécution
-sont sous licence MIT/Apache-2.0/BSD-3-Clause/OFL.
+Voir [SECURITY.md](../../SECURITY.md) (en anglais) pour signaler une vulnérabilité, la
+sécurité des processus (isolation des renderers, validation IPC, contrôle des liens
+externes) et les modèles de menace liés au contenu généré par l'IA.
 
 ## Licence
 
-GenOffice est distribué sous [licence Apache 2.0](../../LICENSE), avec une
-exception : le répertoire `ee/` est réservé aux futurs modules d'entreprise
-et est couvert par la [GenOffice Enterprise License](../../ee/LICENSE).
+OxeeOffice est un logiciel open source distribué sous [licence Apache 2.0](../../LICENSE).
+Les mentions d'attribution et de composants tiers se trouvent dans [NOTICE](../../NOTICE).
 
-Les noms et logos GenOffice et Genspark sont des marques déposées de
-Mainfunc, Inc. La licence Apache-2.0 n'accorde pas la permission de les
-utiliser (voir la section 6) ; les forks doivent utiliser leur propre
-identité visuelle.
+Le dossier `ee/` relève d'une licence distincte ([ee/LICENSE](../../ee/LICENSE)) et ne fait
+pas partie des builds d'OxeeOffice.
+
+Maintenu par [Oxeegen](https://oxeegen.com).

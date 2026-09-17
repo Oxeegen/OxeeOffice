@@ -4,6 +4,10 @@
 
 <h1 align="center">OxeeOffice</h1>
 
+<p align="center">
+  <sub><strong>English</strong> · <a href="docs/i18n/README.fr.md">Français</a></sub>
+</p>
+
 <p align="center"><b>Oxeegen's AI office suite.</b><br>
 Word, Excel, PowerPoint and PDF files, edited by you and your AI, saved back in the real formats —
 running on Oxeegen's own models.</p>
@@ -53,14 +57,9 @@ touched.
 [Linux](https://github.com/Oxeegen/OxeeOffice/releases/latest) (deb, rpm, AppImage) —
 details and requirements in [Download](#download).
 
-> **Built from source since 0.10.488.** Up to 0.9.431, OxeeOffice was produced by
-> patching the compiled application. What changed and where it lives:
-> [brand/README.md](brand/README.md#porting-status).
-
 ## The apps
 
 Six editors, one AI panel, and a command line for your coding agent.
-<sub>Screenshots are from GenOffice, the open-source project OxeeOffice is built on, and show its branding.</sub>
 
 ### 1 · Docs — open and edit `.docx` with an AI you can review
 
@@ -353,9 +352,7 @@ update through the package manager. The installers are unsigned: on first run,
 Windows SmartScreen warns — choose **More info → Run anyway**. macOS is not built,
 because without an Apple Developer certificate Gatekeeper refuses the app.
 
-The version tracks the upstream release it is built from — `0.10.488` is built on
-upstream `v0.10.488` — and a patch bump is an Oxeegen-only fix. See
-[CHANGELOG.md](CHANGELOG.md).
+What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
 <details>
 <summary><b>Installing on Linux</b></summary>
@@ -401,10 +398,6 @@ save      ─► dirty blocks → OOXML fragments (referencing existing styles o
           ─► repack the zip; every other entry is copied byte-for-byte
 ```
 
-Everything specific to OxeeOffice — naming, icons, the update feed, packaging and
-the Oxeegen AI layer — lives in [`brand/`](brand/README.md), on top of an
-otherwise unmodified upstream tree.
-
 ## Development
 
 ```bash
@@ -416,16 +409,13 @@ npm run dev:docs     # a single app (same pattern works per workspace)
 ```
 
 The Sheets app needs a Rust toolchain for its xlsx sidecar (`cargo` on PATH).
-Installers are built by the release workflow; how that works, every OxeeOffice
-change to upstream files, and how to take a new upstream release are in
-[brand/README.md](brand/README.md). Setup, checks and pull requests are in
-[CONTRIBUTING.md](CONTRIBUTING.md).
+Installers are built by the release workflow. Setup, checks, releases and pull
+requests are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Support
 
 - **Report a bug or request a feature** in
   [GitHub Issues](https://github.com/Oxeegen/OxeeOffice/issues).
-- Report OxeeOffice problems here, not to the upstream project.
 
 ## FAQ
 
@@ -484,22 +474,10 @@ Yes, through the bundled command line and agent skill, or the MCP server. See
 <details>
 <summary><b>Does OxeeOffice collect any data?</b></summary>
 
-No. OxeeOffice builds send no usage analytics: upstream's reporting only runs
-when a build is given analytics credentials, and ours never are — the release
-workflow fails if a package carries them. Documents stay on your machine; only
-the AI requests you make are sent, to the provider you configured.
-See [PRIVACY.md](PRIVACY.md).
-
-</details>
-
-<details>
-<summary><b>How does OxeeOffice relate to GenOffice?</b></summary>
-
-OxeeOffice is Oxeegen's fork of [GenOffice](https://github.com/genspark-ai/genoffice),
-the open-source office suite by Mainfunc, Inc. (Apache-2.0). Upstream releases are
-merged in, and Oxeegen's changes are kept on top in [`brand/`](brand/README.md).
-OxeeOffice is not affiliated with, endorsed by, or supported by Mainfunc, Inc. or
-Genspark.
+No. OxeeOffice builds send no usage analytics: they are never given analytics
+credentials, and the release workflow fails if a package carries them. Documents
+stay on your machine; only the AI requests you make are sent, to the provider you
+configured. See [PRIVACY.md](PRIVACY.md).
 
 </details>
 
@@ -509,36 +487,12 @@ See [SECURITY.md](SECURITY.md) for how to report a vulnerability, the process
 security posture (renderer sandboxing, IPC validation, external-link gating) and
 the threat models for AI-generated content.
 
-## Acknowledgements
-
-OxeeOffice is built on [GenOffice](https://github.com/genspark-ai/genoffice) by
-Mainfunc, Inc., and on these open-source projects:
-
-- [Electron](https://www.electronjs.org/) — the desktop runtime for every app.
-- [Univer](https://github.com/dream-num/univer) (Apache-2.0) — the spreadsheet UI core that Sheets extends.
-- [PDFium](https://pdfium.googlesource.com/pdfium/) (BSD-3-Clause, bundled via [@embedpdf/pdfium](https://github.com/embedpdf/embed-pdf-viewer)) — the content-stream engine behind PDF text and image editing.
-- [pdf.js](https://github.com/mozilla/pdf.js) (Apache-2.0) and [pdf-lib](https://github.com/Hopding/pdf-lib) (MIT) — PDF rendering and document assembly.
-- [Tiptap](https://tiptap.dev/) / [ProseMirror](https://prosemirror.net/) — the block editors in Docs and Markdown.
-- [CodeMirror](https://codemirror.net/) (MIT) — the source editor in HTML.
-- [Konva](https://konvajs.org/) — canvas rendering for Slides and Sheets charts.
-- [HarfBuzz](https://github.com/harfbuzz/harfbuzz) (wasm) — text-shaping metrics for complex scripts.
-- [calamine](https://github.com/tafia/calamine) and [IronCalc](https://github.com/ironcalc/IronCalc) — the read and calc layers of the Rust xlsx sidecar.
-- [libeot](https://github.com/umanwizard/libeot) (MPL-2.0) — the MicroType Express decoder for embedded PowerPoint fonts, ported to TypeScript.
-- [React](https://react.dev/) (MIT) — the UI layer of every app.
-- [Mermaid](https://mermaid.js.org/) (MIT) and [KaTeX](https://katex.org/) (MIT) — diagrams and math in Markdown and Docs.
-- [opentype.js](https://opentype.js.org/) (MIT) — font parsing for metrics and glyph lookup.
-- [JSZip](https://stuk.github.io/jszip/) (MIT) and [fast-xml-parser](https://github.com/NaturalIntelligence/fast-xml-parser) (MIT) — the OOXML container and XML layers.
-- [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons) (MIT) — the icon set across the ribbons.
-- [electron-updater](https://www.electron.build/) (MIT) — in-app updates.
-- Liberation, Carlito, Caladea, and Noto CJK fonts (OFL/Apache-2.0) — bundled document fonts.
-
 ## License
 
-OxeeOffice is licensed under the [Apache License 2.0](LICENSE), inherited from
-GenOffice. Attribution and third-party notices are in [NOTICE](NOTICE).
+OxeeOffice is open-source software under the [Apache License 2.0](LICENSE).
+Attribution and third-party notices are in [NOTICE](NOTICE).
 
-The `ee/` directory is covered by the separate GenOffice Enterprise License
-([ee/LICENSE](ee/LICENSE)) and is not part of OxeeOffice builds.
+The `ee/` directory is covered by a separate license ([ee/LICENSE](ee/LICENSE)) and
+is not part of OxeeOffice builds.
 
-GenOffice and Genspark are trademarks of Mainfunc, Inc. OxeeOffice uses its own
-name and branding and is not affiliated with Mainfunc, Inc.
+Maintained by [Oxeegen](https://oxeegen.com).

@@ -1,44 +1,31 @@
 # Changelog
 
-OxeeOffice versions correspond to the upstream [GenOffice](https://github.com/genspark-ai/genoffice)
-release they are built from, plus the Oxeegen layer. The first build on upstream
-`vX.Y.Z` is OxeeOffice `X.Y.Z`; an Oxeegen-only fix bumps the patch number so installed
-apps receive it through auto-update.
+What changed in each OxeeOffice release. Installers are on the
+[Releases](https://github.com/Oxeegen/OxeeOffice/releases) page.
 
 ---
 
 ## OxeeOffice 0.10.488 — 2026-09-16
 
-**Upstream: [GenOffice v0.10.488](https://github.com/genspark-ai/genoffice/releases/tag/v0.10.488)** (2026-09-16),
-which also brings in [v0.10.63](https://github.com/genspark-ai/genoffice/releases/tag/v0.10.63) (2026-09-13) · Windows x64, Linux x64
+Windows x64, Linux x64
 
-### OxeeOffice is now built from source
-
-Up to 0.9.431, OxeeOffice was produced by patching upstream's compiled application
-after installing it. This repository is now a fork of GenOffice with the full upstream
-history, and every Oxeegen change lives in reviewable commits under
-[`brand/`](brand/README.md).
+### Automatic updates and Linux
 
 - **Automatic updates.** Installed apps check this repository's releases and offer
-  new versions: the Windows installer and the Linux AppImage update in place. The
-  previous builds had updates switched off, because an upstream update would have
-  reverted the patches, so 0.10.488 is installed once by hand. On Windows it upgrades
-  an existing OxeeOffice install in place, keeping its settings.
+  new versions: the Windows installer and the Linux AppImage update in place.
+  Previous builds had updates switched off, so 0.10.488 is installed once by hand.
+  On Windows it upgrades an existing OxeeOffice install in place, keeping its settings.
 - **Linux.** AppImage, deb and rpm, alongside Windows.
-- **No more "GenOffice" in the app.** Window and taskbar titles, dialogs, every UI
-  language, the installer, the settings folder (`%APPDATA%\OxeeOffice`,
-  `~/.config/OxeeOffice`) say OxeeOffice. A build fails if any
-  visible upstream name survives.
-- **Icons:** the app icon is OxeeOffice's purple one; file-type icons are upstream's
-  (blue W, green X, red P, the PDF mark, M↓, <>), so documents are easy to tell apart.
+- **OxeeOffice throughout.** Window and taskbar titles, dialogs, every UI language,
+  the installer and the settings folder (`%APPDATA%\OxeeOffice`,
+  `~/.config/OxeeOffice`) all say OxeeOffice.
+- **Icons:** the app icon is OxeeOffice's purple one; file-type icons use the
+  familiar colors (blue W, green X, red P, the PDF mark, M↓, <>), so documents are
+  easy to tell apart.
 - Built and published by GitHub Actions from a tag, with each package verified before
   release.
 
-Settings live in a new folder. Anyone moving from a build that ran as "GenOffice"
-underneath can copy `%APPDATA%\GenOffice\ai-settings.json` into
-`%APPDATA%\OxeeOffice\`.
-
-### From upstream v0.10.63 and v0.10.488
+### New in the editors
 
 - **Command line and agent skill.** A bundled command line runs the office engines
   headless, so coding agents (Claude Code, Codex, Cursor, …) can create, convert, read,
@@ -76,8 +63,8 @@ underneath can copy `%APPDATA%\GenOffice\ai-settings.json` into
   `gpt-image-2` (which it replaces, also in saved settings); image and video analysis on
   any Oxee model (Pro by default).
 - **Slide decks are built by Oxeegen** from a prompt, entirely on your machine.
-- **No Genspark sign-in, account page, credits or cloud tools**, and nothing connects
-  to Genspark — including a Genspark login present elsewhere on the computer.
+- **No sign-in, account page, credits or cloud tools.** Logins that other applications
+  keep on the computer are ignored.
 - **No usage analytics**; the first-run slides and Settings no longer mention them.
 - **Wider Markdown page**, so tables no longer squeeze into tall, narrow cells.
 
@@ -89,7 +76,7 @@ earlier builds.
 
 ## OxeeOffice 0.9.431
 
-**Upstream: [GenOffice v0.9.431](https://github.com/genspark-ai/genoffice/releases/tag/v0.9.431)** (2026-09-09) · Windows x64
+Windows x64
 
 ### New: the HTML app
 
@@ -125,28 +112,21 @@ A sixth editor joins Documents, Spreadsheets, Slides, PDF and Markdown.
 - **Find and replace**, and **Mermaid diagrams**.
 - Highlight geometry now aligns correctly.
 
-### Oxeegen layer
+### Oxeegen AI
 
-Upstream absorbed image generation and media analysis as configurable BYOK capabilities this release, so a large part of the Oxeegen patch set was deleted in favour of upstream's own mechanism.
+- **Oxeegen is now a first-class provider in the native Settings panes** — AI Model (chat), AI Search and AI Media — instead of separate Oxeegen rows on the Account page. Each capability is configured where the application expects it.
+- **Video analysis is new.** Image and video analysis both run on Oxeegen Pro / Flash / Instant; previously only still images were supported.
+- **Image generation on OpenAI** `gpt-image-2`, while Oxeegen has no image model.
+- **Search on Brave.**
+- The new HTML app uses Oxeegen like the other five.
 
-- **Oxeegen is now a first-class provider in the native Settings panes** — AI Model (chat), AI Search and AI Media — instead of bespoke Oxeegen rows bolted onto the Account page. Each capability is configured where the application expects it.
-- **Video analysis is new.** Image and video analysis both run on Oxeegen Pro / Flash / Instant; previously only still images were wired up.
-- **Image generation stays on OpenAI** `gpt-image-2`, because Oxeegen has no image model.
-- **Search stays on Brave.** Upstream added serper, tavily, exa and bing, none of which is Brave, so this remains an Oxeegen change.
-- The new HTML app receives the Oxeegen layer along with the other five.
-
-### Not included
-
-Upstream's Windows on Arm (ARM64) installer is not built for OxeeOffice; this is Windows x64 only. Upstream's new Codex App Server provider does not apply — OxeeOffice routes chat through Oxeegen.
+Windows x64 only; there is no Windows on Arm build.
 
 ---
 
 ## OxeeOffice 0.9.10
 
-**Upstream: [GenOffice v0.9.10](https://github.com/genspark-ai/genoffice/releases/tag/v0.9.10)** (2026-09-06) · Windows x64
-
-This release jumps seven upstream releases ahead of OxeeOffice 0.8.21
-(`v0.8.358` → `v0.9.10`). Everything below lands at once.
+Windows x64
 
 ### Documents
 
@@ -194,56 +174,29 @@ This release jumps seven upstream releases ahead of OxeeOffice 0.8.21
 - Open documents by **dropping them onto the app window**.
 - Per-document-type file icons.
 
-### Not included
+### Oxeegen AI
 
-Upstream's Windows on Arm (ARM64) installer, added in `v0.8.1360` and promoted to
-stable in `v0.9.10`, is not built for OxeeOffice. OxeeOffice ships Windows x64 only.
+- The output token cap is now the setting above rather than a fixed 65536 tokens.
+  Raise it in Settings if you need more than the 32768-token default.
+- Everything else — Oxeegen endpoint and model list, no sign-in, image generation,
+  vision, Brave search, native deck building and in-app updates switched off — carries
+  forward unchanged. All AI runs through Oxeegen.
 
-Upstream also added AI providers in this range (Gemini fixes, OpenCode Zen, Go, and a
-Tavily web-search fallback). These do not apply to OxeeOffice, which routes all AI
-through Oxeegen and uses Brave for search.
-
-### Oxeegen layer
-
-- The forced 65536-token output cap has been **retired**: upstream `v0.8.1039` turned
-  this into a real setting with a Settings control, so OxeeOffice now uses the upstream
-  control instead of patching the value. Raise it in Settings if you need more than the
-  32768-token default.
-- The remaining Oxeegen customisations — Oxeegen endpoint and model list, no sign-in,
-  image generation, vision, Brave search, native deck building, branding and disabled
-  auto-update — carry forward unchanged.
+Windows x64 only; there is no Windows on Arm build.
 
 ---
 
 ## OxeeOffice 0.8.21
 
-**Upstream: [GenOffice v0.8.262](https://github.com/genspark-ai/genoffice/releases/tag/v0.8.262)** (2026-08-25) · Windows x64
+Windows x64
 
-First widely distributed OxeeOffice build. Establishes the Oxeegen layer:
+First widely distributed OxeeOffice build:
 
-- Chat routed to Oxeegen `/v1/chat/completions`, with a per-user region endpoint (EU/US).
+- Chat on Oxeegen `/v1/chat/completions`, with a per-user region endpoint (EU/US).
 - Model dropdown populated live from Oxeegen `/v1/models`, filtered to chat-capable models.
-- GenSpark sign-in removed — no accounts, one shared organization key.
-- Response cap raised from 8192 to 65536 tokens, so long answers are no longer truncated.
-- Image generation and vision wired to the Oxeegen configuration; Brave Search ahead of the stock provider chain.
-- Native slide-deck building unblocked; agent turn limit raised from 24 to 120.
-- OxeeOffice branding: application and per-file-type icons, product name, links to oxeegen.com.
-- Auto-update disabled, so an upstream update cannot silently revert the Oxeegen layer.
-
----
-
-## Upstream releases covered
-
-| Upstream | Date | Headline |
-|---|---|---|
-| [v0.10.488](https://github.com/genspark-ai/genoffice/releases/tag/v0.10.488) | 2026-09-16 | MCP support, more CLI operations, Docs export as images |
-| [v0.10.63](https://github.com/genspark-ai/genoffice/releases/tag/v0.10.63) | 2026-09-13 | Command line + agent skill, Zotero citations, Sheets print with charts |
-| [v0.9.431](https://github.com/genspark-ai/genoffice/releases/tag/v0.9.431) | 2026-09-09 | New HTML app, global AutoSave, find and replace in PDF/Markdown |
-| [v0.9.10](https://github.com/genspark-ai/genoffice/releases/tag/v0.9.10) | 2026-09-06 | Collapsible ribbon, faster large documents, PDF AI tools, ARM64 stable |
-| [v0.8.1360](https://github.com/genspark-ai/genoffice/releases/tag/v0.8.1360) | 2026-09-05 | Windows on Arm preview *(not shipped in OxeeOffice)* |
-| [v0.8.1039](https://github.com/genspark-ai/genoffice/releases/tag/v0.8.1039) | 2026-09-03 | Dark page in Docs, Slides font/picture fidelity, Sheets page-setup fixes |
-| [v0.8.970](https://github.com/genspark-ai/genoffice/releases/tag/v0.8.970) | 2026-09-02 | Format-preserving AI edits, workbook merge, WordArt warp |
-| [v0.8.667](https://github.com/genspark-ai/genoffice/releases/tag/v0.8.667) | 2026-08-30 | Slides RTL, floating-table overhaul, 2× faster large copies |
-| [v0.8.440](https://github.com/genspark-ai/genoffice/releases/tag/v0.8.440) | 2026-08-27 | Reliable Sheets AI edits, drag-and-drop open, Docs layout fidelity |
-| [v0.8.358](https://github.com/genspark-ai/genoffice/releases/tag/v0.8.358) | 2026-08-26 | CSV support, Excel chart/pivot fidelity, DOCX image anchoring |
-| [v0.8.262](https://github.com/genspark-ai/genoffice/releases/tag/v0.8.262) | 2026-08-25 | Baseline for OxeeOffice 0.8.21 |
+- No sign-in or accounts — one shared organization key.
+- Responses of up to 65536 tokens, so long answers are not truncated.
+- Image generation and vision on the Oxeegen configuration; web search on Brave Search.
+- Native slide-deck building, with agent runs of up to 120 turns.
+- Application and per-file-type icons; links to oxeegen.com.
+- Updates are installed from the Releases page rather than from inside the app.

@@ -1,65 +1,31 @@
 # Contributing to OxeeOffice
 
-OxeeOffice is Oxeegen's fork of GenOffice. The Oxeegen layer lives in
-[`brand/`](brand/README.md); read that first — it explains how the fork is built,
-lists every hook into upstream files, and covers releasing and upstream merges.
-
-## Working in this fork
-
-```bash
-git clone https://github.com/Oxeegen/OxeeOffice.git
-cd OxeeOffice
-git remote add upstream https://github.com/genspark-ai/genoffice.git
-gh repo set-default Oxeegen/OxeeOffice
-```
-
-**Run `gh repo set-default` once per clone.** In a GitHub fork, `gh pr create`
-otherwise opens the pull request against *upstream*.
-
-- Branch from `main`, open a pull request against `Oxeegen/OxeeOffice` `main`.
-- Brand checks run on every PR (`brand-ci.yml`). Locally:
-  `node brand/scripts/check-hooks.mjs` and `node brand/scripts/check-ee.mjs`.
-- Keep changes to upstream files to marked, minimal hooks (`OxeeOffice brand hook`)
-  and add each to `brand/scripts/check-hooks.mjs` and the table in `brand/README.md`.
-  Anything larger belongs under `brand/`.
-- Never commit API keys: the repository and its releases are public.
-- Do not add or copy code under `ee/`. It is under the GenOffice Enterprise License,
-  not Apache-2.0, and OxeeOffice may not distribute it.
-- Report OxeeOffice bugs in this repository, not upstream.
-
-### Which parts of the upstream guide below apply
-
-| Section | In this fork |
-| --- | --- |
-| Repository layout, Engine packages, Getting started, Checks every change must pass, Environment variables, Coding conventions | Apply as written |
-| How changes land here | Does not apply — this fork takes ordinary pull requests on `main` |
-| Building installers | Use the OxeeOffice release workflow ([brand/README.md → Releasing](brand/README.md#releasing)) |
-| Commit and PR guidelines | Apply, except that PRs go to this repository |
-| Reporting bugs, License and CLA | Upstream's process — no CLA is needed for OxeeOffice contributions, which are Apache-2.0 |
-
----
-
-# Upstream guide: contributing to GenOffice
-
 Thanks for your interest in contributing. This document covers the local
 setup, the checks a change must pass, and the conventions used in this
 repository.
 
-## How changes land here
+## Working in this repository
 
-This GitHub repository is a mirror: development happens in a private tree,
-and `main` here advances through single squashed snapshot commits
-(`Sync snapshot (<date>)`). That is why every file in a sync shows the same
-last-commit message, and why nobody — maintainers included — pushes to
-`main` directly.
+```bash
+git clone https://github.com/Oxeegen/OxeeOffice.git
+cd OxeeOffice
+gh repo set-default Oxeegen/OxeeOffice
+```
 
-External pull requests are welcome and are reviewed here. Once a change is
-accepted, a maintainer imports it into the private tree with your authorship
-preserved as a `Co-authored-by:` trailer, and it ships to `main` in the next
-snapshot; your PR is then closed with a note pointing at the snapshot that
-carried it. GitHub will show the PR as "closed" rather than "merged" — the
-code and the attribution still land. Issues and feature requests are handled
-directly on this repository as usual.
+**Run `gh repo set-default` once per clone**, so `gh pr create` opens pull
+requests against this repository.
+
+- Branch from `main` and open a pull request against `Oxeegen/OxeeOffice` `main`.
+- Brand checks run on every PR (`brand-ci.yml`). Locally:
+  `node brand/scripts/check-hooks.mjs` and `node brand/scripts/check-ee.mjs`.
+- Packaging, releases, the Oxeegen AI layer and every marked hook
+  (`OxeeOffice brand hook`) are documented in [`brand/README.md`](brand/README.md).
+  Add each new hook to `brand/scripts/check-hooks.mjs` and to the table there.
+- Never commit API keys: the repository and its releases are public.
+- Do not add or copy code under `ee/`. It is under a separate license, not
+  Apache-2.0, and OxeeOffice may not distribute it.
+- Report bugs and request features in this repository's
+  [issues](https://github.com/Oxeegen/OxeeOffice/issues).
 
 ## Repository layout
 
@@ -70,6 +36,7 @@ directly on this repository as usual.
   dependency, unit-tested): docx/pptx engines, AI agent core, providers,
   i18n, UI kit.
 - `apps/sheets/native/xlsx-engine` — Rust xlsx engine (runs as a sidecar process) for xlsx import/export.
+- `brand/` — OxeeOffice packaging, update feed, icons and the Oxeegen AI layer.
 
 ## Engine packages
 
@@ -92,7 +59,7 @@ All pure TypeScript, no Electron dependency, unit-tested (except the UI kit):
   every app.
 - `packages/ai-provider` — provider abstraction and streaming for the model
   backends.
-- `packages/ai-search` — Genspark auth + web/image search tools.
+- `packages/ai-search` — web and image search tools.
 - `packages/i18n`, `packages/ui`, `packages/project-store`,
   `packages/electron-utils` — shared i18n core, React UI kit, recent-files
   store, and Electron main-process helpers.
@@ -127,7 +94,7 @@ npm run dev:docs     # or run a single app
 
 ## Checks every change must pass
 
-CI runs these on every PR; please run them locally first:
+Run these locally before opening a pull request:
 
 ```bash
 npm run format:check # Prettier check for uncommitted changed/new files
@@ -146,36 +113,24 @@ npm run format:check                        # verify uncommitted changed/new fil
 npm run format:check -- --base origin/main  # verify committed files on your branch
 ```
 
-CI supplies the PR or push base automatically and checks only files changed from
-that base. This keeps the formatter gate useful without creating a repository-wide
-formatting diff.
-
 ## Building installers
 
-Run these from the repository root — they regenerate the third-party
-notices and build all seven apps before packaging:
+Release installers for Windows and Linux are built and published by the
+release workflow — see [brand/README.md → Releasing](brand/README.md#releasing),
+including its test-build mode.
+
+To package locally, run from the repository root:
 
 ```bash
-npm run dist:mac   # dmg + zip
-npm run dist:win   # nsis installer
+npm run dist:win     # nsis installer
+npm run dist:linux   # AppImage, deb, rpm
 ```
 
-Without Apple or Windows signing credentials in the environment these produce
-unsigned artifacts: code signing and notarization are skipped with a warning
-rather than failing. That is the expected result for a contributor build.
+These produce unsigned artifacts, which is the expected result for a
+contributor build.
 
-On macOS, packaging from a repository that lives on an exFAT/FAT32 volume (an
-external USB drive, for example) fails because the OS writes hidden `._`
-AppleDouble sidecar files next to the build output and electron-builder trips
-over them. Point the output directory at an APFS path instead of moving the
-repository:
-
-```bash
-BUILD_DIR=/tmp/genoffice-release npm run dist:mac
-```
-
-`dist:win` additionally expects the xlsx sidecar at the MinGW cross-compilation
-path. Building on Windows leaves it under the MSVC target instead, so stage it
+`dist:win` expects the xlsx sidecar at the MinGW cross-compilation path.
+Building on Windows leaves it under the MSVC target instead, so stage it
 first:
 
 ```bash
@@ -190,27 +145,25 @@ or copy an existing `target/release/xlsx-sidecar.exe` to
 None are required — the apps run with all of these unset. They exist for
 testing and local overrides:
 
-| Variable                                                    | Effect                                                                        |
-| ----------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `BUILD_DIR`                                                 | Override the electron-builder output directory (default `apps/shell/release`) |
-| `GENOFFICE_USER_DATA`                                       | Override the Electron userData directory (test isolation)                     |
-| `GENOFFICE_LANG`                                            | Force the UI language instead of following the OS locale                      |
-| `GENOFFICE_FAKE_UPDATE`                                     | Exercise the updater UI without a real release feed                           |
-| `GENOFFICE_CLOUD_SLIDE`, `GENOFFICE_CLOUD_SLIDE_TIER`       | Route slide generation through the cloud endpoint                             |
-| `GSK_API_KEY`, `GSK_CLI_PATH`                               | Genspark credentials / CLI location for the built-in AI provider              |
-| `AI_SEARCH_DISABLE_GSK`, `SERPER_API_KEY`, `TAVILY_API_KEY` | Disable the gsk search backend / supply a Serper or Tavily key                |
-| `XLSX_SIDECAR_PATH`, `XLSX_OPEN_PATH`, `XLSX_DEBUG_PORT`    | Point at a locally built xlsx sidecar and its debug port                      |
-| `*_DEV_PORT`, `*_RENDERER_URL`                              | Per-app Vite dev server ports and renderer URLs (set by `npm run dev`)        |
+| Variable                                                 | Effect                                                                        |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `BUILD_DIR`                                              | Override the electron-builder output directory (default `apps/shell/release`) |
+| `GENOFFICE_USER_DATA`                                    | Override the Electron userData directory (test isolation)                     |
+| `GENOFFICE_LANG`                                         | Force the UI language instead of following the OS locale                      |
+| `GENOFFICE_FAKE_UPDATE`                                  | Exercise the updater UI without a real release feed                           |
+| `SERPER_API_KEY`, `TAVILY_API_KEY`                       | Supply a Serper or Tavily search key                                          |
+| `XLSX_SIDECAR_PATH`, `XLSX_OPEN_PATH`, `XLSX_DEBUG_PORT` | Point at a locally built xlsx sidecar and its debug port                      |
+| `*_DEV_PORT`, `*_RENDERER_URL`                           | Per-app Vite dev server ports and renderer URLs (set by `npm run dev`)        |
 
-AI features degrade rather than break without credentials: requests surface an
-inline sign-in prompt, and web search falls back to a keyless backend.
+AI features degrade rather than break without credentials, and web search
+falls back to a keyless backend.
 
 ## Coding conventions
 
 - **English only** in code, comments, commit messages, and docs. User-facing
   strings go through the i18n resources (`src/renderer/i18n/`, plus the inline
   main-process dictionaries in `src/main/`), which are the only places
-  non-English text belongs (plus test fixture text).
+  non-English text belongs (plus test fixture text and README translations).
 - TypeScript everywhere; avoid adding new `any` surfaces where a precise type
   is cheap.
 - Tests live in `apps/*/tests` and `packages/*/tests` (vitest). New engine
@@ -242,15 +195,11 @@ public issue — follow [SECURITY.md](SECURITY.md).
 All community spaces follow the
 [Contributor Covenant](CODE_OF_CONDUCT.md); participation implies acceptance.
 
-## License and CLA
+## License
 
-There is no CLA (contributor license agreement), and we do not plan to add
-one. By contributing, you agree that your contributions are licensed under
-the [Apache License 2.0](LICENSE) that covers this project — inbound =
-outbound, per Apache-2.0 §5. Because community contributions keep their
-Apache-2.0 terms, the open-source core cannot be retroactively relicensed.
+There is no CLA (contributor license agreement). By contributing, you agree
+that your contributions are licensed under the [Apache License 2.0](LICENSE)
+that covers this project — inbound = outbound, per Apache-2.0 §5.
 
-The `ee/` directory is reserved for future enterprise modules under a
-[separate license](ee/LICENSE) and does not accept external contributions —
-pull requests from outside the maintainer team must not modify files under
-`ee/` (enforced via [CODEOWNERS](.github/CODEOWNERS)).
+The `ee/` directory is under a [separate license](ee/LICENSE) and does not
+accept contributions.

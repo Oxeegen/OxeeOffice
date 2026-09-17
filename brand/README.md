@@ -188,6 +188,14 @@ its number if it is higher. Auto-update only installs a strictly higher version.
 
 ## Taking a new upstream release
 
+Once per clone, add the upstream remote and pin `gh` to this repository (in a GitHub
+fork, `gh pr create` otherwise opens pull requests against upstream):
+
+```bash
+git remote add upstream https://github.com/genspark-ai/genoffice.git
+gh repo set-default Oxeegen/OxeeOffice
+```
+
 GenOffice release tags are linear on `main` (each release is ahead of the previous,
 never behind), so a plain merge works:
 

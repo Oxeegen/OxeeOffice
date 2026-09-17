@@ -2,13 +2,10 @@
 
 ## Reporting a Vulnerability
 
-<!-- OxeeOffice brand hook: reports go to the fork -->
+<!-- OxeeOffice brand hook: reports go to this repository -->
 Please report suspected OxeeOffice vulnerabilities privately via GitHub's
 [private vulnerability reporting](https://github.com/Oxeegen/OxeeOffice/security/advisories/new)
 on this repository. Do not open public issues for security reports.
-
-If the issue also affects upstream GenOffice, it can additionally be reported to
-[genspark-ai/genoffice](https://github.com/genspark-ai/genoffice/security/advisories/new).
 
 ## Process Security Posture
 
@@ -19,11 +16,11 @@ All application windows run with the full Electron renderer lockdown:
 - Renderers reach the main process only through typed, validated IPC channels
   (payloads are schema-checked in the main process; sheets uses zod end to end).
 - Every `shell.openExternal` call goes through a single shared gate
-  (`@genoffice/electron-utils` → `safeExternalUrl`) that parses the URL and
+  (`packages/electron-utils` → `safeExternalUrl`) that parses the URL and
   enforces a protocol allowlist (http/https; pdf link annotations additionally
   allow mailto). `file:`, `javascript:`, and custom schemes are always rejected.
-- No API keys are hardcoded. AI requests are proxied through the signed-in
-  account by default; user-supplied keys stay in the OS-level settings store.
+- No API keys are hardcoded or bundled; user-supplied keys stay in the OS-level
+  settings store.
 
 ## Threat Model: AI-Generated Layout Scripts (slides)
 

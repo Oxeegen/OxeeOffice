@@ -8,11 +8,11 @@ body:
       label: App
       description: Which part of the suite is affected?
       options:
-        - GenOffice Docs (docs)
-        - GenOffice Sheets (sheets)
-        - GenOffice Slides (slides)
-        - GenOffice PDF (pdf)
-        - GenOffice Markdown (markdown)
+        - OxeeOffice Docs (docs)
+        - OxeeOffice Sheets (sheets)
+        - OxeeOffice Slides (slides)
+        - OxeeOffice PDF (pdf)
+        - OxeeOffice Markdown (markdown)
         - Shell / home screen
         - AI panel / providers
         - Build / packaging
