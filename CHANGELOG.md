@@ -5,6 +5,46 @@ What changed in each OxeeOffice release. Installers are on the
 
 ---
 
+## OxeeOffice 0.10.639 — 2026-09-17
+
+Windows x64, Linux x64
+
+### Updating
+
+- **Installed 0.10.488 apps offer this version** on their own, and **Help → Check for
+  Updates** now checks on demand. Settings, keys and history are kept.
+
+### New in the editors
+
+- **MCP over HTTP.** The command line's MCP server can also run as an HTTP server, so
+  agents on another machine (a container, a sandbox, a shared box) use the same tools.
+  Files travel with the calls: upload one, pass any file as a URL, and written files
+  come back as download links. A token protects it. Agents can also read PDF text,
+  edit the open document and drive the visible Sheets grid.
+- **Docs:** documents full of pictures open lazily, so gigabyte files open in seconds;
+  files over 512 MB are refused with a message instead of a crash; long documents open
+  and type much faster; many Word-fidelity fixes for tables, anchored pictures and text
+  boxes, header and footer spacing, chart labels, Japanese font substitution, italic and
+  right-to-left text.
+- **Markdown:** saving keeps unchanged blocks byte for byte and writes edited blocks in
+  the document's own style; `wavedrom` code blocks render as timing diagrams.
+- **Sheets:** smooth scrolling, and faster duplicate and large-range copy in big
+  workbooks; context-menu submenus reopen reliably.
+- **AI panel:** docks on either side of the editor.
+- **App:** the Files pane inside the editors is gone; the Folders panel on Home remains.
+- **Bring your own key:** DeepSeek V4.1 Flash, gpt-6-astra and Opper join the provider
+  list.
+- **PowerPoint files:** chart dates using the 1904 system, slide text in presentation
+  order, and more files that parse cleanly.
+
+### Oxeegen AI
+
+Unchanged from 0.10.488: Oxeegen models with the picker in every editor, reasoning off
+for slides, layout checks and long writing, Brave search, and OpenAI
+`gpt-image-2.5-flare` images.
+
+---
+
 ## OxeeOffice 0.10.488 — 2026-09-16
 
 Windows x64, Linux x64

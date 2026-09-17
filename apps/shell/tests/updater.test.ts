@@ -549,7 +549,8 @@ describe('checkForUpdatesNow (r148 manual check)', () => {
     expect(showMessageBox).toHaveBeenCalledTimes(1)
     expect(lastDialogOpts().buttons.length).toBe(2)
     expect(openExternal).toHaveBeenCalledWith(
-      'https://github.com/genspark-ai/genoffice/releases/latest',
+      // OxeeOffice brand hook: the fork's releases page
+      'https://github.com/Oxeegen/OxeeOffice/releases/latest',
     )
     expect(checkForUpdates).not.toHaveBeenCalled()
   })
