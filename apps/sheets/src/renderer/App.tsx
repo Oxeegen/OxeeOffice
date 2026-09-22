@@ -1,3 +1,4 @@
+import { focusWorksheet } from './sheet-focus'
 import {
   activateFormulaClosure,
   applyDefinedNames,
@@ -14,6 +15,7 @@ import {
   loadVisibleRange,
   loadWorkbookSkeleton,
   matrixBounds,
+  modelCellValue,
   navigateToAnchor,
   preloadEntireWorkbook,
   workbookStructureLocked,
@@ -315,6 +317,7 @@ import { installMultiRowAutofit } from './autofit-multi-row'
 import { registerExcelJumpNav } from './excel-jump-nav'
 import { registerExcelShortcuts } from './excel-shortcuts'
 import { installCopyMaterialize } from './copy-materialize'
+import { installStatusBarFileStats } from './statusbar-file-stats'
 import { applyUniverLocale, insertRowsBelowLocale, numberAsTextAlertLocale } from './univer-locales'
 import { installRuleDetail } from './univer-rule-detail'
 import { installActiveCellDataValidationChrome } from './data-validation-dropdown'
@@ -384,6 +387,7 @@ import { EquationDialog } from './EquationDialog'
 import { IconsDialog } from './IconsDialog'
 import { RecommendedChartsDialog } from './RecommendedChartsDialog'
 import { installPictureTransfer } from './picture-paste'
+import { installWheelZoomSteps } from './wheel-zoom'
 import { ScreenshotDialog } from './ScreenshotDialog'
 import { SymbolDialog } from './SymbolDialog'
 import {
@@ -668,6 +672,13 @@ export function App(): React.JSX.Element {
     viewRow: number
     viewColumn: number
   } | null>(null)
+  /// Set by a save's reopen: the next session-id change continues the same
+  /// AI conversation instead of rehydrating it (which would show the live
+  /// turn a second time under "Earlier conversation").
+  const chatContinuesRef = useRef(false)
+  /// Bumped per chat resolution; a resolution that awaited past a newer one
+  /// must not write ids or history for a workbook that is no longer open.
+  const chatResolveGenRef = useRef(0)
   /// Fresh handleSave for the AutoSave tick (assigned each render, like
   /// menuActionRef, so the interval closure never goes stale).
   const handleSaveRef = useRef<
@@ -1004,9 +1015,14 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     const api = (window as Window & { projectApi?: typeof window.projectApi }).projectApi
     if (!api) return
+    const continues = chatContinuesRef.current
+    chatContinuesRef.current = false
+    const previous = chatRefIdsRef.current
+    const generation = ++chatResolveGenRef.current
+    const stale = () => chatResolveGenRef.current !== generation
     // Reset (new workbook or new session)
     chatRefIdsRef.current = null
-    setHistoricChat([])
+    if (!continues) setHistoricChat([])
     const tempChatId = `unsaved-${Date.now()}`
     const sessionId = workbookFile?.sessionId
     const resolveArgs: Parameters<typeof api.resolveChat>[0] = { filePath: null, tempChatId }
@@ -1014,13 +1030,29 @@ export function App(): React.JSX.Element {
     void api
       .resolveChat(resolveArgs)
       .then(async (ids) => {
+        if (continues) {
+          // A save swapped the sidecar session under the same conversation:
+          // the panel already shows every turn, so only re-point persistence.
+          // A draft that just hit disk carries its unsaved-* transcript along.
+          const bound =
+            previous && previous.chatId !== ids.chatId && previous.chatId.startsWith('unsaved-')
+              ? await api.rebindChat({
+                  projectId: previous.projectId,
+                  tempChatId: previous.chatId,
+                  ...(sessionId !== undefined ? { sessionId } : { newChatId: ids.chatId }),
+                })
+              : ids
+          if (!stale()) chatRefIdsRef.current = bound
+          return
+        }
+        if (stale()) return
         chatRefIdsRef.current = ids
         const msgs = await api.loadChat({
           projectId: ids.projectId,
           chatId: ids.chatId,
           limit: 200,
         })
-        if (msgs.length === 0) return
+        if (stale() || msgs.length === 0) return
         setHistoricChat(
           msgs.map((m) => ({
             role: m.role,
@@ -1745,6 +1777,14 @@ export function App(): React.JSX.Element {
     // Copy/cut load their selection into the lazy window first so streamed
     // workbooks don't serialize blanks for never-viewed rows.
     const copyMaterializeDisposable = installCopyMaterialize(runtime, lazyWorkbookRef, setMessage)
+    // Footer statistics on streamed workbooks aggregate the real file, not
+    // the loaded window (a whole-column count read 191 on a 185k-row file).
+    const statusBarFileStatsDisposable = installStatusBarFileStats({
+      runtime,
+      lazyWorkbookRef,
+      aggregate: (sheetId, bounds) =>
+        aggregateWorkbookRange(readContext(), sheetId, bounds, { skipFileHiddenRows: true }),
+    })
     // Validation dropdowns and input messages follow the active cell, matching Excel.
     const dataValidationChromeDisposable = installActiveCellDataValidationChrome(runtime)
     // Excel shows no invalid-data marker until Circle Invalid Data is run.
@@ -2683,6 +2723,15 @@ export function App(): React.JSX.Element {
           insert: (file, anchor) => handleInsertPictureFile(visualContext(), file, anchor),
         })
       : () => undefined
+    const disposeWheelZoom = gridHost
+      ? installWheelZoomSteps(gridHost, {
+          isCellEditing: () => editingCellRef.current,
+          getZoom: () => runtime.univerAPI.getActiveWorkbook()?.getActiveSheet()?.getZoom(),
+          setZoom: (zoom) => {
+            runtime.univerAPI.getActiveWorkbook()?.getActiveSheet()?.zoom(zoom)
+          },
+        })
+      : () => undefined
     let selectionAskRaf: number | null = null
     let selectionAskSettleRaf: number | null = null
     let selectionAskSettling = false
@@ -2854,6 +2903,7 @@ export function App(): React.JSX.Element {
       cfDisplayKeyDisposable.dispose()
       nullResultDisposable.dispose()
       copyMaterializeDisposable.dispose()
+      statusBarFileStatsDisposable.dispose()
       dataValidationChromeDisposable.dispose()
       dataValidationMarkerDisposable.dispose()
       ruleDetailDisposable()
@@ -2876,6 +2926,7 @@ export function App(): React.JSX.Element {
       if (contentTimer) clearTimeout(contentTimer)
       contentDisposable.dispose()
       disposePictureTransfer()
+      disposeWheelZoom()
       gridHost?.removeEventListener('pointerdown', onSelectionPointerDown, true)
       window.removeEventListener('pointermove', onSelectionPointerMove, true)
       window.removeEventListener('pointerup', finishSelectionPointer, true)
@@ -3702,7 +3753,8 @@ export function App(): React.JSX.Element {
     return state.hyperlinkTargets.get(sheetId)?.get(`${row}:${column}`) ?? null
   }
 
-  function openLazyWorkbook(opened: WorkbookFile): void {
+  function openLazyWorkbook(opened: WorkbookFile, opts?: { continueChat?: boolean }): void {
+    if (opts?.continueChat) chatContinuesRef.current = true
     const selected: WorkbookFile = {
       ...opened,
       visuals: opened.visuals.map((visual) =>
@@ -4071,7 +4123,57 @@ export function App(): React.JSX.Element {
     hasWorkbook: () =>
       univerRef.current?.univerAPI.getActiveWorkbook() != null && lazyWorkbookRef.current != null,
     context: () => getActiveSheetInfo(),
-    readCells: (addresses, sheetId) => readCellsImpl(readContext(), addresses, sheetId),
+    // The MCP read is machine-facing: `value` is the model value, not the
+    // rendered text a number format or a narrow column produced. The rendered
+    // text rides along as `display` when the two differ, so a caller can still
+    // see what the user sees (see modelCellValue).
+    readCells: (addresses, sheetId) => {
+      const cells = readCellsImpl(readContext(), addresses, sheetId)
+      return Object.fromEntries(
+        Object.entries(cells).map(([address, cell]) => {
+          const value = modelCellValue(cell)
+          return [
+            address,
+            {
+              value,
+              ...(cell.value !== value ? { display: cell.value } : {}),
+              ...(cell.formula === undefined ? {} : { formula: cell.formula }),
+            },
+          ]
+        }),
+      )
+    },
+    sheets: () => getActiveSheetInfo().sheets.map((sheet) => ({ id: sheet.id, name: sheet.name })),
+    // The user is watching this grid, so an edit to a sheet the view is not
+    // showing would otherwise land invisibly. Switch the tab and bring the
+    // first cell of the batch (or the sheet's top-left) into view — the same
+    // jump the find bar performs on a hit.
+    focusSheet: (sheetId, address) => {
+      const runtime = univerRef.current
+      if (!runtime) return
+      const workbook = runtime.univerAPI.getActiveWorkbook()
+      const worksheet = workbook?.getSheetBySheetId(sheetId)
+      if (!workbook || !worksheet) return
+      focusWorksheet(worksheet, () => {
+        if (worksheet.getSheetId() !== workbook.getActiveSheet()?.getSheetId()) {
+          workbook.setActiveSheet(worksheet)
+        }
+      })
+      if (address === undefined) return
+      try {
+        const { row, column } = parseAddress(address)
+        void ensureLazyRangeLoaded(
+          runtime,
+          lazyWorkbookRef,
+          worksheet,
+          { startRow: row, endRow: row, startColumn: column, endColumn: column },
+          setMessage,
+        )
+        worksheet.getRange(row, column, 1, 1).activate()
+      } catch {
+        /* the address is malformed, or the workbook closed mid-jump */
+      }
+    },
     applyOps: async (ops, dryRun) => {
       const runtime = univerRef.current
       const state = lazyWorkbookRef.current
@@ -4124,6 +4226,8 @@ export function App(): React.JSX.Element {
       hasWorkbook: () => handlers.current?.hasWorkbook() ?? false,
       context: () => handlers.current?.context(),
       readCells: (addresses, sheetId) => handlers.current?.readCells(addresses, sheetId) ?? {},
+      sheets: () => handlers.current?.sheets() ?? [],
+      focusSheet: (sheetId, address) => handlers.current?.focusSheet(sheetId, address),
       applyOps: async (ops, dryRun) =>
         (await handlers.current?.applyOps(ops, dryRun)) ?? { ok: false, reason: 'not ready' },
       saveTo: async (path, overwrite) =>

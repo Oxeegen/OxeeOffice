@@ -11,6 +11,8 @@ import {
   sseErrorText,
   sseLines,
   throwIfCreditsNotice,
+  throwIfToolCountOverBudget,
+  throwIfToolJsonOverBudget,
   type StreamCallbacks,
 } from './shared'
 
@@ -260,6 +262,9 @@ async function openAiCompatibleTurn(
       cb.onDelta(choice.delta.content)
     }
     for (const tc of choice.delta?.tool_calls ?? []) {
+      if (!pendingTools.has(tc.index)) {
+        throwIfToolCountOverBudget(pendingTools.size + 1, 'openai-compatible')
+      }
       const pending = pendingTools.get(tc.index) ?? {
         id: tc.id ?? crypto.randomUUID(),
         name: '',
@@ -276,7 +281,10 @@ async function openAiCompatibleTurn(
           ? tc.function.name
           : pending.name + tc.function.name
       }
-      if (tc.function?.arguments) pending.json += tc.function.arguments
+      if (tc.function?.arguments) {
+        pending.json += tc.function.arguments
+        throwIfToolJsonOverBudget(pending.json.length, 'openai-compatible')
+      }
       pendingTools.set(tc.index, pending)
     }
     if (choice.finish_reason) {

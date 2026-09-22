@@ -73,6 +73,8 @@ export const th = {
   ribbonPainterActiveTip:
     'ตัวคัดวางรูปแบบเปิดอยู่: เลือกข้อความเป้าหมายเพื่อนำไปใช้ (คลิกอีกครั้งเพื่อยกเลิก)',
   ribbonGroupClipboard: 'คลิปบอร์ด',
+  ribbonFontEastAsia: 'แบบอักษรเอเชียตะวันออก',
+  ribbonFontLatin: 'แบบอักษรละติน',
   ribbonFontFamilyTip: 'ฟอนต์',
   ribbonFontsCommon: 'แบบอักษรที่ใช้บ่อย',
   ribbonFontsSystem: 'แบบอักษรของระบบ',
@@ -101,7 +103,6 @@ export const th = {
   ribbonThemeColorShadeTip: 'สีของธีม {r}-{c}',
   ribbonStandardColors: 'สีมาตรฐาน',
   ribbonMoreColors: 'สีเพิ่มเติม…',
-  ribbonGroupFont: 'ฟอนต์',
   ribbonBullets: 'สัญลักษณ์แสดงหัวข้อย่อย',
   ribbonNumbering: 'ลำดับเลข',
   ribbonDecreaseIndent: 'ลดการเยื้อง',

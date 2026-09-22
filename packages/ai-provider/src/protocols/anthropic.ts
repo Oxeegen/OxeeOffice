@@ -10,6 +10,8 @@ import {
   sseErrorText,
   sseLines,
   throwIfCreditsNotice,
+  throwIfToolCountOverBudget,
+  throwIfToolJsonOverBudget,
   type StreamCallbacks,
 } from './shared'
 
@@ -201,7 +203,11 @@ async function anthropicTurn(
       continue
     }
     if (event.type === 'content_block_start' && event.content_block?.type === 'tool_use') {
-      pendingTools.set(event.index ?? 0, {
+      const toolIndex = event.index ?? 0
+      if (!pendingTools.has(toolIndex)) {
+        throwIfToolCountOverBudget(pendingTools.size + completedTools.length + 1, 'anthropic')
+      }
+      pendingTools.set(toolIndex, {
         id: event.content_block.id ?? crypto.randomUUID(),
         name: event.content_block.name ?? '',
         json: '',
@@ -212,7 +218,10 @@ async function anthropicTurn(
         cb.onDelta(event.delta.text)
       } else if (event.delta?.type === 'input_json_delta') {
         const pending = pendingTools.get(event.index ?? 0)
-        if (pending) pending.json += event.delta.partial_json ?? ''
+        if (pending) {
+          pending.json += event.delta.partial_json ?? ''
+          throwIfToolJsonOverBudget(pending.json.length, 'anthropic')
+        }
       }
     } else if (event.type === 'content_block_stop') {
       const pending = pendingTools.get(event.index ?? 0)

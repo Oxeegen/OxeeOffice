@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildPrintDocumentHtml,
+  currentRangeIndices,
   normalizePrintRatio,
   parsePrintRange,
   printPageCount,
@@ -49,6 +50,16 @@ describe('printPageCount', () => {
     expect(printPageCount(7, 'handout2')).toBe(4)
     expect(printPageCount(7, 'handout3')).toBe(3)
     expect(printPageCount(7, 'handout6')).toBe(2)
+  })
+})
+
+describe('currentRangeIndices', () => {
+  it('yields [] for stale indices instead of crashing', () => {
+    expect(currentRangeIndices(2, 5)).toEqual([2])
+    expect(currentRangeIndices(7, 5)).toEqual([])
+    expect(currentRangeIndices(-1, 5)).toEqual([])
+    expect(currentRangeIndices(1.5, 5)).toEqual([])
+    expect(currentRangeIndices(NaN, 5)).toEqual([])
   })
 })
 

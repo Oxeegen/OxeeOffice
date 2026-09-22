@@ -15,6 +15,13 @@ describe('didYouMean', () => {
     expect(didYouMean('frobnicate', ['info', 'convert', 'create'])).toBeUndefined()
     expect(didYouMean('x', ['info'])).toBeUndefined()
   })
+
+  it('bounds inputs without breaking normal typos', () => {
+    expect(didYouMean('x'.repeat(5000), ['convert'])).toBeUndefined()
+    expect(didYouMean('sett', ['set', 'x'.repeat(500)])).toBe('set')
+    const many = [...Array(600).keys()].map((i) => `cmd${i}`)
+    expect(didYouMean('sett', ['set', ...many])).toBe('set')
+  })
 })
 
 describe('did-you-mean in errors', () => {

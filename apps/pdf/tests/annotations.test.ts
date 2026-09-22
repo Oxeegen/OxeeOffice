@@ -50,6 +50,19 @@ describe('viewToPdf / pdfToView', () => {
       expect(pdfToView(g, px, py)).toEqual([12, 34])
     }
   })
+
+  it('keeps CropBox offsets in PDF user space for redaction and overlay geometry', () => {
+    const cropped: PageGeom = { pw: 540, ph: 770, rot: 90, x0: 25, y0: 30 }
+    const point = viewToPdf(cropped, 40, 70)
+    expect(point).toEqual([95, 70])
+    expect(pdfToView(cropped, ...point)).toEqual([40, 70])
+  })
+
+  it('converts display coordinates through a non-default UserUnit', () => {
+    const userUnitPage: PageGeom = { pw: 600, ph: 400, rot: 0, userUnit: 2 }
+    expect(viewToPdf(userUnitPage, 100, 100)).toEqual([50, 150])
+    expect(pdfToView(userUnitPage, 50, 150)).toEqual([100, 100])
+  })
 })
 
 describe('pdfRectToCss', () => {

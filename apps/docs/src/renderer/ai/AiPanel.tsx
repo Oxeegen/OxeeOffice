@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import type { Block } from '@genoffice/docx-engine'
 import { AgentLoop, composeSkills, streamText, type AgentImage } from '@genoffice/agent-core'
-import { imageGenerationAvailable } from '@genoffice/ai-provider/browser'
+import { imageGenerationAvailable, mediaAnalysisAvailable } from '@genoffice/ai-provider/browser'
 // OxeeOffice brand hook: model picker
 import { AI_PROVIDERS, oxeegenLayerEnabled, oxeegenRoleSettings } from '@genoffice/ai-provider/browser'
 import { OxeeModelPicker } from '@genoffice/ui'
@@ -773,6 +773,7 @@ export function AiPanel({
           () => pageSetupAccessRef.current,
           () => docExtrasRef.current,
           () => notesAccessRef.current,
+          () => mediaAnalysisAvailable(settingsRef.current, gskLoggedInRef.current),
         ),
         createFilesSkill(availableAttachments),
       ]),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sseLines } from '../src/protocols/shared'
+import { MAX_SSE_LINE_BYTES, sseLines } from '../src/protocols/shared'
 
 function sseBody(lines: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder()
@@ -71,5 +71,20 @@ describe('sseLines', () => {
     // which runs the finally block.
     await expect(gen.throw(new Error('gateway error'))).rejects.toThrow('gateway error')
     expect(() => body.getReader()).not.toThrow()
+  })
+
+  it('rejects a single line exceeding the buffer cap', async () => {
+    const big = 'x'.repeat(MAX_SSE_LINE_BYTES + 1)
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(big))
+        controller.close()
+      },
+    })
+    await expect(async () => {
+      for await (const _line of sseLines(body)) {
+        // should throw before yielding
+      }
+    }).rejects.toThrow(/buffer limit/)
   })
 })

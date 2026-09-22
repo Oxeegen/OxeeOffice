@@ -545,6 +545,7 @@ export async function checkForUpdatesNow(): Promise<void> {
     let result
     try {
       result = await autoUpdater.checkForUpdates()
+      if (result === null) throw new Error('Update check was skipped')
     } catch (err) {
       log('manual check failed:', (err as Error)?.message ?? err)
       await dialog.showMessageBox({
@@ -559,7 +560,7 @@ export async function checkForUpdatesNow(): Promise<void> {
     }
     // an available update already opened the update window via the
     // 'update-available' handler; only "nothing new" needs a dialog here
-    if (result?.isUpdateAvailable) return
+    if (result.isUpdateAvailable) return
     await dialog.showMessageBox({
       type: 'info',
       title: tUpd(lang, 'updTitle'),

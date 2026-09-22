@@ -75,6 +75,8 @@ export const fr = {
   ribbonPainterActiveTip:
     "Reproduction de la mise en forme activée : sélectionnez le texte cible pour l'appliquer (cliquez à nouveau pour annuler)",
   ribbonGroupClipboard: 'Presse-papiers',
+  ribbonFontEastAsia: 'Police est-asiatique',
+  ribbonFontLatin: 'Police latine',
   ribbonFontFamilyTip: 'Police',
   ribbonFontsCommon: 'Polices courantes',
   ribbonFontsSystem: 'Polices système',
@@ -103,7 +105,6 @@ export const fr = {
   ribbonThemeColorShadeTip: 'Couleur du thème {r}-{c}',
   ribbonStandardColors: 'Couleurs standard',
   ribbonMoreColors: 'Autres couleurs…',
-  ribbonGroupFont: 'Police',
   ribbonBullets: 'Puces',
   ribbonNumbering: 'Numérotation',
   ribbonDecreaseIndent: 'Diminuer le retrait',

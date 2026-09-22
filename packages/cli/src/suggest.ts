@@ -24,13 +24,22 @@ function distance(a: string, b: string): number {
   return d[rows * cols - 1]!
 }
 
+/** Bounds for typo suggestion: distance() is quadratic, so cap inputs. */
+export const MAX_SUGGEST_INPUT_CHARS = 64
+export const MAX_SUGGEST_CANDIDATES = 500
+export const MAX_SUGGEST_CANDIDATE_CHARS = 128
+
 /** The closest candidate when the typo is small enough to be a typo; undefined when nothing is near. */
 export function didYouMean(input: string, candidates: Iterable<string>): string | undefined {
-  const needle = input.toLowerCase()
+  const needle = input.toLowerCase().slice(0, MAX_SUGGEST_INPUT_CHARS)
   if (!needle) return undefined
   const budget = Math.max(2, Math.floor(needle.length / 3))
   let best: { name: string; d: number } | undefined
+  let scanned = 0
   for (const name of candidates) {
+    if (scanned >= MAX_SUGGEST_CANDIDATES) break
+    scanned += 1
+    if (name.length > MAX_SUGGEST_CANDIDATE_CHARS) continue
     const d = distance(needle, name.toLowerCase())
     if (d > budget || d >= needle.length || (best && d >= best.d)) continue
     best = { name, d }

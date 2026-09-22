@@ -44,6 +44,11 @@ function reqRect(op: Op): { x: number; y: number; cx: number; cy: number } {
   ) {
     throw new GuidedError(`op "${op.op}" needs "offset": an EMU rect {x, y, cx, cy}.`)
   }
+  for (const k of ['x', 'y', 'cx', 'cy'] as const)
+    requireFinite(b[k], op.op as string, `offset.${k}`)
+  if (b.cx < 0 || b.cy < 0) {
+    throw new GuidedError(`op "${op.op}": "offset.cx/cy" must be >= 0 (EMU).`)
+  }
   return { x: b.x, y: b.y, cx: b.cx, cy: b.cy }
 }
 

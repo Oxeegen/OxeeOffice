@@ -7,7 +7,7 @@ vi.mock('../src/renderer/export-render', () => ({ renderSlidesToPngBase64: vi.fn
 vi.mock('../src/renderer/components/toast-bus', () => ({ showToast: vi.fn() }))
 vi.mock('../src/renderer/i18n/locale', () => ({ t: (k: string) => k }))
 
-import { save, saveAs } from '../src/renderer/file-actions'
+import { adoptSavedSlides, save, saveAs } from '../src/renderer/file-actions'
 import type { ActionCtx } from '../src/renderer/action-context'
 
 function ctx(): ActionCtx {
@@ -30,6 +30,42 @@ function ctx(): ActionCtx {
 }
 
 describe('slides save serialization', () => {
+  it('keeps the saved deck and clears stale selection when the current index is gone', () => {
+    const slide = {
+      widthPx: 960,
+      heightPx: 540,
+      scale: 1,
+      background: { kind: 'solid', color: 'FFFFFF' },
+      nodes: [],
+    } as ActionCtx['slides'][number]
+    for (const [slides, current, next] of [
+      [[], 0, []],
+      [[slide], 1, [slide]],
+    ] as const) {
+      const setSlides = vi.fn()
+      const setSelectedIds = vi.fn()
+      const setEditing = vi.fn()
+      const setEditingCell = vi.fn()
+      const context = {
+        ...ctx(),
+        slides,
+        current,
+        setSlides,
+        setSelectedIds,
+        setEnteredGroupId: vi.fn(),
+        setEditing,
+        setEditingCell,
+      } as unknown as ActionCtx
+
+      adoptSavedSlides(context, [...next])
+
+      expect(setSlides).toHaveBeenCalledWith(next)
+      expect(setSelectedIds.mock.calls[0]![0](['a', 'b'])).toEqual([])
+      expect(setEditing.mock.calls[0]![0]({ sourceId: 'a' })).toBeNull()
+      expect(setEditingCell.mock.calls[0]![0]({ sourceId: 'a', row: 0, col: 0 })).toBeNull()
+    }
+  })
+
   it('queues concurrent saves so only one IPC write runs at a time', async () => {
     let inFlight = 0
     let maxConcurrent = 0

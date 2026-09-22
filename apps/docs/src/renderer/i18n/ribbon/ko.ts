@@ -77,6 +77,8 @@ export const ko = {
     '서식 복사가 켜져 있음: 대상 텍스트를 선택하면 적용됩니다(다시 클릭하면 취소)',
   ribbonGroupClipboard: '클립보드',
   // Home · Font
+  ribbonFontEastAsia: '동아시아 글꼴',
+  ribbonFontLatin: '영문 글꼴',
   ribbonFontFamilyTip: '글꼴',
   ribbonFontsCommon: '자주 쓰는 글꼴',
   ribbonFontsSystem: '시스템 글꼴',
@@ -105,7 +107,6 @@ export const ko = {
   ribbonThemeColorShadeTip: '테마 색 {r}-{c}',
   ribbonStandardColors: '표준 색',
   ribbonMoreColors: '다른 색…',
-  ribbonGroupFont: '글꼴',
   // Home · Paragraph
   ribbonBullets: '글머리 기호',
   ribbonNumbering: '번호 매기기',

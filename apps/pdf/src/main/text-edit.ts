@@ -59,8 +59,11 @@ export interface Pdfium {
   _FPDFPage_InsertObjectAtIndex?(page: number, obj: number, index: number): number
   _FPDFPage_GenerateContent(page: number): number
   _FPDFPageObj_GetType(obj: number): number
+  _FPDFFormObj_CountObjects(form: number): number
+  _FPDFFormObj_GetObject(form: number, index: number): number
   _FPDFPageObj_Destroy(obj: number): void
   _FPDFPageObj_GetBounds(obj: number, l: number, b: number, r: number, t: number): number
+  _FPDFImageObj_GetImageDataRaw(obj: number, buffer: number, buflen: number): number
   _FPDFPageObj_GetMatrix(obj: number, matrix: number): number
   _FPDFPageObj_SetMatrix(obj: number, matrix: number): number
   _FPDFPageObj_GetFillColor(obj: number, r: number, g: number, b: number, a: number): number
@@ -70,6 +73,8 @@ export interface Pdfium {
   _FPDFPageObj_GetStrokeWidth(obj: number, width: number): number
   _FPDFPageObj_SetStrokeWidth(obj: number, width: number): number
   _FPDFPageObj_SetLineJoin(obj: number, join: number): number
+  _FPDFPageObj_CreateNewRect(x: number, y: number, width: number, height: number): number
+  _FPDFPath_SetDrawMode(path: number, fillMode: number, stroke: number): number
   _FPDFTextObj_GetTextRenderMode(obj: number): number
   _FPDFTextObj_SetTextRenderMode(obj: number, mode: number): number
   _FPDFPageObj_CreateTextObj(doc: number, font: number, size: number): number
@@ -124,11 +129,24 @@ export interface Pdfium {
   _FPDFPage_GetAnnot(page: number, index: number): number
   _FPDFPage_CloseAnnot(annot: number): void
   _FPDFPage_RemoveAnnot(page: number, index: number): number
+  _FPDFPage_CreateAnnot(page: number, subtype: number): number
+  _FPDFAnnot_SetRect(annot: number, rect: number): number
+  _FPDFAnnot_SetColor(
+    annot: number,
+    type: number,
+    r: number,
+    g: number,
+    b: number,
+    a: number,
+  ): number
+  _EPDFAnnot_SetColor(annot: number, type: number, r: number, g: number, b: number): number
   _FPDFAnnot_GetSubtype(annot: number): number
   _FPDFAnnot_GetRect(annot: number, rect: number): number
   _FPDFAnnot_GetStringValue(annot: number, key: number, buffer: number, buflen: number): number
   _EPDFPage_GetAnnotByObjectNumber(page: number, objNum: number): number
   _EPDFPage_RemoveAnnotByObjectNumber(page: number, objNum: number): number
+  /** EmbedPDF 2.15.1 native redaction extension. */
+  _EPDFAnnot_ApplyRedaction(page: number, annot: number): number
 }
 
 let pdfiumPromise: Promise<Pdfium> | null = null
@@ -2215,6 +2233,113 @@ function groupByPage(
   return byPage
 }
 
+/** Apply one page's edits to the loaded page in place (no save). Returns the count
+    applied; unmatched or failed edits go to `skip`. */
+async function applyPageEdits(
+  m: Pdfium,
+  doc: number,
+  page: number,
+  textPage: number,
+  pageEdits: TextEditInput[],
+  skip: (edit: TextEditInput, reason: string) => void,
+): Promise<{ applied: number; embeddedCff: boolean }> {
+  let embeddedCff = false
+  const objects = collectTextObjects(m, page, textPage)
+  // Two edits resolving to the same object would double-remove it; first claim wins
+  const claimed = new Set<number>()
+  const planned: {
+    edit: TextEditInput
+    matches: PageTextObj[]
+    newText: string
+    whole: boolean
+  }[] = []
+  for (const edit of pageEdits) {
+    const res = matchEdit(objects, edit)
+    if ('reason' in res) {
+      skip(edit, res.reason)
+    } else if (res.matches.some((t) => claimed.has(t.obj))) {
+      skip(edit, 'overlaps another pending text edit')
+    } else {
+      for (const t of res.matches) claimed.add(t.obj)
+      planned.push({ edit, ...res })
+    }
+  }
+  // Descending object order keeps pending InsertObjectAtIndex targets valid
+  planned.sort((a, b) => b.matches[0]!.index - a.matches[0]!.index)
+  let applied = 0
+  for (const { edit, matches, newText, whole } of planned) {
+    // Pure move: translate the matched objects in page space and keep every
+    // glyph as it is — no font resolution, no rebuild. Only a whole match may
+    // move (a fragment's container carries surrounding text that must stay put).
+    if (edit.translate) {
+      if (!whole) {
+        skip(edit, 'the text block cannot be moved as one unit')
+        continue
+      }
+      const [dx, dy] = edit.translate
+      for (const t of matches) m._FPDFPageObj_Transform(t.obj, 1, 0, 0, 1, dx, dy)
+      applied++
+      continue
+    }
+    // Deletion: an empty (or whitespace-only) planned replacement removes the
+    // matched objects outright — no font resolution, nothing to rebuild
+    if (newText.trim() === '') {
+      for (const t of matches) {
+        m._FPDFPage_RemoveObject(page, t.obj)
+        m._FPDFPageObj_Destroy(t.obj)
+      }
+      applied++
+      continue
+    }
+    // A fragment match rewrites its whole container run; the paragraph position
+    // overrides would drag the container's surrounding text to the block corner
+    const eff = whole
+      ? edit
+      : { ...edit, origin: undefined, lineLeading: undefined, lineXOffsets: undefined }
+    try {
+      if (canReuseFont(eff, newText, matches, objects, whole)) {
+        const obj = matches[0]!.obj
+        const textPtr = utf16Ptr(m, newText)
+        const ok = m._FPDFText_SetText(obj, textPtr)
+        m._free(textPtr)
+        if (!ok) throw new Error('FPDFText_SetText failed')
+        if (eff.newBold && !faceIsBold(m, matches[0]!.font) && !readStroke(m, obj)) {
+          strokeObject(m, obj, fillColorOf(m, obj), syntheticBoldWidth(renderedEm(m, obj)))
+        }
+      } else {
+        embeddedCff =
+          (await rebuildRun(m, doc, page, eff, matches, newText, textPage)) || embeddedCff
+      }
+      applied++
+    } catch (err) {
+      skip(edit, errMsg(err))
+    }
+  }
+  return { applied, embeddedCff }
+}
+
+/** Preview-time erase: each probe is applied as a deletion on the already-loaded page,
+    so a render of it shows the page without the runs being edited (a fragment probe
+    rewrites its container with just the fragment gone). Nothing is saved. Returns
+    per-probe success; a false entry means the run is still drawn. */
+export async function eraseTextRuns(
+  m: Pdfium,
+  doc: number,
+  page: number,
+  probes: TextEditInput[],
+): Promise<boolean[]> {
+  const textPage = m._FPDFText_LoadPage(page)
+  try {
+    const edits = probes.map((p) => ({ ...p, newText: '', translate: undefined }))
+    const failed = new Set<TextEditInput>()
+    const { applied } = await applyPageEdits(m, doc, page, textPage, edits, (e) => failed.add(e))
+    if (applied > 0) m._FPDFPage_GenerateContent(page)
+    return edits.map((e) => !failed.has(e))
+  } finally {
+    m._FPDFText_ClosePage(textPage)
+  }
+}
+
 async function applyTextEditsInner(
   bytes: Uint8Array,
   edits: TextEditInput[],
@@ -2233,81 +2358,12 @@ async function applyTextEditsInner(
       if (!page) throw new Error(`could not load page ${pageIndex + 1}`)
       const textPage = m._FPDFText_LoadPage(page)
       try {
-        const objects = collectTextObjects(m, page, textPage)
-        // Two edits resolving to the same object would double-remove it; first claim wins
-        const claimed = new Set<number>()
-        const planned: {
-          edit: TextEditInput
-          matches: PageTextObj[]
-          newText: string
-          whole: boolean
-        }[] = []
-        for (const edit of pageEdits) {
-          const res = matchEdit(objects, edit)
-          if ('reason' in res) {
-            skip(edit, res.reason)
-          } else if (res.matches.some((t) => claimed.has(t.obj))) {
-            skip(edit, 'overlaps another pending text edit')
-          } else {
-            for (const t of res.matches) claimed.add(t.obj)
-            planned.push({ edit, ...res })
-          }
-        }
-        // Descending object order keeps pending InsertObjectAtIndex targets valid
-        planned.sort((a, b) => b.matches[0]!.index - a.matches[0]!.index)
-        let applied = 0
-        for (const { edit, matches, newText, whole } of planned) {
-          // Pure move: translate the matched objects in page space and keep every
-          // glyph as it is — no font resolution, no rebuild. Only a whole match may
-          // move (a fragment's container carries surrounding text that must stay put).
-          if (edit.translate) {
-            if (!whole) {
-              skip(edit, 'the text block cannot be moved as one unit')
-              continue
-            }
-            const [dx, dy] = edit.translate
-            for (const t of matches) m._FPDFPageObj_Transform(t.obj, 1, 0, 0, 1, dx, dy)
-            applied++
-            continue
-          }
-          // Deletion: an empty (or whitespace-only) planned replacement removes the
-          // matched objects outright — no font resolution, nothing to rebuild
-          if (newText.trim() === '') {
-            for (const t of matches) {
-              m._FPDFPage_RemoveObject(page, t.obj)
-              m._FPDFPageObj_Destroy(t.obj)
-            }
-            applied++
-            continue
-          }
-          // A fragment match rewrites its whole container run; the paragraph position
-          // overrides would drag the container's surrounding text to the block corner
-          const eff = whole
-            ? edit
-            : { ...edit, origin: undefined, lineLeading: undefined, lineXOffsets: undefined }
-          try {
-            if (canReuseFont(eff, newText, matches, objects, whole)) {
-              const obj = matches[0]!.obj
-              const textPtr = utf16Ptr(m, newText)
-              const ok = m._FPDFText_SetText(obj, textPtr)
-              m._free(textPtr)
-              if (!ok) throw new Error('FPDFText_SetText failed')
-              if (eff.newBold && !faceIsBold(m, matches[0]!.font) && !readStroke(m, obj)) {
-                strokeObject(m, obj, fillColorOf(m, obj), syntheticBoldWidth(renderedEm(m, obj)))
-              }
-            } else {
-              embeddedCff =
-                (await rebuildRun(m, doc, page, eff, matches, newText, textPage)) || embeddedCff
-            }
-            applied++
-          } catch (err) {
-            skip(edit, errMsg(err))
-          }
-        }
-        if (applied > 0 && !m._FPDFPage_GenerateContent(page)) {
+        const res = await applyPageEdits(m, doc, page, textPage, pageEdits, skip)
+        embeddedCff = res.embeddedCff || embeddedCff
+        if (res.applied > 0 && !m._FPDFPage_GenerateContent(page)) {
           throw new Error(`could not regenerate page ${pageIndex + 1}`)
         }
-        appliedTotal += applied
+        appliedTotal += res.applied
       } finally {
         m._FPDFText_ClosePage(textPage)
         m._FPDF_ClosePage(page)

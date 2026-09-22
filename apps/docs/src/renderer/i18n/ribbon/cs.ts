@@ -73,6 +73,8 @@ export const cs = {
   ribbonPainterActiveTip:
     'Kopírování formátu je zapnuto: vyberte cílový text (dalším kliknutím zrušíte)',
   ribbonGroupClipboard: 'Schránka',
+  ribbonFontEastAsia: 'Východoasijské písmo',
+  ribbonFontLatin: 'Latinské písmo',
   ribbonFontFamilyTip: 'Písmo',
   ribbonFontsCommon: 'Běžná písma',
   ribbonFontsSystem: 'Systémová písma',
@@ -101,7 +103,6 @@ export const cs = {
   ribbonThemeColorShadeTip: 'Barva motivu {r}-{c}',
   ribbonStandardColors: 'Standardní barvy',
   ribbonMoreColors: 'Další barvy…',
-  ribbonGroupFont: 'Písmo',
   ribbonBullets: 'Odrážky',
   ribbonNumbering: 'Číslování',
   ribbonDecreaseIndent: 'Zmenšit odsazení',

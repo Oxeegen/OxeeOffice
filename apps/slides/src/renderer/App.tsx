@@ -36,8 +36,9 @@ import type {
 import { SlideCanvas, selectionChromeColor, type SlideCanvasHandle } from './SlideCanvas'
 import { tableCellOverlayBox } from './table-hit'
 import { ZOOM_PREVIEW_EVENT } from './zoom-preview'
-import { createWheelPager } from './wheel-page-flip'
+import { ZOOM_MAX, ZOOM_MIN, clampZoom, nextPreset, notchStep, prevPreset } from './zoom-steps'
 import type { DrawRect } from './draw-shape'
+import { paragraphsBlank } from './textbox-insert'
 import { SlideThumb } from './SlideThumb'
 import { MasterView } from './MasterView'
 import {
@@ -56,7 +57,12 @@ import { InkOverlay } from './InkOverlay'
 import { inkNodesOf, type InkPenSettings, type InkStroke, type InkTool } from './ink'
 import type { SlideThemePreset } from './themes'
 import { Ribbon, type FormatCmd, type SlidesViewMode } from './components/Ribbon'
-import { contextElementTypeForNode, type ContextElementType } from './components/context-tabs'
+import {
+  contextElementTypeForNode,
+  type ContextElementType,
+  type ContextTab,
+  type ContextTabRequest,
+} from './components/context-tabs'
 import { SlideShowView } from './components/SlideShowView'
 import { IconNotes, IconPlayBoxed } from './components/icons'
 import { PresenterView } from './components/PresenterView'
@@ -87,8 +93,15 @@ import { CommentsPane } from './components/CommentsPane'
 import { AnimationPane } from './components/AnimationPane'
 import { AnimPreviewOverlay } from './components/AnimatedSlide'
 import { EquationDialog, HeaderFooterDialog, LinkDialog } from './components/InsertDialogs'
+import { ZoomDialog } from './components/ZoomDialog'
 import { CutoutDialog } from './components/CutoutDialog'
-import { useAutoSavePref, type AiScopeQuoteData, type WordArtPreset } from '@genoffice/ui'
+import {
+  createWheelPager,
+  createZoomWheelClassifier,
+  useAutoSavePref,
+  type AiScopeQuoteData,
+  type WordArtPreset,
+} from '@genoffice/ui'
 import type { ChartPresetDef, IconDef, SmartArtDef } from './insert-presets'
 import { GensparkMark, IconAiBeautify, IconAiFactCheck, IconAiImage } from './components/icons'
 import { ToastHost } from './components/toast'
@@ -109,24 +122,34 @@ import type {
   HfDialogState,
   LinkDialogState,
   SlideShowState,
+  EditPointsState,
+  UngroupedSet,
 } from './action-context'
+import type { PathCmd } from './edit-points'
+import { createPreviewTracker, type EditPointsCommit } from './edit-points-actions'
 import { FIT_WIDTH } from './app-constants'
 import { StageRuler } from './components/StageRuler'
 import { formatRulerValue, type RulerUnit } from './ruler-ticks'
 import * as fileActions from './file-actions'
 import * as clipboardActions from './clipboard-actions'
 import * as insertActions from './insert-actions'
+import { bytesToBase64 } from './insert-actions'
+import { classifyDroppedFile, fileExt } from '../shared/media-kinds'
 import * as animationActions from './animation-actions'
 import * as showActions from './show-actions'
 import * as slideActions from './slide-actions'
+import * as zoomActions from './zoom-actions'
+import { groupSections } from './section-groups'
 import * as pictureEditActions from './picture-edit-actions'
 import * as arrangeActions from './arrange-actions'
 import * as tableActions from './table-actions'
 import * as styleActions from './style-actions'
-import { handleGlobalKeydown } from './keyboard-actions'
+import { handleGlobalKeydown, slideRailHasFocus } from './keyboard-actions'
+import { clickSelection, normalizeSelection } from '../shared/slide-selection'
+import { useEscOverlay, useEscOverlayOpen } from './esc-overlay'
 import { buildCtxItems } from './context-menu-items'
-
-const _IS_MAC = navigator.platform.toLowerCase().includes('mac')
+import { isMac, nextSelection } from './platform-modifiers'
+import * as placeholderNav from './placeholder-nav'
 
 /** Effects the canvas can play as a one-shot click preview; 'random' resolves to one of these */
 const PREVIEWABLE_TRANSITIONS: TransitionKind[] = [
@@ -355,9 +378,16 @@ export function App() {
   /** Theme body default font (fallback for the font box when the selection has no text element) */
   const [defaultFont, setDefaultFont] = useState<string | null>(null)
   const [current, setCurrent] = useState(0)
+  const [slideSelRaw, setSelectedSlides] = useState<number[]>([0])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   /** Group being edited from inside (double-click to enter, click outside/Esc to exit); the selection may contain its children */
   const [enteredGroupId, setEnteredGroupId] = useState<string | null>(null)
+  const [ungroupedSets, setUngroupedSets] = useState<UngroupedSet[]>([])
+  const [contextTabRequest, setContextTabRequest] = useState<ContextTabRequest | null>(null)
+  const openContextTab = useCallback(
+    (tab: ContextTab) => setContextTabRequest((prev) => ({ tab, seq: (prev?.seq ?? 0) + 1 })),
+    [],
+  )
   const [editing, setEditing] = useState<EditingState | null>(null)
   const [editingCell, setEditingCell] = useState<EditingCellState | null>(null)
   /** Element-scoped AI edits waiting to be submitted (session-only, see the queue helpers below) */
@@ -504,6 +534,7 @@ export function App() {
   const [showRuler, setShowRuler] = useState(false)
   const [showGrid, setShowGrid] = useState(false)
   const [showGuides, setShowGuides] = useState(false)
+  const [formatSizeNonce, setFormatSizeNonce] = useState(0)
   // Draggable guides (pos = 0..1 relative to page width/height); persisted to localStorage by document path
   const [guides, setGuides] = useState<Array<{ axis: 'v' | 'h'; pos: number }>>([
     { axis: 'v', pos: 0.5 },
@@ -555,6 +586,7 @@ export function App() {
   const [linkDialog, setLinkDialog] = useState<LinkDialogState | null>(null)
   const [hfDialog, setHfDialog] = useState<HfDialogState | null>(null)
   const [eqDialogOpen, setEqDialogOpen] = useState(false)
+  const [zoomDialog, setZoomDialog] = useState<zoomActions.ZoomMode | null>(null)
   const recorderRef = useRef<{ rec: MediaRecorder; stream: MediaStream } | null>(null)
   const [recording, setRecording] = useState(false)
   // ── Layout picking: layout list + slide size (loaded after the file opens) ─────────────────
@@ -562,6 +594,7 @@ export function App() {
   // ── Picture crop mode ─────────────────────────────────────────────────────
   /** Non-null enters crop mode */
   const [cropTarget, setCropTarget] = useState<CropTargetState | null>(null)
+  const [editPointsTarget, setEditPointsTarget] = useState<EditPointsState | null>(null)
   // ── Picture cutout (background removal) mode ───────────────────────────────
   /** Non-null opens the cutout dialog (dataUrl is the full original image data) */
   const [cutoutTarget, setCutoutTarget] = useState<CutoutTargetState | null>(null)
@@ -577,6 +610,18 @@ export function App() {
   const [brushMode, setBrushMode] = useState<'once' | 'continuous' | null>(null)
 
   const slide = slides[current]
+  // Rail multi-selection: stale entries (page deleted, anchor moved elsewhere) collapse to the anchor
+  const selectedSlides = useMemo(
+    () => normalizeSelection(slideSelRaw, current, slides.length),
+    [slideSelRaw, current, slides.length],
+  )
+  useEffect(() => {
+    // Compare by content: with no deck the normalizer yields a fresh [0] every render
+    const same =
+      selectedSlides.length === slideSelRaw.length &&
+      selectedSlides.every((v, k) => v === slideSelRaw[k])
+    if (!same) setSelectedSlides(selectedSlides)
+  }, [selectedSlides, slideSelRaw])
   const hasDoc = !!slide
 
   /// True when no slide carries real content (only master decorations and
@@ -788,10 +833,12 @@ export function App() {
       setDefaultFont(result.defaultFont ?? null)
       setPath(result.path)
       setCurrent(0)
+      setSelectedSlides([0])
       setSelectedIds([])
       setEditing(null)
       setDirty(false)
       setInkTool('select')
+      setUngroupedSets([])
       setAiPanelKey((k) => k + 1)
       // Queue anchors belong to the deck that was open; another file invalidates them all
       setEditQueue([])
@@ -812,11 +859,7 @@ export function App() {
   )
 
   const setSelectedId = useCallback((id: string | null, additive = false) => {
-    setSelectedIds((prev) => {
-      if (id == null) return []
-      if (additive) return prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-      return [id]
-    })
+    setSelectedIds((prev) => nextSelection(prev, id, additive))
   }, [])
 
   /** Group node being edited from inside (the group may no longer exist after page switch/undo; the effect exits as a fallback) */
@@ -985,6 +1028,7 @@ export function App() {
     if (!r) return
     setSlides(r)
     setCurrent((c) => Math.min(c, r.length - 1))
+    setSelectedSlides([])
     setSelectedIds([])
     setEditing(null)
     setPasteFloater(null) // The paste the floater refers to may have just been undone
@@ -1040,7 +1084,7 @@ export function App() {
     (next: number | ((current: number) => number), anchor?: { x: number; y: number }) => {
       const g = zoomGestureRef.current
       const target = typeof next === 'function' ? next(g.pending ?? zoomLiveRef.current) : next
-      g.pending = Math.min(3, Math.max(0.25, target))
+      g.pending = clampZoom(target)
       g.anchor = anchor ?? null
       if (!g.raf) {
         g.raf = requestAnimationFrame(() => {
@@ -1113,11 +1157,20 @@ export function App() {
     const el = stageWrapRef.current
     if (!el) return
     const pager = createWheelPager()
+    const zoomWheel = createZoomWheelClassifier()
     const onWheel = (ev: WheelEvent) => {
       if (ev.ctrlKey || ev.metaKey) {
         ev.preventDefault()
-        const factor = Math.exp(-ev.deltaY * 0.01)
-        previewZoom((z) => z * factor, { x: ev.clientX, y: ev.clientY })
+        const intent = zoomWheel.feed(ev, ev.timeStamp)
+        if (!intent) return
+        const anchor = { x: ev.clientX, y: ev.clientY }
+        if (intent === 'pinch') {
+          const factor = Math.exp(-ev.deltaY * 0.01)
+          previewZoom((z) => z * factor, anchor)
+        } else {
+          const dir = intent === 'zoom-in' ? 1 : -1
+          previewZoom((z) => notchStep(z, dir), anchor)
+        }
         return
       }
       // Never flip out from under a live text edit — the overlay's commit
@@ -1409,10 +1462,6 @@ export function App() {
     [applySlide],
   )
 
-  const insertElement = useCallback(
-    (kind: InsertKind) => insertActions.insertElement(ctxRef.current, kind),
-    [],
-  )
   // Shape draw mode (PowerPoint/WPS parity): gallery pick arms the crosshair, the canvas commits the box.
   // The armed kind lives in a ref too: the commit side effect must stay out of the
   // setState updater (StrictMode double-invokes updaters → double insert).
@@ -1428,7 +1477,8 @@ export function App() {
     const kind = drawKindRef.current
     drawKindRef.current = null
     setDrawKind(null)
-    if (kind) void insertActions.insertShapeAt(ctxRef.current, kind, rect)
+    if (kind === 'textbox') void insertActions.insertTextBoxAt(ctxRef.current, rect)
+    else if (kind) void insertActions.insertShapeAt(ctxRef.current, kind, rect)
   }, [])
   const insertImage = useCallback(() => insertActions.insertImage(ctxRef.current), [])
 
@@ -1473,10 +1523,16 @@ export function App() {
   const copySelected = useCallback(() => clipboardActions.copySelected(ctxRef.current), [])
   const cutSelected = useCallback(() => clipboardActions.cutSelected(ctxRef.current), [])
 
-  /** Insert an external image at page center at natural size (clamped to half the page). */
+  /** Insert an external image at PowerPoint's dpi-aware size, centered on the page or drop point. */
   const insertExternalImage = useCallback(
     (base64: string, ext: string, atPx?: { x: number; y: number }) =>
       clipboardActions.insertExternalImage(ctxRef.current, base64, ext, atPx),
+    [],
+  )
+
+  const insertDroppedMedia = useCallback(
+    (file: File, kind: 'video' | 'audio', atPx: { x: number; y: number }) =>
+      insertActions.insertDroppedMedia(ctxRef.current, file, kind, atPx),
     [],
   )
 
@@ -1574,10 +1630,12 @@ export function App() {
     (target: LinkTargetOp | null) => insertActions.applyLink(ctxRef.current, target),
     [],
   )
-  const insertZoom = useCallback(
-    (target: number) => insertActions.insertZoom(ctxRef.current, target),
-    [],
-  )
+  const insertZooms = useCallback((mode: zoomActions.ZoomMode, keys: number[]) => {
+    setZoomDialog(null)
+    if (mode === 'summary') return zoomActions.insertSummaryZoom(ctxRef.current, keys)
+    if (mode === 'section') return zoomActions.insertSectionZooms(ctxRef.current, keys)
+    return zoomActions.insertSlideZooms(ctxRef.current, keys)
+  }, [])
   const openHeaderFooter = useCallback(() => insertActions.openHeaderFooter(ctxRef.current), [])
   const applyHf = useCallback(
     (opts: { footer: string | null; slideNum: boolean; date: string | null; dateAuto: boolean }) =>
@@ -1745,11 +1803,12 @@ export function App() {
   }, [])
 
   /** Open the format pane (Home ribbon toggle / element context menu); never auto-opens on selection */
-  const openFormat = useCallback(() => {
+  const openFormat = useCallback((section?: 'size') => {
     setShowFormat(true)
     setShowBgFormat(false)
     setShowAnimPane(false)
     setShowComments(false)
+    if (section === 'size') setFormatSizeNonce((n) => n + 1)
   }, [])
 
   // ── Slide show tab (show-actions.ts): start show / presenter view / hide slide ──
@@ -1805,7 +1864,12 @@ export function App() {
     [],
   )
   const toggleHidden = useCallback(
-    (index: number) => showActions.toggleHidden(ctxRef.current, index),
+    () =>
+      showActions.setSlidesHidden(
+        ctxRef.current,
+        ctxRef.current.selectedSlides,
+        !ctxRef.current.slide?.hidden,
+      ),
     [],
   )
 
@@ -2009,16 +2073,46 @@ export function App() {
   /** Insert position: 0..slides.length, value k means insert before page k */
   const [dropPos, setDropPos] = useState<number | null>(null)
 
-  const moveSlideTo = useCallback(
-    (from: number, insertAt: number) => slideActions.moveSlideTo(ctxRef.current, from, insertAt),
+  const moveSlidesTo = useCallback(
+    (indexes: number[], insertAt: number) =>
+      slideActions.moveSlidesTo(ctxRef.current, indexes, insertAt),
     [],
   )
+
+  /** Click / Shift-click / Ctrl-click on a thumbnail (PowerPoint selection model) */
+  const selectThumb = (i: number, e?: React.MouseEvent) => {
+    const next = clickSelection({ selected: selectedSlides, current }, i, {
+      shift: !!e?.shiftKey,
+      toggle: !!e && (e.metaKey || e.ctrlKey),
+    })
+    setCurrent(next.current)
+    setSelectedSlides(next.selected)
+    setSelectedIds([])
+    setEditing(null)
+  }
+
+  /** Right-click inside the selection keeps it; elsewhere it selects the clicked slide alone */
+  const openThumbMenu = (i: number, e: React.MouseEvent) => {
+    e.preventDefault()
+    if (!selectedSlides.includes(i)) selectThumb(i)
+    else {
+      setSelectedIds([])
+      setEditing(null)
+    }
+    void window.slidesApi.hasSlideClipboard().then(setCanPasteSlide)
+    setCtxMenu({ kind: 'thumb', x: e.clientX, y: e.clientY, index: i })
+  }
+
+  /** Grabbing a selected thumbnail drags the whole selection */
+  const dragBlock = (grabbed: number) =>
+    selectedSlides.includes(grabbed) ? selectedSlides : [grabbed]
 
   /** Drag props shared by the thumbnail list / sorter view; horizontal = sorter grid (front/back half decided by X) */
   const thumbDragProps = (i: number, horizontal = false) => ({
     draggable: true,
     onDragStart: (e: React.DragEvent) => {
       e.dataTransfer.effectAllowed = 'move'
+      if (!selectedSlides.includes(i)) selectThumb(i)
       setDragThumb(i)
     },
     onDragOver: (e: React.DragEvent) => {
@@ -2040,7 +2134,7 @@ export function App() {
       const before = horizontal
         ? e.clientX < r.left + r.width / 2
         : e.clientY < r.top + r.height / 2
-      void moveSlideTo(dragThumb, before ? i : i + 1)
+      void moveSlidesTo(dragBlock(dragThumb), before ? i : i + 1)
       setDragThumb(null)
       setDropPos(null)
     },
@@ -2050,16 +2144,37 @@ export function App() {
     },
   })
 
-  /** Drag visual state classes: source page dragging; drop point k draws a line on page k's top edge, the end drop point on the last page's bottom edge */
-  const thumbDragCls = (i: number) =>
-    `${dragThumb === i ? ' dragging' : ''}${
-      dropPos === i
-        ? ' drop-before'
-        : dropPos === i + 1 && i === slides.length - 1
-          ? ' drop-after'
-          : ''
-    }`
+  const gapPos = ctxMenu?.kind === 'gap' ? ctxMenu.pos : null
 
+  /** Drag visual state classes: source page dragging; drop point k draws a line on page k's top edge, the end drop point on the last page's bottom edge */
+  const thumbDragCls = (i: number) => {
+    const mark = dropPos ?? gapPos
+    const dragging = dragThumb != null && dragBlock(dragThumb).includes(i)
+    return `${dragging ? ' dragging' : ''}${
+      mark === i ? ' drop-before' : mark === i + 1 && i === slides.length - 1 ? ' drop-after' : ''
+    }`
+  }
+
+  /** Right-click on the rail / sorter blank space: insertion point = first page whose centre lies past the pointer (reading order) */
+  const onGapContextMenu = (e: React.MouseEvent<HTMLDivElement>, horizontal = false) => {
+    if ((e.target as Element).closest('.thumb, .sorter-item, .section-header')) return
+    e.preventDefault()
+    let pos = -1
+    let last = -1
+    for (const el of e.currentTarget.querySelectorAll<HTMLElement>('[data-index]')) {
+      const i = Number(el.dataset.index)
+      last = Math.max(last, i)
+      if (pos >= 0) continue
+      const r = el.getBoundingClientRect()
+      const after = horizontal
+        ? r.top > e.clientY || (e.clientY <= r.bottom && e.clientX < r.left + r.width / 2)
+        : e.clientY < r.top + r.height / 2
+      if (after) pos = i
+    }
+    if (pos < 0) pos = last + 1
+    void window.slidesApi.hasSlideClipboard().then(setCanPasteSlide)
+    setCtxMenu({ kind: 'gap', x: e.clientX, y: e.clientY, pos })
+  }
   const commitRenameSection = useCallback(
     () => slideActions.commitRenameSection(ctxRef.current),
     [],
@@ -2074,36 +2189,10 @@ export function App() {
     })
   }, [])
 
-  /**
-   * Sidebar grouping: split the page sequence by each section's first-page index (section i
-   * covers [start_i, start_{i+1})); pages before the first section start go into an
-   * "unsectioned" group — tolerating stale section data after page insertions/deletions.
-   */
-  const sectionGroups = useMemo(() => {
-    if (!sections.length || !slides.length) return null
-    const total = slides.length
-    const starts = new Array<number>(sections.length)
-    let nextStart = total
-    for (let i = sections.length - 1; i >= 0; i--) {
-      const own = sections[i]!.slideIndices.length
-        ? Math.min(...sections[i]!.slideIndices)
-        : nextStart
-      starts[i] = Math.min(own, nextStart)
-      nextStart = starts[i]!
-    }
-    const groups: Array<{ id: string | null; name: string; start: number; end: number }> = []
-    if (starts[0]! > 0)
-      groups.push({ id: null, name: t('appSectionDefault'), start: 0, end: starts[0]! })
-    sections.forEach((s, i) => {
-      groups.push({
-        id: s.id,
-        name: s.name,
-        start: starts[i]!,
-        end: i + 1 < sections.length ? starts[i + 1]! : total,
-      })
-    })
-    return groups
-  }, [sections, slides.length, lang])
+  const sectionGroups = useMemo(
+    () => groupSections(sections, slides.length),
+    [sections, slides.length],
+  )
 
   /** Canvas right-click: select the hit element first (replace the selection if it isn't in it), clear selection on blank */
   const onCanvasContextMenu = useCallback(
@@ -2122,6 +2211,11 @@ export function App() {
     [editing],
   )
 
+  const onTextContextMenu = useCallback((x: number, y: number, collapsed: boolean) => {
+    void window.slidesApi.clipboardProbe().then(setHasClipboard)
+    setCtxMenu({ kind: 'text', x, y, collapsed })
+  }, [])
+
   // Menu commands. Cut/copy/paste dispatch by context: text mode goes back to the native clipboard, canvas mode uses the element clipboard
   useEffect(() => {
     return window.slidesApi.onMenuCommand((cmd) => {
@@ -2138,8 +2232,8 @@ export function App() {
       else if (cmd === 'export-images') void exportImages()
       else if (cmd === 'print') setPrintDlgOpen(true)
       // Through the preview path so the zoom pivots on the viewport center, not the scroll origin
-      else if (cmd === 'zoom-in') previewZoom((z) => Math.min(z * 1.15, 3))
-      else if (cmd === 'zoom-out') previewZoom((z) => Math.max(z / 1.15, 0.25))
+      else if (cmd === 'zoom-in') previewZoom(nextPreset)
+      else if (cmd === 'zoom-out') previewZoom(prevPreset)
       else if (cmd === 'zoom-reset') previewZoom(1)
       else if (cmd === 'undo') void undo()
       else if (cmd === 'redo') void redo()
@@ -2193,7 +2287,11 @@ export function App() {
           if (n.fill) addFillUrl(n.fill)
           addBulletUrls(n.text)
         }
-        if (n.type === 'chart') addFillUrl((n as { bgFill?: RenderFill }).bgFill)
+        if (n.type === 'chart') {
+          addFillUrl((n as { bgFill?: RenderFill }).bgFill)
+          for (const b of (n as { bars: Array<{ fill?: RenderFill }> }).bars)
+            if (b.fill) addFillUrl(b.fill)
+        }
         if (n.type === 'group' && Array.isArray(n.children)) walk(n.children)
         if (n.type === 'table' && Array.isArray(n.cells)) {
           for (const c of n.cells) {
@@ -2281,6 +2379,8 @@ export function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [mediaPlay])
+  useEscOverlay(!!mediaPlay || !!drawKind || viewMode === 'reading')
+  const overlayOpen = useEscOverlayOpen()
 
   const startEditCell = useCallback((sourceId: string, row: number, col: number) => {
     setEditing(null)
@@ -2326,10 +2426,28 @@ export function App() {
       tableActions.navigateCell(ctxRef.current, paragraphs, dir),
     [],
   )
+  const nextPlaceholder = useCallback(
+    (paragraphs: EditParagraph[] | null) =>
+      placeholderNav.nextPlaceholder(ctxRef.current, paragraphs),
+    [],
+  )
+
+  // PowerPoint drops a click-to-type text box the user leaves without typing
+  const discardEmptyTextBox = useCallback(async () => {
+    if (!editing) return
+    const updated = await window.slidesApi.deleteElement({
+      slideIndex: current,
+      sourceId: editing.sourceId,
+    })
+    if (updated) applySlide(current, updated)
+    setEditing(null)
+    setSelectedIds([])
+  }, [editing, current, applySlide])
 
   const commitEdit = useCallback(
     async (paragraphs: EditParagraph[]) => {
       if (!editing) return
+      if (editing.discardIfEmpty && paragraphsBlank(paragraphs)) return discardEmptyTextBox()
       const updated = await window.slidesApi.editText({
         slideIndex: current,
         sourceId: editing.sourceId,
@@ -2343,7 +2461,7 @@ export function App() {
       setEditing(null)
       setSelectedIds([editing.sourceId]) // Back to shape-selected state after committing
     },
-    [editing, current],
+    [editing, current, discardEmptyTextBox],
   )
 
   // ⌘+click on a linked run while editing: jump in the editor / open externally (same routing as the show)
@@ -2425,6 +2543,56 @@ export function App() {
     },
     [current],
   )
+
+  // Edit Points drag: same throttled preview / final commit contract as the adjust handles
+  const editPointsLastSent = useRef(0)
+  const editPointsPreview = useRef(createPreviewTracker())
+  const sendEditPoints = useCallback((commit: EditPointsCommit, preview: boolean) => {
+    editPointsPreview.current.note(commit, preview)
+    const { slideIndex } = commit
+    void window.slidesApi
+      .setShapeGeometry({
+        slideIndex,
+        sourceId: commit.sourceId,
+        pathPx: commit.path,
+        fitWidthPx: FIT_WIDTH,
+        ...(preview ? { preview: true } : {}),
+      })
+      .then((r) => {
+        if (r) {
+          setSlides((s) => s.map((sl, i) => (i === slideIndex ? r : sl)))
+          setDirty(true)
+        }
+      })
+  }, [])
+  const commitEditPoints = useCallback(
+    (sourceId: string, path: { w: number; h: number; cmds: PathCmd[] }, preview: boolean) => {
+      const now = performance.now()
+      if (preview && now - editPointsLastSent.current < 80) return
+      editPointsLastSent.current = now
+      sendEditPoints({ slideIndex: current, sourceId, path }, preview)
+    },
+    [current, sendEditPoints],
+  )
+
+  // Edit Points mode ends with the selection: click-away, another element, a page switch or text editing
+  useEffect(() => {
+    if (!editPointsTarget) return
+    const alive =
+      !editing &&
+      selectedIds.length === 1 &&
+      selectedIds[0] === editPointsTarget.sourceId &&
+      slides[current]?.nodes.some((n) => n.sourceId === editPointsTarget.sourceId)
+    if (!alive) setEditPointsTarget(null)
+  }, [editPointsTarget, selectedIds, slides, current, editing])
+
+  // Leaving the mode mid-drag (Esc, click-away, page switch) unmounts the handles before
+  // their release commit: close the open gesture so later edits get their own undo step
+  useEffect(() => {
+    if (editPointsTarget) return
+    const open = editPointsPreview.current.flush()
+    if (open) sendEditPoints(open, false)
+  }, [editPointsTarget, sendEditPoints])
 
   // Connector endpoint drag: new endpoints + attach/detach for the dragged end
   const onEditConnectorEndpoints = useCallback(
@@ -2785,6 +2953,8 @@ export function App() {
     setSlides,
     current,
     setCurrent,
+    selectedSlides,
+    setSelectedSlides,
     slide,
     path,
     setPath,
@@ -2801,6 +2971,8 @@ export function App() {
     setEnteredGroupId,
     enteredGroupNode,
     selectedNode,
+    ungroupedSets,
+    setUngroupedSets,
     hasClipboard,
     setHasClipboard,
     canPasteSlide,
@@ -2834,12 +3006,17 @@ export function App() {
     setSections,
     renamingSec,
     setRenamingSec,
+    setCollapsedSecs,
     ctxMenu,
     setCtxMenu,
     cropTarget,
     setCropTarget,
+    overlayOpen,
     cutoutTarget,
     setCutoutTarget,
+    editPointsTarget,
+    setEditPointsTarget,
+    commitEditPoints,
     linkDialog,
     setLinkDialog,
     setHfDialog,
@@ -2849,8 +3026,16 @@ export function App() {
     setFindOpen,
     setPrintDlgOpen,
     openAskPopover,
+    zoom,
     setZoom,
     masterItems,
+    layouts: layoutsResult?.layouts ?? null,
+    showRuler,
+    showGrid,
+    showGuides,
+    toggleRuler: () => setShowRuler((v) => !v),
+    toggleGrid: () => setShowGrid((v) => !v),
+    toggleGuides: () => setShowGuides((v) => !v),
     recorderRef,
     setRecording,
     editingActiveRef,
@@ -2864,6 +3049,7 @@ export function App() {
     onTransform,
     openBgFormat,
     openFormat,
+    newComment: () => openComments(true),
     openChangeShape: (targetId, x, y) => setShapeGalleryAt({ targetId, x, y }),
   }
 
@@ -2871,7 +3057,20 @@ export function App() {
   const ctxItems = useMemo(
     () => buildCtxItems(ctxRef.current),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ctxMenu, slides, sections, hasClipboard, canPasteSlide, selectedIds, slide, lang],
+    [
+      ctxMenu,
+      slides,
+      sections,
+      hasClipboard,
+      canPasteSlide,
+      selectedIds,
+      slide,
+      lang,
+      layoutsResult,
+      showRuler,
+      showGrid,
+      showGuides,
+    ],
   )
 
   // ---- Draw (freehand ink): one stroke = one transparent PNG picture element; undo/save use the existing pipeline ----
@@ -2944,7 +3143,6 @@ export function App() {
         aiOpen={showAi}
         onToggleAi={toggleAi}
         onAiPreset={(text, opts) => pushAiPreset(text, true, undefined, undefined, opts?.slideShot)}
-        onInsert={(kind) => void insertElement(kind)}
         onPickShape={pickShape}
         onInsertImage={() => void insertImage()}
         onFormatBackground={openBgFormat}
@@ -2983,15 +3181,9 @@ export function App() {
         animByParagraph={animByParagraph}
         onToggleAnimByParagraph={() => setAnimByParagraph((v) => !v)}
         onSetLayout={(layoutPath) =>
-          void window.slidesApi
-            .setSlideLayout({ slideIndex: current, layoutPath })
-            .then((r) => r && applySlide(current, r))
+          void slideActions.setSlideLayoutAt(ctxRef.current, current, layoutPath)
         }
-        onResetLayout={() =>
-          void window.slidesApi
-            .setSlideLayout({ slideIndex: current })
-            .then((r) => r && applySlide(current, r))
-        }
+        onResetLayout={() => void slideActions.setSlideLayoutAt(ctxRef.current, current)}
         onSlideSize={(cx, cy) =>
           void window.slidesApi.setSlideSize({ cx, cy }).then((all) => {
             if (all) {
@@ -3029,6 +3221,9 @@ export function App() {
           if (!all) previewTransitionOnCanvas(kind)
         }}
         selectedAnimEffect={selectedAnimEffect}
+        selectionIsMedia={
+          selectedNode?.type === 'picture' && !!(selectedNode as PictureRenderNode).media
+        }
         timingAnim={timingIdx >= 0 ? animations[timingIdx]! : null}
         onApplyAnimation={applyAnimation}
         onAnimHoverPreview={hoverPreviewAnimation}
@@ -3045,7 +3240,7 @@ export function App() {
         onCustomShow={() => setCustomShowDlgOpen(true)}
         onRehearse={startRehearseShow}
         currentHidden={!!slide?.hidden}
-        onToggleHidden={() => void toggleHidden(current)}
+        onToggleHidden={() => void toggleHidden()}
         inkTool={inkTool}
         onInkTool={onInkTool}
         inkPen={inkPen}
@@ -3076,7 +3271,8 @@ export function App() {
         onInsertWordArt={(preset) => void insertWordArt(preset)}
         onInsertField={(type) => void insertField(type)}
         onOpenLink={() => void openLinkDialog()}
-        onInsertZoom={(index) => void insertZoom(index)}
+        onOpenZoom={setZoomDialog}
+        hasSections={sections.length > 0}
         slideCount={slides.length}
         currentSlide={current}
         onOpenHeaderFooter={() => void openHeaderFooter()}
@@ -3086,6 +3282,7 @@ export function App() {
         recording={recording}
         onToggleScreenRecord={() => void toggleScreenRecord()}
         contextElementType={contextElementType}
+        tabRequest={contextTabRequest}
         contextElementId={selectedNode?.sourceId}
         contextSlideIndex={current}
         contextChartStyle={contextChartStyle}
@@ -3367,28 +3564,27 @@ export function App() {
                 )
               })()
             ) : viewMode === 'sorter' ? (
-              <div className="sorter-view">
+              <div
+                className="sorter-view"
+                role="listbox"
+                tabIndex={0}
+                onContextMenu={(e) => onGapContextMenu(e, true)}
+              >
                 {slides.map((s, i) => (
                   <div
                     key={i}
-                    className={`sorter-item ${i === current ? 'active' : ''} ${s.hidden ? 'thumb-hidden' : ''}${thumbDragCls(i)}`}
+                    data-index={i}
+                    role="option"
+                    aria-selected={selectedSlides.includes(i)}
+                    className={`sorter-item ${i === current ? 'active' : selectedSlides.includes(i) ? 'selected' : ''} ${s.hidden ? 'thumb-hidden' : ''}${thumbDragCls(i)}`}
                     data-tip={s.hidden ? t('appSorterHiddenTitle') : t('appSorterItemTitle')}
                     {...thumbDragProps(i, true)}
-                    onClick={() => {
-                      setCurrent(i)
-                      setSelectedIds([])
-                      setEditing(null)
-                    }}
+                    onClick={(e) => selectThumb(i, e)}
                     onDoubleClick={() => {
-                      setCurrent(i)
+                      selectThumb(i)
                       onViewMode('normal')
                     }}
-                    onContextMenu={(e) => {
-                      e.preventDefault()
-                      setCurrent(i)
-                      void window.slidesApi.hasSlideClipboard().then(setCanPasteSlide)
-                      setCtxMenu({ kind: 'thumb', x: e.clientX, y: e.clientY, index: i })
-                    }}
+                    onContextMenu={(e) => openThumbMenu(i, e)}
                   >
                     <SlideThumb slide={s} images={images} width={208} />
                     <span className="sorter-num">{i + 1}</span>
@@ -3405,18 +3601,16 @@ export function App() {
             ) : (
               <>
                 {viewMode === 'outline' ? (
-                  <div className="outline-pane">
+                  <div className="outline-pane" role="listbox" tabIndex={0}>
                     {slides.map((s, i) => {
                       const o = outlineOf(s)
                       return (
                         <div
                           key={i}
+                          role="option"
+                          aria-selected={i === current}
                           className={`outline-item ${i === current ? 'active' : ''}`}
-                          onClick={() => {
-                            setCurrent(i)
-                            setSelectedIds([])
-                            setEditing(null)
-                          }}
+                          onClick={() => selectThumb(i)}
                         >
                           <span className="outline-num">{i + 1}</span>
                           <div className="outline-body">
@@ -3437,29 +3631,28 @@ export function App() {
                 ) : (
                   showThumbs && (
                     <>
-                      <div className="slide-list" ref={thumbsListRef} style={{ width: thumbsW }}>
+                      <div
+                        className="slide-list"
+                        role="listbox"
+                        tabIndex={0}
+                        ref={thumbsListRef}
+                        style={{ width: thumbsW }}
+                        onContextMenu={(e) => onGapContextMenu(e)}
+                      >
                         {(() => {
                           // width = sidebar minus horizontal padding (20) and .thumb border (4)
                           const thumbW = Math.max(60, thumbsW - 24)
                           const thumbItem = (s: RenderSlide, i: number) => (
                             <div
                               key={i}
-                              className={`thumb ${i === current ? 'active' : ''} ${s.hidden ? 'thumb-hidden' : ''}${thumbDragCls(i)}`}
+                              data-index={i}
+                              role="option"
+                              aria-selected={selectedSlides.includes(i)}
+                              className={`thumb ${i === current ? 'active' : selectedSlides.includes(i) ? 'selected' : ''} ${s.hidden ? 'thumb-hidden' : ''}${thumbDragCls(i)}`}
                               data-tip={s.hidden ? t('appThumbHiddenTitle') : undefined}
                               {...thumbDragProps(i)}
-                              onClick={() => {
-                                setCurrent(i)
-                                setSelectedIds([])
-                                setEditing(null)
-                              }}
-                              onContextMenu={(e) => {
-                                e.preventDefault()
-                                setCurrent(i)
-                                setSelectedIds([])
-                                setEditing(null)
-                                void window.slidesApi.hasSlideClipboard().then(setCanPasteSlide)
-                                setCtxMenu({ kind: 'thumb', x: e.clientX, y: e.clientY, index: i })
-                              }}
+                              onClick={(e) => selectThumb(i, e)}
+                              onContextMenu={(e) => openThumbMenu(i, e)}
                             >
                               <SlideThumb slide={s} images={images} width={thumbW} />
                               <span className="thumb-num">{i + 1}</span>
@@ -3480,19 +3673,15 @@ export function App() {
                                 <div
                                   className={`section-header${g.id == null ? ' section-header-none' : ''}`}
                                   onClick={g.id != null ? () => toggleSection(g.id!) : undefined}
-                                  onContextMenu={
-                                    g.id != null
-                                      ? (e) => {
-                                          e.preventDefault()
-                                          setCtxMenu({
-                                            kind: 'section',
-                                            x: e.clientX,
-                                            y: e.clientY,
-                                            sectionId: g.id!,
-                                          })
-                                        }
-                                      : undefined
-                                  }
+                                  onContextMenu={(e) => {
+                                    e.preventDefault()
+                                    setCtxMenu({
+                                      kind: 'section',
+                                      x: e.clientX,
+                                      y: e.clientY,
+                                      sectionId: g.id,
+                                    })
+                                  }}
                                   title={g.id != null ? t('appSectionHeaderTitle') : undefined}
                                 >
                                   {g.id != null && (
@@ -3524,7 +3713,7 @@ export function App() {
                                           : undefined
                                       }
                                     >
-                                      {g.name}
+                                      {g.id == null ? t('appSectionDefault') : g.name}
                                     </span>
                                   )}
                                   <span className="section-count">{g.end - g.start}</span>
@@ -3611,6 +3800,10 @@ export function App() {
                     <div
                       className={`stage-wrap${stageFitsViewport ? ' stage-fits-viewport' : ''}${brushMode ? ' format-brush-mode' : ''}`}
                       ref={stageWrapRef}
+                      onMouseDownCapture={() => {
+                        // Focus leaves the rail so slide-level Delete/cut/copy stop applying
+                        if (slideRailHasFocus()) (document.activeElement as HTMLElement).blur()
+                      }}
                     >
                       {/* transform: scale() doesn't grow layout, so the scroll range ignores the
                     zoomed size and the left/top overflow becomes unreachable; the zoom-box
@@ -3695,9 +3888,14 @@ export function App() {
                               if (e.dataTransfer.types.includes('Files')) e.preventDefault()
                             }}
                             onDrop={(e) => {
-                              const files = Array.from(e.dataTransfer.files).filter((f) =>
-                                f.type.startsWith('image/'),
-                              )
+                              // Images and media land on the slide; anything else falls
+                              // through to the shell's drop-open bridge
+                              const files = Array.from(e.dataTransfer.files)
+                                .map((f) => ({ f, kind: classifyDroppedFile(f.name, f.type) }))
+                                .filter(
+                                  (x): x is { f: File; kind: 'image' | 'video' | 'audio' } =>
+                                    x.kind !== 'other',
+                                )
                               if (!files.length) return
                               e.preventDefault()
                               const rect = e.currentTarget.getBoundingClientRect()
@@ -3705,17 +3903,15 @@ export function App() {
                                 x: ((e.clientX - rect.left) / rect.width) * slide.widthPx,
                                 y: ((e.clientY - rect.top) / rect.height) * slide.heightPx,
                               }
-                              for (const f of files) {
+                              for (const { f, kind } of files) {
+                                if (kind !== 'image') {
+                                  void insertDroppedMedia(f, kind, at)
+                                  continue
+                                }
                                 void f.arrayBuffer().then((buf) => {
-                                  // Chunked base64 conversion: spreading a large array would blow the call stack
-                                  const bytes = new Uint8Array(buf)
-                                  let bin = ''
-                                  for (let i = 0; i < bytes.length; i += 0x8000) {
-                                    bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
-                                  }
-                                  const ext = (f.name.split('.').pop() ?? 'png').toLowerCase()
+                                  const ext = fileExt(f.name) || 'png'
                                   void insertExternalImage(
-                                    btoa(bin),
+                                    bytesToBase64(new Uint8Array(buf)),
                                     ext === 'jpeg' ? 'jpg' : ext,
                                     at,
                                   )
@@ -3736,6 +3932,7 @@ export function App() {
                                 void onTableRowResize(id, row, hPx)
                               }
                               onPlayMedia={(id) => void startMediaPlayback(id)}
+                              onOpenContextTab={openContextTab}
                               onContextMenu={onCanvasContextMenu}
                               onMarqueeSelect={setSelectedIds}
                               onDuplicateTo={(id, dx, dy) => void duplicateSelected([id], dx, dy)}
@@ -3751,6 +3948,14 @@ export function App() {
                                 setDrawKind(null)
                               }}
                               onAdjust={onAdjust}
+                              editPoints={editPointsTarget}
+                              onEditPoints={commitEditPoints}
+                              onEditPointsVertex={(vertex) =>
+                                setEditPointsTarget((prev) => (prev ? { ...prev, vertex } : prev))
+                              }
+                              onEditPointsDragging={(dragging) =>
+                                setEditPointsTarget((prev) => (prev ? { ...prev, dragging } : prev))
+                              }
                               editingText={
                                 editing
                                   ? { sourceId: editing.sourceId }
@@ -3839,11 +4044,21 @@ export function App() {
                                 scale={slide.scale}
                                 caretPoint={editing.caret}
                                 replaceWith={editing.replaceWith}
+                                selectAll={editing.selectAll}
                                 onCommit={commitEdit}
-                                onCancel={() => setEditing(null)}
+                                onCancel={() => {
+                                  if (editing.discardIfEmpty) void discardEmptyTextBox()
+                                  else setEditing(null)
+                                }}
+                                onNextPlaceholder={
+                                  isMac
+                                    ? undefined
+                                    : (paragraphs) => void nextPlaceholder(paragraphs)
+                                }
                                 onFollowLink={followRunLink}
                                 frameColor={selectionChromeColor(slide, images, editNode.box)}
                                 zoom={zoom}
+                                onContextMenu={onTextContextMenu}
                                 onFrameDrag={(ev) => {
                                   // Drop the overlay now; the text commit above lands via setSlides on its own
                                   setEditing(null)
@@ -3861,6 +4076,7 @@ export function App() {
                                 onFollowLink={followRunLink}
                                 frameColor={selectionChromeColor(slide, images, cellEditNode.box)}
                                 zoom={zoom}
+                                onContextMenu={onTextContextMenu}
                               />
                             )}
                             {mediaPlay && mediaPlayNode && (
@@ -4015,6 +4231,8 @@ export function App() {
                     viewScale={slide?.scale}
                     slideSizePx={slide ? { w: slide.widthPx, h: slide.heightPx } : undefined}
                     onTransform={onTransform}
+                    sizeRequest={formatSizeNonce}
+                    onSizeRequestDone={() => setFormatSizeNonce(0)}
                     onFill={(id, fill) => void onFill(id, fill)}
                     onImageFill={(id) =>
                       void window.slidesApi
@@ -4172,6 +4390,17 @@ export function App() {
           onClose={() => setEqDialogOpen(false)}
         />
       )}
+      {zoomDialog && (
+        <ZoomDialog
+          mode={zoomDialog}
+          slides={slides}
+          images={images}
+          sections={sections}
+          currentSlide={current}
+          onInsert={(keys) => void insertZooms(zoomDialog, keys)}
+          onClose={() => setZoomDialog(null)}
+        />
+      )}
 
       {cutoutTarget && (
         <CutoutDialog
@@ -4286,6 +4515,7 @@ export function App() {
           y={ctxMenu.y}
           items={ctxItems}
           onClose={() => setCtxMenu(null)}
+          keepEdit={ctxMenu.kind === 'text'}
         />
       )}
 
@@ -4333,8 +4563,8 @@ function ZoomControls({
   // Buttons go through the preview path too: the zoom pivots on the viewport center and
   // rapid clicks compound on the pending value; `live` mirrors it so the % keeps up
   const step = (dir: 1 | -1) => {
-    setLive((v) => Math.min(300, Math.max(25, v + dir * 10)))
-    onPreview((z) => Math.min(3, Math.max(0.25, z + dir * 0.1)))
+    setLive((v) => Math.round(notchStep(v / 100, dir) * 100))
+    onPreview((z) => notchStep(z, dir))
   }
   return (
     <>
@@ -4344,10 +4574,14 @@ function ZoomControls({
       <input
         className="zoom-slider"
         type="range"
-        min={25}
-        max={300}
+        min={ZOOM_MIN * 100}
+        max={ZOOM_MAX * 100}
         step={5}
-        style={{ '--zoom-pct': `${((live - 25) / 275) * 100}%` } as React.CSSProperties}
+        style={
+          {
+            '--zoom-pct': `${((live - ZOOM_MIN * 100) / ((ZOOM_MAX - ZOOM_MIN) * 100)) * 100}%`,
+          } as React.CSSProperties
+        }
         value={live}
         onChange={(e) => {
           const v = Number(e.target.value)

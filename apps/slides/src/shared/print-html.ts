@@ -41,6 +41,15 @@ export function parsePrintRange(text: string, max: number): number[] | null {
   return [...out].sort((x, y) => x - y)
 }
 
+/**
+ * Resolve the "current slide" print range. The dialog can outlive deck edits
+ * (undo/slide delete), so a stale index yields no selection instead of a
+ * crash on slides[current].hidden.
+ */
+export function currentRangeIndices(current: number, slideCount: number): number[] {
+  return Number.isInteger(current) && current >= 0 && current < slideCount ? [current] : []
+}
+
 export function printPageCount(slideCount: number, layout: PrintLayout): number {
   const perPage =
     layout === 'handout2' ? 2 : layout === 'handout3' ? 3 : layout === 'handout6' ? 6 : 1

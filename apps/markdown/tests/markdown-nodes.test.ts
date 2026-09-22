@@ -86,21 +86,21 @@ describe('markdown round-trip for GFM nodes', () => {
     expect(editor.markdown!.parse(md).content?.[0]?.attrs?.language).toBe('mermaid')
   })
 
-  it('nested lists serialize with 4-space indents (strict-CommonMark safe)', () => {
-    // 2-space indents would be below the ordered item's content column ("1. "
-    // = 3 chars), so GitHub would flatten the sub-list when re-parsing the file
-    const ordered = roundTrip(editor, '1. one\n    - sub\n2. two')
-    expect(ordered.out).toContain('\n    - sub')
+  it('nested lists sit at the parent item content column', () => {
+    // exactly the marker width: "1. " = 3, "- " = 2, so strict CommonMark
+    // parsers (GitHub) read the sub-list as nested for any marker
+    const ordered = roundTrip(editor, '1. one\n   - sub\n2. two')
+    expect(ordered.out).toContain('\n   - sub')
     expect(ordered.stable).toBe(true)
 
-    const bullets = roundTrip(editor, '- a\n    - b\n        - c')
-    expect(bullets.out).toContain('\n    - b')
-    expect(bullets.out).toContain('\n        - c')
+    const bullets = roundTrip(editor, '- a\n  - b\n    - c')
+    expect(bullets.out).toContain('\n  - b')
+    expect(bullets.out).toContain('\n    - c')
     expect(bullets.stable).toBe(true)
 
-    // files saved by earlier versions used 2-space indents — still parsed as nested
-    const legacy = roundTrip(editor, '- a\n  - b')
-    expect(legacy.out).toContain('\n    - b')
+    // files saved by earlier versions used 4-space indents; still parsed as nested
+    const legacy = roundTrip(editor, '- a\n    - b\n        - c')
+    expect(legacy.out).toContain('\n  - b\n    - c')
   })
 })
 
@@ -214,9 +214,9 @@ describe('legacy HTML content degrades to plain markdown, keeping the text', () 
     expect(out).toBe('## title')
   })
 
-  it('a resized image goes back to pure image syntax', () => {
+  it('a sized image keeps its size as an img tag, dropping other attributes', () => {
     const out = parseAndSerialize('<img src="assets/d.png" alt="d" width="300" align="center">')
-    expect(out).toBe('![d](assets/d.png)')
+    expect(out).toBe('<img src="assets/d.png" alt="d" width="300" />')
   })
 
   it('u and mark tags drop the tag but keep the text', () => {
@@ -267,4 +267,39 @@ describe('bracket escaping on save', () => {
     expect(out).toBe('a \\* b \\_ c \\~ d')
     expect(stable).toBe(true)
   })
+})
+
+describe('formatted inline code', () => {
+  const editor = createEditor()
+  it.each([
+    ['**`bold code`**', 'bold'],
+    ['*`italic code`*', 'italic'],
+    ['~~`struck code`~~', 'strike'],
+    ['[`linked code`](https://example.com)', 'link'],
+  ])('opens, edits and reopens %s with valid marks', (source, outerMark) => {
+    editor.commands.setContent(source, { contentType: 'markdown' })
+    expect(() => editor.state.doc.check()).not.toThrow()
+    const text = editor.state.doc.firstChild!.firstChild!
+    expect(text.marks.map((mark) => mark.type.name)).toContain(outerMark)
+    expect(text.marks.map((mark) => mark.type.name)).toContain('code')
+    editor.commands.insertContentAt(2, 'X')
+    const saved = editor.getMarkdown()
+    editor.commands.setContent(saved, { contentType: 'markdown' })
+    expect(() => editor.state.doc.check()).not.toThrow()
+    expect(editor.state.doc.textContent).toContain('X')
+    const reopened = editor.state.doc.firstChild!.firstChild!
+    expect(reopened.marks.map((mark) => mark.type.name)).toContain(outerMark)
+    expect(reopened.marks.map((mark) => mark.type.name)).toContain('code')
+  })
+})
+
+it('keeps emphasis and link syntax inside code literal', () => {
+  const editor = createEditor()
+  editor.commands.setContent('`**literal** [text](https://example.com)`', {
+    contentType: 'markdown',
+  })
+  expect(() => editor.state.doc.check()).not.toThrow()
+  const text = editor.state.doc.firstChild!.firstChild!
+  expect(text.text).toBe('**literal** [text](https://example.com)')
+  expect(text.marks.map((mark) => mark.type.name)).toEqual(['code'])
 })

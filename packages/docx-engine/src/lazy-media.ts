@@ -32,16 +32,24 @@ export function isLazyMediaPart(partPath: string): boolean {
   return /^word\/media\/[\x21-\x7e]+\.(?:png|jpe?g|gif|bmp|webp|svg)$/i.test(partPath)
 }
 
+/** Max lazy-media part path chars served from the source archive. */
+export const MAX_LAZY_PART_CHARS = 512
+
 export function lazyMediaUrl(hash: string, partPath: string): string {
+  if (!HASH_RE.test(hash)) throw new Error(`lazy media: not a sha256 hex: ${hash}`)
   return `${LAZY_MEDIA_SCHEME}://${hash}/${partPath.split('/').map(encodeURIComponent).join('/')}`
 }
 
 export function parseLazyMediaUrl(url: string): { hash: string; partPath: string } | null {
   const m = new RegExp(`^${LAZY_MEDIA_SCHEME}://([0-9a-f]{64})/(.+)$`).exec(url)
   if (!m) return null
+  let partPath: string
   try {
-    return { hash: m[1], partPath: m[2].split('/').map(decodeURIComponent).join('/') }
+    partPath = m[2].split('/').map(decodeURIComponent).join('/')
   } catch {
     return null
   }
+  if (partPath.length > MAX_LAZY_PART_CHARS || partPath.includes('\0')) return null
+  if (partPath.split('/').some((seg) => seg === '..')) return null
+  return { hash: m[1], partPath }
 }

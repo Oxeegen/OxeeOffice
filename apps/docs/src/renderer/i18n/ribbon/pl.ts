@@ -74,6 +74,8 @@ export const pl = {
   ribbonPainterActiveTip:
     'Malarz formatów jest włączony: zaznacz tekst docelowy, aby zastosować (kliknij ponownie, aby anulować)',
   ribbonGroupClipboard: 'Schowek',
+  ribbonFontEastAsia: 'Czcionka wschodnioazjatycka',
+  ribbonFontLatin: 'Czcionka łacińska',
   ribbonFontFamilyTip: 'Czcionka',
   ribbonFontsCommon: 'Popularne czcionki',
   ribbonFontsSystem: 'Czcionki systemowe',
@@ -102,7 +104,6 @@ export const pl = {
   ribbonThemeColorShadeTip: 'Kolor motywu {r}-{c}',
   ribbonStandardColors: 'Kolory standardowe',
   ribbonMoreColors: 'Więcej kolorów…',
-  ribbonGroupFont: 'Czcionka',
   ribbonBullets: 'Punktory',
   ribbonNumbering: 'Numerowanie',
   ribbonDecreaseIndent: 'Zmniejsz wcięcie',

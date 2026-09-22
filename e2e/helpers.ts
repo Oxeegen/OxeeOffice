@@ -31,6 +31,8 @@ interface LaunchOptions {
   videoDir: string
   /** absolute document path passed as argv, opened in an editor tab on launch */
   openFile?: string
+  /** extra environment variables for the launched app */
+  env?: Record<string, string>
 }
 
 export interface LaunchedApp {
@@ -75,6 +77,7 @@ export async function launchShell(options: LaunchOptions): Promise<LaunchedApp> 
       GENOFFICE_USER_DATA: userDataDir,
       GENOFFICE_NO_SPARE_VIEW: '1',
       GENOFFICE_LANG: options.lang ?? 'en',
+      ...(options.env ?? {}),
       ...(process.platform === 'linux' ? { ELECTRON_DISABLE_SANDBOX: '1' } : {}),
     },
     // Playwright's Electron screencast wedges the page CDP session on Linux
@@ -133,7 +136,7 @@ async function waitForDocumentReady(
  * Open editor tabs trigger a native Save/Don't Save/Cancel dialog on close,
  * which would block app.close() forever — stub the dialog to answer
  * "Don't Save" (button index 1) so shutdown stays unattended. If close still
- * hangs, kill the process after 20s so the suite never wedges.
+ * hangs, force-kill the process after 20s and wait for close to finish.
  */
 export async function closeAndSaveVideo(
   launched: LaunchedApp,
@@ -148,17 +151,17 @@ export async function closeAndSaveVideo(
       })) as typeof dialog.showMessageBox
     })
     .catch(() => {})
-  let killTimer: NodeJS.Timeout | undefined
-  await Promise.race([
-    launched.app.close(),
-    new Promise<void>((resolvePromise) => {
-      killTimer = setTimeout(() => {
-        launched.app.process().kill()
-        resolvePromise()
-      }, 20_000)
-    }),
-  ])
-  if (killTimer) clearTimeout(killTimer)
+  const child = launched.app.process()
+  const killTimer = setTimeout(() => {
+    // SIGTERM can enter Electron's graceful quit path and leave it alive.
+    // child.killed only means a signal was sent, not that the process exited.
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
+  }, 20_000)
+  try {
+    await launched.app.close()
+  } finally {
+    clearTimeout(killTimer)
+  }
   if (!video) return undefined
   const target = join(ARTIFACTS_DIR, 'videos', `${name}.webm`)
   try {

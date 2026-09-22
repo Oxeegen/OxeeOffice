@@ -43,11 +43,20 @@ export function mimeOf(path: string): string {
   return MIME_TYPES[extname(path).toLowerCase()] ?? 'application/octet-stream'
 }
 
+/** Max safe file name chars (preserves extension when truncating). */
+export const MAX_SAFE_NAME_CHARS = 128
+
 /** A client-supplied file name reduced to one safe path segment. */
 export function safeName(raw: string | undefined, fallback = 'file'): string {
   const base = basename((raw ?? '').trim().replace(/\\/g, '/'))
-  const clean = base.replace(/[^\w.\- ()]/g, '_').replace(/^\.+/, '')
-  return clean === '' ? fallback : clean
+  let clean = base.replace(/[^\w.\- ()]/g, '_').replace(/^\.+/, '')
+  if (clean === '') return fallback
+  if (clean.length > MAX_SAFE_NAME_CHARS) {
+    const ext = extname(clean).slice(0, 16)
+    const stem = clean.slice(0, MAX_SAFE_NAME_CHARS - ext.length)
+    clean = stem + ext
+  }
+  return clean
 }
 
 export class FileStore {
@@ -217,7 +226,13 @@ export async function fetchToFile(
     const location = response.headers.location
     if (status >= 300 && status < 400 && location) {
       response.resume()
-      current = new URL(location, current)
+      const next = new URL(location, current)
+      // Keep redirects http(s)-only: pinnedAddresses would reject them on the
+      // next hop, but fail fast here with a clear error instead.
+      if (next.protocol !== 'http:' && next.protocol !== 'https:') {
+        throw new Error(`only http(s) URLs can be fetched: ${next.href}`)
+      }
+      current = next
       response = undefined
       continue
     }
@@ -256,12 +271,22 @@ export async function fetchToFile(
   return path
 }
 
+function decodeSafe(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    // Malformed percent-encoding such as %ZZ: keep the raw text and let
+    // safeName sanitize it to a safe segment instead of throwing.
+    return value
+  }
+}
+
 function remoteName(response: IncomingMessage, url: URL): string {
   const disposition = response.headers['content-disposition'] ?? ''
   const star = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(disposition)
   const plain = /filename="?([^";]+)"?/i.exec(disposition)
-  const fromHeader = star ? decodeURIComponent(star[1]!.trim()) : plain?.[1]
-  const fromPath = decodeURIComponent(basename(url.pathname))
+  const fromHeader = star ? decodeSafe(star[1]!.trim()) : plain?.[1]
+  const fromPath = decodeSafe(basename(url.pathname))
   let name = safeName(fromHeader ?? fromPath, 'download')
   if (extname(name) === '') {
     const type = (response.headers['content-type'] ?? '').split(';')[0]!.trim()

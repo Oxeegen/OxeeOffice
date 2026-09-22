@@ -75,6 +75,8 @@ export const es = {
   ribbonPainterActiveTip:
     'Copiar formato activado: seleccione el texto de destino para aplicarlo (haga clic de nuevo para cancelar)',
   ribbonGroupClipboard: 'Portapapeles',
+  ribbonFontEastAsia: 'Fuente de Asia oriental',
+  ribbonFontLatin: 'Fuente latina',
   ribbonFontFamilyTip: 'Fuente',
   ribbonFontsCommon: 'Fuentes comunes',
   ribbonFontsSystem: 'Fuentes del sistema',
@@ -103,7 +105,6 @@ export const es = {
   ribbonThemeColorShadeTip: 'Color del tema {r}-{c}',
   ribbonStandardColors: 'Colores estándar',
   ribbonMoreColors: 'Más colores…',
-  ribbonGroupFont: 'Fuente',
   ribbonBullets: 'Viñetas',
   ribbonNumbering: 'Numeración',
   ribbonDecreaseIndent: 'Disminuir sangría',

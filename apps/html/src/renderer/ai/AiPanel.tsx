@@ -1127,7 +1127,7 @@ export function AiPanel({
         onPointerDown={startResize}
         role="separator"
         aria-orientation="vertical"
-        aria-label="Genspark"
+        aria-label={t('aiOpenAssistant')}
       />
       <header className="ai-panel-header">
         <span className="ai-panel-title">

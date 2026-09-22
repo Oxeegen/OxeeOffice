@@ -15,7 +15,7 @@
  * the response for a timeout that will never be met.
  */
 import type { CellState } from '@genoffice/xlsx-gateway/domain/workbook.types'
-import { EXCEL_ERROR_LITERALS } from './univer-sync'
+import { EXCEL_ERROR_LITERALS, modelCellValue } from './univer-sync'
 
 /** one `set_formula` target extracted from a batch */
 export interface FormulaTarget {
@@ -98,10 +98,12 @@ export async function awaitFormulaValues(
         // null means the engine has not written a result yet; '' or an error
         // string are real outcomes and count as settled.
         if (!cell || cell.value === null) continue
+        const value = modelCellValue(cell)
+        if (value === null) continue
         resolved.set(key, {
           sheetId,
           address,
-          value: cell.value,
+          value,
           ...(cell.formula === undefined ? {} : { formula: cell.formula }),
         })
       }
@@ -194,8 +196,10 @@ export function verifiedFormulaValues(
       const parsed = parseAddressParts(address)
       const cell = cells[address]
       if (!parsed || !cell || cell.formula !== entry.formula) continue
-      // rawValue is the model value where `value` is the rendered text (dates, number formats)
-      const live = cell.rawValue === undefined ? cell.value : cell.rawValue
+      // The model value, not the rendered text: General shrinks a number to fit
+      // the column (numfmt-fix.ts), so saving the display would cache "0.333333"
+      // as a string where Excel stores a full-precision number.
+      const live = modelCellValue(cell)
       // #ERROR! is IronCalc's own failure, never a value Excel would cache
       if (live === null || live === '#ERROR!') continue
       out.push({

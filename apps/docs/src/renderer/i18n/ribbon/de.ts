@@ -75,6 +75,8 @@ export const de = {
   ribbonPainterActiveTip:
     'Format übertragen ist aktiv: Zieltext auswählen, um es anzuwenden (erneut klicken zum Abbrechen)',
   ribbonGroupClipboard: 'Zwischenablage',
+  ribbonFontEastAsia: 'Ostasiatische Schrift',
+  ribbonFontLatin: 'Lateinische Schrift',
   ribbonFontFamilyTip: 'Schriftart',
   ribbonFontsCommon: 'Gängige Schriftarten',
   ribbonFontsSystem: 'Systemschriftarten',
@@ -103,7 +105,6 @@ export const de = {
   ribbonThemeColorShadeTip: 'Designfarbe {r}-{c}',
   ribbonStandardColors: 'Standardfarben',
   ribbonMoreColors: 'Weitere Farben…',
-  ribbonGroupFont: 'Schriftart',
   ribbonBullets: 'Aufzählungszeichen',
   ribbonNumbering: 'Nummerierung',
   ribbonDecreaseIndent: 'Einzug verkleinern',

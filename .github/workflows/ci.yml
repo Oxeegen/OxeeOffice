@@ -51,6 +51,17 @@ jobs:
         with:
           workspaces: apps/sheets/native/xlsx-engine
 
+      # electron's postinstall downloads its binary from GitHub Releases on every
+      # fresh install; a cache hit skips the download (and its 5xx flakes)
+      - name: Cache electron binaries
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/electron
+          # own prefix: the build workflows' electron-* entries also hold
+          # ~/.cache/electron-builder, and a saved key is never updated
+          key: electron-bin-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-bin-${{ runner.os }}-
+
       - name: Install dependencies
         run: npm ci
 
@@ -175,6 +186,17 @@ jobs:
         with:
           workspaces: apps/sheets/native/xlsx-engine
 
+      # electron's postinstall downloads its binary from GitHub Releases on every
+      # fresh install; a cache hit skips the download (and its 5xx flakes)
+      - name: Cache electron binaries
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/electron
+          # own prefix: the build workflows' electron-* entries also hold
+          # ~/.cache/electron-builder, and a saved key is never updated
+          key: electron-bin-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-bin-${{ runner.os }}-
+
       - name: Install dependencies
         run: npm ci
 
@@ -213,7 +235,7 @@ jobs:
       - name: Install Chromium for layout tests
         run: npx playwright install chromium
 
-      - name: Markdown opt-in round-trip browser tests
+      - name: Markdown browser tests
         run: npx playwright test --config apps/markdown/playwright.config.ts
 
       # Electron needs a display server on Linux runners. DEBUG=pw:browser

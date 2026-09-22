@@ -181,8 +181,13 @@ export function elementCovering(map: ParseMap, from: number, to: number): Elemen
 /** ancestors from the root down to (excluding) the element */
 export function ancestorsOf(map: ParseMap, sid: number): ElementEntry[] {
   const out: ElementEntry[] = []
+  // The map is parser-built, but a corrupt parentSid cycle (or self-loop)
+  // would hang the breadcrumb render in an infinite loop: stop at repeats.
+  const seen = new Set<number>([sid])
   let cur = map.bySid.get(sid)
   while (cur && cur.parentSid !== null) {
+    if (seen.has(cur.parentSid)) break
+    seen.add(cur.parentSid)
     const parent = map.bySid.get(cur.parentSid)
     if (!parent) break
     out.unshift(parent)

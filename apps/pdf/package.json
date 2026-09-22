@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@embedpdf/pdfium": "^2.15.0",
+    "@embedpdf/pdfium": "^2.15.1",
     "@genoffice/agent-core": "*",
     "@genoffice/ai-provider": "*",
     "@genoffice/ai-search": "*",

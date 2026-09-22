@@ -78,6 +78,8 @@ export const ja = {
     '書式のコピー/貼り付けが有効:対象のテキストを選択すると適用(もう一度クリックで解除)',
   ribbonGroupClipboard: 'クリップボード',
   // Home · Font
+  ribbonFontEastAsia: '東アジアのフォント',
+  ribbonFontLatin: '英数字のフォント',
   ribbonFontFamilyTip: 'フォント',
   ribbonFontsCommon: 'よく使うフォント',
   ribbonFontsSystem: 'システムフォント',
@@ -106,7 +108,6 @@ export const ja = {
   ribbonThemeColorShadeTip: 'テーマの色 {r}-{c}',
   ribbonStandardColors: '標準の色',
   ribbonMoreColors: 'その他の色…',
-  ribbonGroupFont: 'フォント',
   // Home · Paragraph
   ribbonBullets: '箇条書き',
   ribbonNumbering: '段落番号',

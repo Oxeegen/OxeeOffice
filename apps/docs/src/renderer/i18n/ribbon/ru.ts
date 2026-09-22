@@ -74,6 +74,8 @@ export const ru = {
   ribbonPainterActiveTip:
     'Формат по образцу включён: выделите целевой текст, чтобы применить (нажмите ещё раз для отмены)',
   ribbonGroupClipboard: 'Буфер обмена',
+  ribbonFontEastAsia: 'Восточноазиатский шрифт',
+  ribbonFontLatin: 'Латинский шрифт',
   ribbonFontFamilyTip: 'Шрифт',
   ribbonFontsCommon: 'Основные шрифты',
   ribbonFontsSystem: 'Системные шрифты',
@@ -102,7 +104,6 @@ export const ru = {
   ribbonThemeColorShadeTip: 'Цвет темы {r}-{c}',
   ribbonStandardColors: 'Стандартные цвета',
   ribbonMoreColors: 'Другие цвета…',
-  ribbonGroupFont: 'Шрифт',
   ribbonBullets: 'Маркеры',
   ribbonNumbering: 'Нумерация',
   ribbonDecreaseIndent: 'Уменьшить отступ',

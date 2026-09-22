@@ -394,8 +394,11 @@ export function readCells(
   ctx: WorkbookReadContext,
   addresses: readonly string[],
   sheetId?: string,
-): Record<string, { value: CellScalar; formula?: string }> {
-  const result: Record<string, { value: CellScalar; formula?: string }> = {}
+): Record<string, { value: CellScalar; formula?: string; rawValue?: CellScalar | undefined }> {
+  const result: Record<
+    string,
+    { value: CellScalar; formula?: string; rawValue?: CellScalar | undefined }
+  > = {}
   const workbook = ctx.univerRef.current?.univerAPI.getActiveWorkbook()
   const state = ctx.lazyWorkbookRef.current
   if (state) {
@@ -405,9 +408,12 @@ export function readCells(
     const reader = lazyCellReader(worksheet)
     for (const address of addresses) {
       const cell = reader(address)
+      // `value` is the rendered text and `rawValue` the model value behind it;
+      // machine-facing callers (the MCP bridge, the save pipeline) need the
+      // latter — see modelCellValue in univer-sync.ts.
       result[address] = cell.formula
-        ? { value: cell.value, formula: cell.formula }
-        : { value: cell.value }
+        ? { value: cell.value, formula: cell.formula, rawValue: cell.rawValue }
+        : { value: cell.value, rawValue: cell.rawValue }
     }
     return result
   }

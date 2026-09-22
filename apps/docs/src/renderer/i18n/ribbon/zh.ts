@@ -76,6 +76,8 @@ export const zh = {
   ribbonPainterActiveTip: '格式刷已激活:选中目标文本即可应用(再次点击取消)',
   ribbonGroupClipboard: '剪贴板',
   // Home · Font
+  ribbonFontEastAsia: '东亚字体',
+  ribbonFontLatin: '西文字体',
   ribbonFontFamilyTip: '字体',
   ribbonFontsCommon: '常用字体',
   ribbonFontsSystem: '系统字体',
@@ -104,7 +106,6 @@ export const zh = {
   ribbonThemeColorShadeTip: '主题颜色 {r}-{c}',
   ribbonStandardColors: '标准色',
   ribbonMoreColors: '其他颜色…',
-  ribbonGroupFont: '字体',
   // Home · Paragraph
   ribbonBullets: '项目符号',
   ribbonNumbering: '编号',

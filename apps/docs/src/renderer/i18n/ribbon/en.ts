@@ -73,6 +73,8 @@ export const en = {
   ribbonPainterActiveTip:
     'Format Painter is on: select target text to apply (click again to cancel)',
   ribbonGroupClipboard: 'Clipboard',
+  ribbonFontEastAsia: 'East Asian font',
+  ribbonFontLatin: 'Latin font',
   ribbonFontFamilyTip: 'Font',
   ribbonFontsCommon: 'Common fonts',
   ribbonFontsSystem: 'System fonts',
@@ -101,7 +103,6 @@ export const en = {
   ribbonThemeColorShadeTip: 'Theme color {r}-{c}',
   ribbonStandardColors: 'Standard Colors',
   ribbonMoreColors: 'More Colors…',
-  ribbonGroupFont: 'Font',
   ribbonBullets: 'Bullets',
   ribbonNumbering: 'Numbering',
   ribbonDecreaseIndent: 'Decrease Indent',

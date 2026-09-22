@@ -75,6 +75,8 @@ export const hi = {
   ribbonPainterActiveTip:
     'स्वरूप पेंटर सक्रिय है: लागू करने के लिए लक्ष्य टेक्स्ट चुनें (रद्द करने के लिए फिर से क्लिक करें)',
   ribbonGroupClipboard: 'क्लिपबोर्ड',
+  ribbonFontEastAsia: 'पूर्वी एशियाई फ़ॉन्ट',
+  ribbonFontLatin: 'लैटिन फ़ॉन्ट',
   ribbonFontFamilyTip: 'फ़ॉन्ट',
   ribbonFontsCommon: 'सामान्य फ़ॉन्ट',
   ribbonFontsSystem: 'सिस्टम फ़ॉन्ट',
@@ -103,7 +105,6 @@ export const hi = {
   ribbonThemeColorShadeTip: 'थीम रंग {r}-{c}',
   ribbonStandardColors: 'मानक रंग',
   ribbonMoreColors: 'अधिक रंग…',
-  ribbonGroupFont: 'फ़ॉन्ट',
   ribbonBullets: 'बुलेट',
   ribbonNumbering: 'क्रमांकन',
   ribbonDecreaseIndent: 'इंडेंट घटाएँ',

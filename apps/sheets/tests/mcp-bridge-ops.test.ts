@@ -36,6 +36,8 @@ function bridgeWith(overrides: Partial<McpSheetHandlers> = {}): McpSheetHandlers
     hasWorkbook: () => true,
     context: () => ({}),
     readCells: () => ({}),
+    sheets: () => [{ id: 'sheet-1', name: 'Sheet1' }],
+    focusSheet: () => {},
     applyOps: vi.fn().mockResolvedValue({ ok: true }),
     saveTo: vi.fn().mockResolvedValue({ ok: true }),
     ...overrides,

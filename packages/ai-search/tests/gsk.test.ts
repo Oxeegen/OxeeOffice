@@ -26,6 +26,22 @@ describe('parseGskOutput', () => {
     expect(parseGskOutput(out)).toEqual({ a: 1 })
   })
 
+  it('skips trailing log lines after JSON', () => {
+    const out = '{"status":"ok","data":[1,2]}\n[INFO] done in 120ms'
+    expect(parseGskOutput(out)).toEqual({ status: 'ok', data: [1, 2] })
+  })
+
+  it('parses multi-line JSON surrounded by leading and trailing noise', () => {
+    const out =
+      '[INFO] Calling /tools...\n{\n "a": 1,\n "b": [1, 2]\n}\n[INFO] cache hit\n[INFO] done'
+    expect(parseGskOutput(out)).toEqual({ a: 1, b: [1, 2] })
+  })
+
+  it('returns the root of a pretty-printed array followed by logs', () => {
+    const out = '{\n  "items": [\n    { "id": 1 },\n    { "id": 2 }\n  ]\n}\n[INFO] done'
+    expect(parseGskOutput(out)).toEqual({ items: [{ id: 1 }, { id: 2 }] })
+  })
+
   it('throws when no JSON present', () => {
     expect(() => parseGskOutput('[INFO] nothing here')).toThrow()
   })
@@ -105,6 +121,17 @@ describe('parseGskWebSearch', () => {
   it('tolerates missing data', () => {
     expect(parseGskWebSearch({ status: 'ok' }, 5).results).toEqual([])
   })
+
+  it('clamps maxResults and truncates long fields', () => {
+    const big = 'x'.repeat(5000)
+    const raw = {
+      data: { organic_results: [{ title: big, link: 'https://a.com', snippet: big }] },
+    }
+    const r = parseGskWebSearch(raw, 1e9)
+    expect(r.results).toHaveLength(1)
+    expect(r.results[0]!.snippet.length).toBeLessThanOrEqual(2000)
+    expect(parseGskWebSearch(raw, NaN).results).toHaveLength(1)
+  })
 })
 
 describe('parseGskImageSearch', () => {
@@ -145,6 +172,18 @@ describe('parseGskImageSearch', () => {
     }
     const images = parseGskImageSearch(raw, 8)
     expect(images.map((i) => i.title)).toEqual(['ok'])
+  })
+
+  it('keeps benign images whose path or query merely mentions a stock host', () => {
+    const raw = {
+      data: [
+        { image_url: 'https://cdn.example.com/shutterstock-review.png', title: 'review' },
+        { image_url: 'https://img.example.com/a.jpg?ref=shutterstock', title: 'query' },
+        { image_url: 'https://media.gettyimages.com/x.jpg', title: 'blocked' },
+      ],
+    }
+    const images = parseGskImageSearch(raw, 8)
+    expect(images.map((i) => i.title)).toEqual(['review', 'query'])
   })
 })
 

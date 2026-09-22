@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { handOffBytes } from './byte-handoff'
 import {
   appendFileSync,
   existsSync,
@@ -110,6 +111,7 @@ import {
   hasGskAuth,
   webSearchTool,
   imageSearchTool,
+  analyzeMediaTool,
 } from '@genoffice/ai-search'
 import type {
   AiDocContent,
@@ -136,6 +138,7 @@ import {
   readLazyMedia,
   registerLazyMediaProtocol,
 } from './lazy-media'
+import { inlineLazyMediaInHtml } from './lazy-media-inline'
 import {
   commitDocPasswordSave,
   currentDocPasswordIntentRevision,
@@ -2215,6 +2218,21 @@ export function setDocsShellWindow(win: BrowserWindow | null): void {
   docsShellWindow = win
 }
 
+/** the window hosting a tab's WebContentsView when BrowserWindow.fromWebContents
+ *  cannot tell (detached "Open in New Window" editors) */
+let hostWindowHook: ((wc: WebContents) => BrowserWindow | undefined) | null = null
+export function setDocsHostWindowHook(
+  fn: ((wc: WebContents) => BrowserWindow | undefined) | null,
+): void {
+  hostWindowHook = fn
+}
+
+function hostWindowFor(wc: WebContents | null | undefined): BrowserWindow | undefined {
+  const own = wc && (hostWindowHook?.(wc) ?? BrowserWindow.fromWebContents(wc))
+  if (own && !own.isDestroyed()) return own
+  return docsShellWindow && !docsShellWindow.isDestroyed() ? docsShellWindow : undefined
+}
+
 /** injected by the shell in tab mode: resolves the webContents of the currently active docs tab,
  * used for menu-command forwarding where there is no IpcMainInvokeEvent to key off of. */
 let activeDocsResolver: (() => WebContents | null) | null = null
@@ -2227,9 +2245,10 @@ function activeDocsWebContents(): WebContents | null {
   return BrowserWindow.getFocusedWindow()?.webContents ?? mainWindow?.webContents ?? null
 }
 
-/** dialog parent for the calling tab (standalone mode falls back to its own BrowserWindow) */
+/** dialog parent for the calling tab: the sender's own window when it has one
+ *  (standalone mode, detached "Open in New Window" editors), else the shell window */
 function dialogParent(event: IpcMainInvokeEvent): BrowserWindow | undefined {
-  return docsShellWindow ?? BrowserWindow.fromWebContents(event.sender) ?? undefined
+  return hostWindowFor(event.sender)
 }
 
 async function openDialog(event: IpcMainInvokeEvent, options: OpenDialogOptions) {
@@ -2626,12 +2645,11 @@ async function maybeRecoverDocBytes(
   return { bytes: original, recovered: false }
 }
 
-// Word's own .docx ceiling; past ~1 GB the IPC reply serializer doubles its buffer beyond the allocator's map limit and crashes the main process
+// Word's own .docx ceiling
 const MAX_OPEN_BYTES = 512 * 1024 * 1024
 
 async function showOpenError(wcId: number, detail: string): Promise<void> {
-  const wc = webContents.fromId(wcId)
-  const parent = docsShellWindow ?? (wc && BrowserWindow.fromWebContents(wc)) ?? mainWindow
+  const parent = hostWindowFor(webContents.fromId(wcId)) ?? mainWindow
   const options = { type: 'error' as const, message: tm('dlgOpenDoc'), detail }
   if (parent && !parent.isDestroyed()) await dialog.showMessageBox(parent, options)
   else await dialog.showMessageBox(options)
@@ -2692,7 +2710,7 @@ async function loadDocx(
   return {
     path: filePath,
     name: basename(filePath),
-    data: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
+    dataUrl: handOffBytes(bytes),
     hash,
     encrypted,
     recovered: recovered || undefined,
@@ -3022,6 +3040,27 @@ export function registerAiIpc(): void {
     }
   })
 
+  // media understanding (pictures in the document, attachments, local files): BYOK media
+  // provider when one is configured, otherwise the Genspark CLI behind its login gate.
+  // docs-prefixed: slides registers its own ai:analyze-media in the same shell process.
+  ipcMain.handle(
+    'docs:analyze-media',
+    async (_event, op: { mediaUrls: string[]; requirements: string }) => {
+      const mediaUrls = (op.mediaUrls ?? []).map(String).filter(Boolean)
+      // a picture opened lazily from a large docx is only addressable by its main-process
+      // store; hand its bytes over as a data URL so the loader can read them like any other
+      const resolved: string[] = []
+      for (const url of mediaUrls) {
+        const lazy = await readLazyMedia(url).catch(() => null)
+        resolved.push(lazy ? `data:${lazy.mime};base64,${lazy.body.toString('base64')}` : url)
+      }
+      return analyzeMediaTool(SETTINGS_PATH(), {
+        mediaUrls: resolved,
+        requirements: String(op.requirements ?? ''),
+      })
+    },
+  )
+
   // download image from URL → base64+mime (download in the main process avoids CORS; the renderer builds the image node and measures size itself)
   ipcMain.handle(
     'ai:fetch-image',
@@ -3216,6 +3255,16 @@ export function registerProjectIpc(): void {
         scope?: { label: string; text?: string }
       },
     ) => {
+      if (args.role !== 'user' && args.role !== 'assistant') {
+        throw new Error(`Invalid chat role: ${String(args.role)}`)
+      }
+      if (typeof args.text !== 'string' || args.text.length > 200_000) {
+        throw new Error('Invalid chat text: must be a string up to 200000 chars')
+      }
+      if (args.tools && !Array.isArray(args.tools)) throw new Error('Invalid chat tools')
+      if (args.attachments && !Array.isArray(args.attachments)) {
+        throw new Error('Invalid chat attachments')
+      }
       const store = getProjectStore()
       const msg: Parameters<ProjectStore['appendChatMessage']>[2] = {
         role: args.role,
@@ -3282,15 +3331,7 @@ const reissuedDoc = (
   encrypted: boolean,
   hashes: Set<string>,
   plain: Buffer,
-): { data?: ArrayBuffer } =>
-  encrypted && hashes.size > 0
-    ? {
-        data: plain.buffer.slice(
-          plain.byteOffset,
-          plain.byteOffset + plain.byteLength,
-        ) as ArrayBuffer,
-      }
-    : {}
+): { dataUrl?: string } => (encrypted && hashes.size > 0 ? { dataUrl: handOffBytes(plain) } : {})
 
 /** document/attachment/window IPC (everything except the AI proxy above) */
 export function registerDocsIpc(): void {
@@ -4064,7 +4105,7 @@ export function registerDocsIpc(): void {
         allowPdfWrite(event.sender.id, filePath)
       }
       try {
-        writeFileSync(filePath, html, 'utf8')
+        writeFileSync(filePath, await inlineLazyMediaInHtml(html, readLazyMedia), 'utf8')
         openGeneratedFile(filePath)
         return { ok: true, path: filePath }
       } catch (err) {

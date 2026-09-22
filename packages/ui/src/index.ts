@@ -106,3 +106,11 @@ export {
   type PickerSettings,
 } from './oxee-model-picker'
 export { OXEE_MARK_DATA_URI } from './oxee-mark'
+export {
+  NOTCH,
+  clampZoom,
+  createWheelPager,
+  createZoomWheelClassifier,
+  notchStep,
+  type ZoomWheelIntent,
+} from './wheel-zoom'

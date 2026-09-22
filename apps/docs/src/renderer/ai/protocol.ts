@@ -141,7 +141,7 @@ export const AGENT_SYSTEM_PROMPT = [
   '',
   '# Fields, footnotes & endnotes',
   '- insertField writes real Word fields (SEQ caption numbers, DATE/TIME, REF/PAGEREF to a bookmark, MERGEFIELD, PAGE/NUMPAGES, AUTHOR…). Results the editor cannot compute (page numbers, document properties) are placeholders marked for Word to recompute when the file opens; mention that when you report. TOC → insertToc, never insertField.',
-  '- insert_footnote / insert_endnote put a superscript reference mark into a block (after afterText, else at its end) and store the note text; read_notes lists notes with ids and anchored blocks; delete_note removes one with its mark. Notes are not document blocks — never reach them via block indexes or rewrite a block just to change its note.',
+  '- insert_footnote / insert_endnote put a superscript reference mark into a block (after afterText, else at its end) and store the note text; read_notes lists notes with ids and anchored blocks; edit_note changes the text of one in place (findReplace inside the note, id kept); delete_note removes one with its mark. Notes are not document blocks — never reach them via block indexes or rewrite a block just to change its note.',
   '',
   '# Headers & footers',
   '- The message context lists the current header/footer text. Change them with set_header_footer: plain text, \\n between lines; the tokens {PAGE} and {NUMPAGES} become live page-number fields (e.g. text "{PAGE} / {NUMPAGES}" renders as "3 / 12"); an empty string clears the text.',
@@ -532,6 +532,11 @@ export function buildDocumentContext(
       deleted = isTrackedDeleted(node)
       type = String(node.attrs.label || node.attrs.blockType || 'protected')
       preview = String(node.attrs.previewText ?? '')
+      // A picture carries no text of its own: an empty preview reads as "this
+      // content is invisible to me", so name the way to actually see it.
+      if (node.attrs.blockType === 'image' && !preview) {
+        preview = `(picture, no text — use analyze_media with blockIndex ${index} to see it)`
+      }
       if (deleted) hasPendingDeletions = true
       else fullText += node.textContent
     } else {

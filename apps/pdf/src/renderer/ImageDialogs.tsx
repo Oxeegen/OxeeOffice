@@ -83,6 +83,20 @@ export function CutoutDialog({
   /** Background representative colors (sampled once at source resolution, shared by preview/apply) */
   const bgColorsRef = useRef<RGB[]>([])
   const rafRef = useRef<number | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const previouslyFocused = useRef<HTMLElement | null>(null)
+
+  // Focus the first field on mount; return focus to the opener on unmount
+  useEffect(() => {
+    previouslyFocused.current = document.activeElement as HTMLElement | null
+    const root = dialogRef.current
+    if (root && !root.contains(document.activeElement)) {
+      root.querySelector<HTMLElement>('input, textarea, select, button')?.focus()
+    }
+    return () => {
+      previouslyFocused.current?.focus?.()
+    }
+  }, [])
 
   const renderPreview = useCallback((tol: number) => {
     const pv = previewRef.current
@@ -188,7 +202,11 @@ export function CutoutDialog({
   return (
     <div className="pdf-modal-mask" onClick={onCancel}>
       <div
+        ref={dialogRef}
         className="pdf-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('imageCutout')}
         style={{ maxWidth: PREVIEW_MAX + 48 }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -207,6 +225,7 @@ export function CutoutDialog({
         >
           {error ? (
             <span
+              role="alert"
               style={{
                 color: 'var(--pdf-error)',
                 background: 'var(--surface)',
@@ -302,6 +321,20 @@ export function CropDialog({
     startY: number
     start: CropFractions
   } | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const previouslyFocused = useRef<HTMLElement | null>(null)
+
+  // Focus the first field on mount; return focus to the opener on unmount
+  useEffect(() => {
+    previouslyFocused.current = document.activeElement as HTMLElement | null
+    const root = dialogRef.current
+    if (root && !root.contains(document.activeElement)) {
+      root.querySelector<HTMLElement>('input, textarea, select, button')?.focus()
+    }
+    return () => {
+      previouslyFocused.current?.focus?.()
+    }
+  }, [])
 
   const updateView = useCallback(() => {
     const img = imgRef.current
@@ -448,7 +481,11 @@ export function CropDialog({
   return (
     <div className="pdf-modal-mask" onClick={onCancel}>
       <div
+        ref={dialogRef}
         className="pdf-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('imageCrop')}
         style={{
           width: PREVIEW_MAX + 48 + CROP_HANDLE_GUTTER * 2,
           maxWidth: 'calc(100vw - 32px)',
@@ -474,6 +511,7 @@ export function CropDialog({
         >
           {error ? (
             <span
+              role="alert"
               style={{
                 color: 'var(--pdf-error)',
                 background: 'var(--surface)',

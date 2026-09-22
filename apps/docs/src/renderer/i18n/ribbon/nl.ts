@@ -76,6 +76,8 @@ export const nl = {
   ribbonPainterActiveTip:
     'Opmaak kopiëren/plakken is actief: selecteer de doeltekst om toe te passen (klik nogmaals om te annuleren)',
   ribbonGroupClipboard: 'Klembord',
+  ribbonFontEastAsia: 'Oost-Aziatisch lettertype',
+  ribbonFontLatin: 'Latijns lettertype',
   ribbonFontFamilyTip: 'Lettertype',
   ribbonFontsCommon: 'Veelgebruikte lettertypen',
   ribbonFontsSystem: 'Systeemlettertypen',
@@ -104,7 +106,6 @@ export const nl = {
   ribbonThemeColorShadeTip: 'Themakleur {r}-{c}',
   ribbonStandardColors: 'Standaardkleuren',
   ribbonMoreColors: 'Meer kleuren…',
-  ribbonGroupFont: 'Lettertype',
   ribbonBullets: 'Opsommingstekens',
   ribbonNumbering: 'Nummering',
   ribbonDecreaseIndent: 'Inspringing verkleinen',

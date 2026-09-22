@@ -12,20 +12,20 @@
  */
 
 import { execFile } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, unwatchFile, watchFile, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
 import {
-  COPYRIGHT_HOSTS,
   asRecord,
   firstItem,
   gskProxyUrl,
+  isCopyrightHost,
   safeHost,
   type ImageSearchResult,
   type WebSearchResult,
 } from './shared'
-import { genofficeApiKey } from './genoffice-auth'
+import { genofficeApiKey, genofficeAuthPath, reloadGenofficeAuth } from './genoffice-auth'
 // OxeeOffice brand hook: no Genspark sign-in in OxeeOffice
 import { oxeegenLayerEnabled } from '@genoffice/ai-provider'
 
@@ -104,6 +104,28 @@ export function gskApiKey(): string {
 }
 
 /**
+ * Fires when the effective gsk key changes on disk — another GenOffice-family
+ * app re-logging in mints a new key and revokes the one this process holds.
+ * Polls by path (watchFile): auth.json is replaced whole, and fs.watch misses
+ * events for a moment after it is armed.
+ */
+export function watchGskApiKey(onChange: (key: string) => void, intervalMs = 2000): () => void {
+  let last = gskApiKey()
+  const check = (): void => {
+    reloadGenofficeAuth()
+    const key = gskApiKey()
+    if (key === last) return
+    last = key
+    onChange(key)
+  }
+  const files = [genofficeAuthPath(), join(homedir(), '.genspark-tool-cli', 'config.json')]
+  for (const f of files) watchFile(f, { persistent: false, interval: intervalMs }, check)
+  return () => {
+    for (const f of files) unwatchFile(f, check)
+  }
+}
+
+/**
  * Whether gsk is usable (CLI installed and logged in / has a key). Callers use this to decide fallback.
  * Set AI_SEARCH_DISABLE_GSK=1 to force-disable (test isolation / force Serper).
  */
@@ -152,8 +174,9 @@ export function gskChildEnv(base: NodeJS.ProcessEnv = process.env): NodeJS.Proce
 // ── Low-level execution ─────────────────────────────────────────────
 
 /**
- * gsk output may have [INFO] log lines mixed in before the JSON; scan from the
- * end for the first line starting with { or [ and parse from there.
+ * gsk output may have [INFO] log lines mixed in before or after the JSON;
+ * scan for a line starting with { or [ and parse the longest valid JSON
+ * block from there, shrinking past any trailing logs.
  */
 export function parseGskOutput(stdout: string): unknown {
   const trimmed = stdout.trim()
@@ -162,14 +185,18 @@ export function parseGskOutput(stdout: string): unknown {
   } catch {
     /* fall through to line-by-line scan */
   }
+  // Pretty-printed output puts inner elements on their own `{` lines, so the
+  // scan must start from the earliest candidate and take the longest parse.
   const lines = trimmed.split('\n')
-  for (let i = lines.length - 1; i >= 0; i--) {
+  for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!.trim()
     if (line.startsWith('{') || line.startsWith('[')) {
-      try {
-        return JSON.parse(lines.slice(i).join('\n'))
-      } catch {
-        continue
+      for (let j = lines.length; j > i; j--) {
+        try {
+          return JSON.parse(lines.slice(i, j).join('\n'))
+        } catch {
+          continue
+        }
       }
     }
   }
@@ -219,22 +246,41 @@ function runGsk(args: string[], timeoutMs: number, signal?: AbortSignal): Promis
 
 // ── Search ──────────────────────────────────────────────────────────
 
+/** Max search results kept; longest snippet/title chars (prevents MB fields blowing context). */
+export const MAX_GSK_RESULTS = 20
+export const MAX_GSK_SNIPPET_CHARS = 2_000
+
+function normalizeMaxResults(n: number): number {
+  if (!Number.isFinite(n)) return 6
+  return Math.min(20, Math.max(1, Math.floor(n)))
+}
+
+function clipField(v: unknown): string {
+  const s = String(v ?? '')
+  return s.length > MAX_GSK_SNIPPET_CHARS ? s.slice(0, MAX_GSK_SNIPPET_CHARS) : s
+}
+
 /** Parses the `gsk search` response shape data.organic_results[{title,link,snippet}] (exported for tests) */
 export function parseGskWebSearch(
   raw: unknown,
   maxResults: number,
 ): { results: WebSearchResult[]; answer?: string } {
+  const bounded = normalizeMaxResults(maxResults)
   const data = asRecord(asRecord(raw).data ?? raw)
   const organic: unknown[] = Array.isArray(data.organic_results) ? data.organic_results : []
-  const results: WebSearchResult[] = organic.slice(0, maxResults).map((item) => {
+  const results: WebSearchResult[] = organic.slice(0, bounded).map((item) => {
     const o = asRecord(item)
     return {
-      title: String(o.title ?? ''),
-      url: String(o.link ?? ''),
-      snippet: String(o.snippet ?? ''),
+      title: clipField(o.title),
+      url: clipField(o.link),
+      snippet: clipField(o.snippet),
     }
   })
-  const answer = typeof data.answer === 'string' && data.answer ? data.answer : undefined
+  const answerRaw = typeof data.answer === 'string' && data.answer ? data.answer : undefined
+  const answer =
+    answerRaw !== undefined && answerRaw.length > MAX_GSK_SNIPPET_CHARS
+      ? `${answerRaw.slice(0, MAX_GSK_SNIPPET_CHARS)}…`
+      : answerRaw
   return answer !== undefined ? { results, answer } : { results }
 }
 
@@ -255,7 +301,7 @@ export function parseGskImageSearch(raw: unknown, maxResults: number): ImageSear
     const img = asRecord(item)
     const imageUrl = String(img.image_url ?? img.imageUrl ?? '')
     if (!imageUrl) continue
-    if (COPYRIGHT_HOSTS.some((d) => imageUrl.toLowerCase().includes(d))) continue
+    if (isCopyrightHost(imageUrl)) continue
     const width = Number(img.width)
     const height = Number(img.height)
     const entry: ImageSearchResult = {

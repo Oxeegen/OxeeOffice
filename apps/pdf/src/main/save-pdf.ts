@@ -29,9 +29,16 @@ import type {
   TextInsertFailure,
 } from '../shared/ipc'
 import { writePdfAtomically } from './atomic-write'
+import { redactPdf } from './redaction'
 
 const num = (v: number) => Math.round(v * 100) / 100
 const STATIC_FORM_FILLS_KEY = PDFName.of('GenOfficeStaticFormFills')
+
+const rectsIntersect = (a: readonly number[], b: readonly number[]): boolean =>
+  Math.min(a[0]!, a[2]!) < Math.max(b[0]!, b[2]!) &&
+  Math.max(a[0]!, a[2]!) > Math.min(b[0]!, b[2]!) &&
+  Math.min(a[1]!, a[3]!) < Math.max(b[1]!, b[3]!) &&
+  Math.max(a[1]!, a[3]!) > Math.min(b[1]!, b[3]!)
 
 function validStaticFormFill(value: unknown): value is StaticFormFillRecord {
   if (!value || typeof value !== 'object') return false
@@ -71,6 +78,15 @@ function resultingStaticFormFills(
     )
   const newPageIndex = new Map(remaining.map((oldPageIndex, index) => [oldPageIndex, index]))
   return request.staticFormFills.flatMap((record) => {
+    // This private JSON cache can contain form text even after its painted image is
+    // removed. Drop cache records that native area redaction covers.
+    if (
+      request.redactions?.some(
+        (redaction) =>
+          redaction.pageIndex === record.pageIndex && rectsIntersect(redaction.rect, record.rect),
+      )
+    )
+      return []
     const pageIndex = newPageIndex.get(record.pageIndex)
     return pageIndex === undefined ? [] : [{ ...record, pageIndex }]
   })
@@ -948,6 +964,15 @@ export async function applySaveRequest(
     })
   }
   if (request.metadata) applyMetadata(pdfDoc, request.metadata)
+  // Page thumbnails and producer piece-info can retain a pre-redaction rendering of
+  // the same page. They are page-local derived data, so remove them for every affected
+  // page before the native final serialization.
+  for (const redaction of request.redactions ?? []) {
+    const page = pages[redaction.pageIndex]
+    if (!page) continue
+    page.node.delete(PDFName.of('Thumb'))
+    page.node.delete(PDFName.of('PieceInfo'))
+  }
   // Deletions go last, in descending order; earlier ops all address original page indices
   for (const idx of [...(request.deletedPages ?? [])].sort((a, b) => b - a)) {
     if (idx >= 0 && idx < pdfDoc.getPageCount() && pdfDoc.getPageCount() > 1) pdfDoc.removePage(idx)
@@ -977,8 +1002,12 @@ export async function applySaveRequest(
       )
   }
   try {
+    let saved = await pdfDoc.save({ useObjectStreams: false })
+    // Redaction is the final serializer. EmbedPDF's full SaveAsCopy writes only the
+    // reachable cleaned object graph; no subsequent pdf-lib pass can revive old streams.
+    if (request.redactions?.length) saved = await redactPdf(saved, request.redactions)
     return {
-      bytes: await pdfDoc.save({ useObjectStreams: false }),
+      bytes: saved,
       skippedTextEdits,
       skippedTextInserts,
       skippedImageEdits,
@@ -986,7 +1015,7 @@ export async function applySaveRequest(
   } catch (err) {
     // Form values beyond WinAnsi (e.g. CJK) make pdf-lib's appearance generation fail:
     // skip it and set NeedAppearances so viewers rebuild them (Acrobat/pdfjs both support this)
-    if (request.formValues.length === 0) throw err
+    if (request.formValues.length === 0 || request.redactions?.length) throw err
     pdfDoc.getForm().acroForm.dict.set(PDFName.of('NeedAppearances'), PDFBool.True)
     return {
       bytes: await pdfDoc.save({ useObjectStreams: false, updateFieldAppearances: false }),

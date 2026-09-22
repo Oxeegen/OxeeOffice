@@ -607,8 +607,35 @@ export class TabManager {
     }
   }
 
+  /** Remove a tab from the strip WITHOUT destroying its WebContentsView and
+   *  hand it to the caller ("Open in New Window" — the live document, unsaved
+   *  edits included, moves into a detached editor window). Null while a close
+   *  prompt is pending on the tab. */
+  detachTab(
+    id: string,
+  ): { view: WebContentsView; kind: TabKind; title: string; filePath?: string } | null {
+    if (id === HOME_ID) return null
+    const idx = this.tabs.findIndex((t) => t.id === id)
+    const tab = idx >= 0 ? this.tabs[idx] : undefined
+    if (!tab?.view || tab.present || this.closingIds.has(id)) return null
+    this.tabs.splice(idx, 1)
+    if (this.htmlFullScreenId === id) this.htmlFullScreenId = null
+    const view = tab.view
+    view.setVisible(false)
+    this.shellWindow.contentView.removeChildView(view)
+    if (this.activeId === id) {
+      const fallback = this.tabs[idx - 1] ?? this.tabs[0]
+      this.activateTab(fallback.id)
+    } else {
+      this.onChanged()
+    }
+    return { view, kind: tab.kind, title: tab.title, filePath: tab.filePath }
+  }
+
   /** the editor tab showing this file, whichever module owns it (path compared after resolving links) */
-  findTabByPath(path: string): { id: string; kind: TabKind; webContents: WebContents } | undefined {
+  findTabByPath(
+    path?: string,
+  ): { id: string; kind: TabKind; webContents: WebContents } | undefined {
     const wanted = canonicalPath(path)
     const tab = this.tabs.find(
       (t) => t.view && t.filePath && !t.present && canonicalPath(t.filePath) === wanted,
@@ -620,32 +647,44 @@ export class TabManager {
     return this.tabs.find((t) => t.id === id)?.view?.webContents
   }
 
-  findDocsTabByPath(path: string): string | undefined {
-    return this.tabs.find((t) => t.kind === 'docs' && t.filePath === path)?.id
+  private findTabOfKindByPath(kind: TabKind, path?: string): string | undefined {
+    const wanted = canonicalPath(path)
+    return this.tabs.find(
+      (t) =>
+        t.kind === kind &&
+        t.view &&
+        t.filePath &&
+        !t.present &&
+        canonicalPath(t.filePath) === wanted,
+    )?.id
+  }
+
+  findDocsTabByPath(path?: string): string | undefined {
+    return this.findTabOfKindByPath('docs', path)
   }
 
   findSheetsTab(): string | undefined {
     return this.tabs.find((t) => t.kind === 'sheets')?.id
   }
 
-  findSheetsTabByPath(path: string): string | undefined {
-    return this.tabs.find((t) => t.kind === 'sheets' && t.filePath === path)?.id
+  findSheetsTabByPath(path?: string): string | undefined {
+    return this.findTabOfKindByPath('sheets', path)
   }
 
-  findSlidesTabByPath(path: string): string | undefined {
-    return this.tabs.find((t) => t.kind === 'slides' && t.filePath === path)?.id
+  findSlidesTabByPath(path?: string): string | undefined {
+    return this.findTabOfKindByPath('slides', path)
   }
 
-  findPdfTabByPath(path: string): string | undefined {
-    return this.tabs.find((t) => t.kind === 'pdf' && t.filePath === path)?.id
+  findPdfTabByPath(path?: string): string | undefined {
+    return this.findTabOfKindByPath('pdf', path)
   }
 
-  findMarkdownTabByPath(path: string): string | undefined {
-    return this.tabs.find((t) => t.kind === 'markdown' && t.filePath === path)?.id
+  findMarkdownTabByPath(path?: string): string | undefined {
+    return this.findTabOfKindByPath('markdown', path)
   }
 
-  findHtmlTabByPath(path: string): string | undefined {
-    return this.tabs.find((t) => t.kind === 'html' && t.filePath === path)?.id
+  findHtmlTabByPath(path?: string): string | undefined {
+    return this.findTabOfKindByPath('html', path)
   }
 
   /** the active tab's html view, if the active tab is html (html menu target) */
@@ -673,7 +712,8 @@ export class TabManager {
   }
 }
 
-function canonicalPath(path: string): string {
+export function canonicalPath(path: string | undefined): string | undefined {
+  if (path === undefined) return undefined
   try {
     return realpathSync.native(path)
   } catch {

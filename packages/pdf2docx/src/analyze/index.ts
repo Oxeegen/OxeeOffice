@@ -166,12 +166,24 @@ function solidPanelImage(box: Rect, color: string, alpha = 255, z?: number): Ima
   }
 }
 
+/** largest edge of an empty-frame bitmap: bounds the w*h*4 allocation */
+export const FRAME_IMAGE_MAX_PX = 2048
+
 /** hollow border bitmap for an empty stroke frame (P16 K) — alpha inside */
-function frameImage(box: Rect, color: string, widthPt: number): ImageBlock {
+export function frameImage(box: Rect, color: string, widthPt: number): ImageBlock {
   const scale = 2
-  const w = Math.max(2, Math.round((box.x1 - box.x0) * scale))
-  const h = Math.max(2, Math.round((box.y1 - box.y0) * scale))
-  const bw = Math.max(1, Math.round(widthPt * scale))
+  // A crafted stroke box can span thousands of points; cap the bitmap edge so
+  // one frame cannot allocate hundreds of MB (aspect is preserved).
+  const spanX = Number.isFinite(box.x1 - box.x0) ? Math.max(0, box.x1 - box.x0) : 0
+  const spanY = Number.isFinite(box.y1 - box.y0) ? Math.max(0, box.y1 - box.y0) : 0
+  const shrink = Math.max(
+    1,
+    (spanX * scale) / FRAME_IMAGE_MAX_PX,
+    (spanY * scale) / FRAME_IMAGE_MAX_PX,
+  )
+  const w = Math.max(2, Math.round((spanX * scale) / shrink))
+  const h = Math.max(2, Math.round((spanY * scale) / shrink))
+  const bw = Math.max(1, Math.round((Number.isFinite(widthPt) ? widthPt : 0) * scale))
   const r = parseInt(color.slice(0, 2), 16)
   const g = parseInt(color.slice(2, 4), 16)
   const b = parseInt(color.slice(4, 6), 16)

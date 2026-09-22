@@ -152,7 +152,13 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos }: NodeVi
           options={LANGUAGES.map((lang) => ({ value: lang, label: lang }))}
           onPick={(lang) => updateAttributes({ language: lang === 'plaintext' ? null : lang })}
         />
-        <button type="button" className="md-codeblock-copy" onClick={copy}>
+        <button
+          type="button"
+          className="md-codeblock-copy"
+          onClick={copy}
+          aria-live="polite"
+          aria-label={copied ? t('codeCopied') : t('codeCopy')}
+        >
           {copied ? t('codeCopied') : t('codeCopy')}
         </button>
       </div>
@@ -169,6 +175,14 @@ export function CodeBlockView({ node, updateAttributes, editor, getPos }: NodeVi
           className="md-diagram-preview"
           contentEditable={false}
           onClick={editSource}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              editSource()
+            }
+          }}
+          role="button"
+          tabIndex={0}
           dangerouslySetInnerHTML={{ __html: diagram.svg }}
         />
       )}

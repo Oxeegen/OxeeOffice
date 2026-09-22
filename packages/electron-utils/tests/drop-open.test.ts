@@ -109,6 +109,14 @@ describe('droppableFilePaths', () => {
     })
     expect(result).toEqual(['/tmp/good.docx'])
   })
+
+  it('caps resolved paths and skips overlong ones', () => {
+    const names = Array.from({ length: 150 }, (_, i) => `f${i}.docx`)
+    const result = droppableFilePaths(fileDrag(names) as never, () => '/tmp/x.docx')
+    expect(result).toHaveLength(100)
+    const overlong = droppableFilePaths(fileDrag(['a.docx']) as never, () => 'x'.repeat(5000))
+    expect(overlong).toEqual([])
+  })
 })
 
 describe('partitionDropPayload', () => {

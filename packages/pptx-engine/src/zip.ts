@@ -140,9 +140,15 @@ export class PackageArchive {
     // Slide size
     const szRaw = root['p:sldSz'] ?? root.sldSz
     const sz = szRaw ? asXmlNode(szRaw) : null
+    const emuOr = (raw: unknown, fallback: number): number => {
+      // A corrupt presentation.xml may carry a missing or non-numeric sldSz;
+      // without this guard parseInt yields NaN and poisons every layout.
+      const parsed = parseInt(String(raw), 10)
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+    }
     const size: SlideSize = {
-      cx: sz ? parseInt(String(sz['@_cx']), 10) : 9144000,
-      cy: sz ? parseInt(String(sz['@_cy']), 10) : 6858000,
+      cx: sz ? emuOr(sz['@_cx'], 9144000) : 9144000,
+      cy: sz ? emuOr(sz['@_cy'], 6858000) : 6858000,
     }
 
     // Slide order: presentation.xml.rels maps r:id to slide parts

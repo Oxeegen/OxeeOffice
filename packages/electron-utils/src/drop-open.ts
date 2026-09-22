@@ -38,6 +38,11 @@ function tryResolvePath(file: File, getPathForFile: PathResolver): string {
   }
 }
 
+/** Early bound for path resolution: downstream caps opens at 20, but resolving
+ *  10k dropped files first still costs. Overlong paths are skipped outright. */
+export const MAX_RESOLVED_DROP_PATHS = 100
+export const MAX_DROP_PATH_CHARS = 4096
+
 /**
  * Resolve an event's dropped files to local paths. Returns null when the drag
  * carries no OS files at all (internal text/element drags), or [] when it does
@@ -51,11 +56,13 @@ export function droppableFilePaths(
   if (!transfer || !transfer.types.includes('Files')) return null
   const paths: string[] = []
   for (const file of Array.from(transfer.files)) {
+    if (paths.length >= MAX_RESOLVED_DROP_PATHS) break
     // A throwing resolver (e.g. a sandboxed entry Electron cannot map) must
     // not abort the whole drop: skip that file like a virtual entry.
     // Non-empty guard covers virtual entries (e.g. page-referenced blobs).
     const path = tryResolvePath(file, getPathForFile)
-    if (path) paths.push(path)
+    if (!path || path.length > MAX_DROP_PATH_CHARS) continue
+    paths.push(path)
   }
   return paths
 }

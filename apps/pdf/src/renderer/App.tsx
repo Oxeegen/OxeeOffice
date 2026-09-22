@@ -47,6 +47,8 @@ import {
   type FormWidget,
 } from './form-catalog'
 import { ImageEditLayer, imageRectKey } from './ImageEditLayer'
+import { RedactionLayer } from './RedactionLayer'
+import type { LocalRedaction } from './RedactionLayer'
 import type { LocalImageEdit } from './ImageEditLayer'
 import { CropDialog, CutoutDialog, cropImagePng } from './ImageDialogs'
 import { cropRect, flipPixels, multiplyAlpha } from './image-bake'
@@ -180,7 +182,11 @@ import {
   textEditPreviewParts,
   textEditPreviewContent,
   seedDraftColors,
+  paperCss,
+  textEraseKey,
+  textEraseProbe,
 } from './text-edit-preview'
+import { samplePaperColor } from './paper-sample'
 import type { LocalTextEdit, LocalTextInsert, TextDraft } from './text-edit-preview'
 import { planEditOps, reduceBucket } from './edit-ops'
 import type { Bucket, Op, OpContext, PlanResult } from './edit-ops'
@@ -290,6 +296,8 @@ export default function App() {
     'loading',
   )
   const [sizes, setSizes] = useState<PageSize[]>([])
+  const [pageOrigins, setPageOrigins] = useState<[number, number][]>([])
+  const [pageUserUnits, setPageUserUnits] = useState<number[]>([])
   const [baseRots, setBaseRots] = useState<number[]>([])
   const [scale, setScale] = useState(1)
   const [currentPage, setCurrentPage] = useState(1)
@@ -382,6 +390,9 @@ export default function App() {
   const drawingsRef = useRef(drawings)
   drawingsRef.current = drawings
   const [drawTool, setDrawTool] = useState<DrawTool | null>(null)
+  const [redactions, setRedactions] = useState<LocalRedaction[]>([])
+  const redactionApplyConfirmedRef = useRef(false)
+  const [redactionCopyInFlight, setRedactionCopyInFlight] = useState(false)
   const [textEdits, setTextEdits] = useState<LocalTextEdit[]>([])
   const [textInserts, setTextInserts] = useState<LocalTextInsert[]>([])
   // AI tool calls within one turn read and write inserts through this mirror (see orderRef)
@@ -870,9 +881,17 @@ export default function App() {
   const pageGeom = useCallback(
     (origIdx: number): PageGeom => {
       const s = sizes[origIdx]!
-      return { pw: s.width, ph: s.height, rot: (baseRots[origIdx] ?? 0) + rotDelta(origIdx) }
+      const [x0, y0] = pageOrigins[origIdx] ?? [0, 0]
+      return {
+        pw: s.width,
+        ph: s.height,
+        rot: (baseRots[origIdx] ?? 0) + rotDelta(origIdx),
+        x0,
+        y0,
+        userUnit: pageUserUnits[origIdx] ?? 1,
+      }
     },
-    [sizes, baseRots, rotDelta],
+    [sizes, baseRots, pageOrigins, pageUserUnits, rotDelta],
   )
   /** Latest geometry for async pipelines that must not rebind on rotation (OCR) */
   const pageGeomRef = useRef(pageGeom)
@@ -980,12 +999,16 @@ export default function App() {
       setDocumentEncrypted(formFeatures.encrypted)
       const all: PageSize[] = []
       const rots: number[] = []
+      const origins: [number, number][] = []
+      const userUnits: number[] = []
       for (let i = 1; i <= loaded.numPages; i++) {
         const page = await loaded.getPage(i)
         // Unrotated size; display size is derived by geom from the total rotation
         const vp = page.getViewport({ scale: 1, rotation: 0 })
         all.push({ width: vp.width, height: vp.height })
         rots.push(page.rotate ?? 0)
+        origins.push([page.view[0]!, page.view[1]!])
+        userUnits.push(page.userUnit ?? 1)
       }
       try {
         setFormCatalog(await buildFormCatalog(loaded))
@@ -998,6 +1021,8 @@ export default function App() {
         setSavedStaticFormFills([])
       }
       setSizes(all)
+      setPageOrigins(origins)
+      setPageUserUnits(userUnits)
       setBaseRots(rots)
       let renderedPages: Promise<void> | null = null
       if (saved && waitForPageNos.length > 0) {
@@ -1025,6 +1050,8 @@ export default function App() {
         setAiSelection(null)
         setAskPop(null)
         setMarkups([])
+        setRedactions([])
+        redactionApplyConfirmedRef.current = false
         setAnnotDeletes([])
         setNoteEdits([])
         setDrawings([])
@@ -1047,6 +1074,17 @@ export default function App() {
         // saved deletions/reorder (a page missing from pageMap is gone from the file).
         const remap = saved.pageMap
         setOutline((prev) => (prev ? remapOutlinePages(prev, remap) : prev))
+        // Redaction marks are deliberately omitted from ordinary saves. Keep them
+        // through the reload, remapping their original page indices if this save
+        // changed page order or removed pages while it was running.
+        setRedactions((prev) =>
+          prev.flatMap((mark) => {
+            const ni = remap.get(mark.pageIndex)
+            return ni === undefined
+              ? []
+              : [ni === mark.pageIndex ? mark : { ...mark, pageIndex: ni }]
+          }),
+        )
         setMarkups((prev) =>
           prev.flatMap((mk) => {
             if (saved.markupIds.has(mk.id)) return []
@@ -1596,7 +1634,7 @@ export default function App() {
     return [...records.values()]
   }, [imageEdits, savedStaticFormFills])
 
-  const dirty =
+  const ordinaryDirty =
     markups.length > 0 ||
     annotDeletes.length > 0 ||
     noteEdits.length > 0 ||
@@ -1610,6 +1648,7 @@ export default function App() {
     deleted.size > 0 ||
     order !== null ||
     metadata !== null
+  const dirty = redactions.length > 0 || ordinaryDirty
 
   // Mirror dirty state to the main process (close-tab/close-window guard)
   useEffect(() => {
@@ -1689,6 +1728,19 @@ export default function App() {
    * display metadata (validated bounds, ghost PNGs) are the only direct writes left.
    */
   const applyEditOps = (ops: Op[], opts?: { coalesceKey?: string }): PlanResult => {
+    const structuralIndex = ops.findIndex(
+      (op) => op.op === 'rotatePages' || op.op === 'deletePage' || op.op === 'setPageOrder',
+    )
+    if (redactions.length > 0 && structuralIndex >= 0) {
+      return {
+        ops: [],
+        records: [],
+        touched: new Set(),
+        failures: [
+          { index: structuralIndex, op: ops[structuralIndex]!, error: t('redactStructureBlocked') },
+        ],
+      }
+    }
     const plan = planEditOps(ops, editOpContext(), newId)
     if (plan.failures.length > 0 || plan.ops.length === 0) return plan
     pushUndo(opts?.coalesceKey)
@@ -1763,6 +1815,7 @@ export default function App() {
           moveBy: e.moveBy,
           baseInk: e.baseInk,
           baseFont: e.baseFont,
+          paper: e.paper,
         })),
     ]
   }
@@ -2411,6 +2464,13 @@ export default function App() {
   /** Seed the draft with the document's own face: the font id covering the most
       characters inside the draft rect names it. Async like the ink probe; rect
       identity pins the draft. */
+  /** Page color behind a run, read off its rendered canvas (see LocalTextEdit.paper) */
+  const samplePaper = (origIdx: number, rect: readonly [number, number, number, number]) =>
+    samplePaperColor(
+      document.querySelector(`.pdf-page[data-page="${origIdx}"]`),
+      pdfRectToCss(pageGeom(origIdx), rect, scale),
+    ) ?? undefined
+
   const seedDraftFont = (origIdx: number, rect: [number, number, number, number]) => {
     const index = getSearchIndex()
     if (!index) return
@@ -2491,6 +2551,7 @@ export default function App() {
       cover: te.cover,
       seedInk: te.baseInk,
       seedFont: te.baseFont,
+      paper: te.paper,
       block: blk,
       moveBy: te.moveBy,
     }
@@ -2534,6 +2595,7 @@ export default function App() {
       oldText,
       fontSize: block.fontSize,
       value: fold?.value ?? oldText,
+      paper: samplePaper(origIdx, rect),
       charStyles: fold?.charStyles,
       editId: fold?.editId,
       foldedIds: fold && fold.foldedIds.length > 0 ? fold.foldedIds : undefined,
@@ -2748,7 +2810,14 @@ export default function App() {
     setSelected(null)
     draftSelectedRef.current = false
     draftPreselectRef.current = preselect ?? null
-    setTextDraft({ origIdx, rect, oldText, fontSize, value: oldText })
+    setTextDraft({
+      origIdx,
+      rect,
+      oldText,
+      fontSize,
+      value: oldText,
+      paper: samplePaper(origIdx, rect),
+    })
     seedDraftFont(origIdx, rect)
     // The span rect is a font-metric layout box; the run's glyph ink can poke out of it.
     // Fetch the engine's real ink bounds so the editor/preview cover hides the old run fully.
@@ -3024,10 +3093,21 @@ export default function App() {
                 cover: d.cover ?? e.cover,
                 baseInk: d.seedInk ?? e.baseInk,
                 baseFont: d.seedFont ?? e.baseFont,
+                paper: d.paper ?? e.paper,
               }
             : e,
         )
-      : [...edits, { id: newId(), input, cover: d.cover, baseInk: d.seedInk, baseFont: d.seedFont }]
+      : [
+          ...edits,
+          {
+            id: newId(),
+            input,
+            cover: d.cover,
+            baseInk: d.seedInk,
+            baseFont: d.seedFont,
+            paper: d.paper,
+          },
+        ]
   }
 
   /** Background dry-run of a just-committed edit against the file. A span that doesn't
@@ -3340,7 +3420,7 @@ export default function App() {
     // Same for an open comment-edit box in the notes margin
     const noteFlush = commitNoteEdit()
     const anythingToSave =
-      dirty ||
+      ordinaryDirty ||
       edits !== textEdits ||
       noteFlush.drawings !== drawings ||
       noteFlush.noteEdits !== noteEdits
@@ -3490,7 +3570,8 @@ export default function App() {
             ]
           })
       : []
-    const edits = flushed
+    const applyingRedactions = redactionApplyConfirmedRef.current && redactions.length > 0
+    const edits = applyingRedactions
       ? {
           markups: [],
           drawings: [],
@@ -3499,9 +3580,21 @@ export default function App() {
           textEdits: [],
           textInserts: [],
           imageEdits: [],
-          ...(lateNoteEdits.length > 0 ? { noteEdits: lateNoteEdits } : {}),
+          staticFormFills,
+          redactions: redactions.map(({ pageIndex, rect }) => ({ pageIndex, rect })),
         }
-      : editsPayload(draftEdits, noteFlush)
+      : flushed
+        ? {
+            markups: [],
+            drawings: [],
+            formValues: [],
+            stamps: [],
+            textEdits: [],
+            textInserts: [],
+            imageEdits: [],
+            ...(lateNoteEdits.length > 0 ? { noteEdits: lateNoteEdits } : {}),
+          }
+        : editsPayload(draftEdits, noteFlush)
     setSaveState('saving')
     const result = await window.pdfApi.save({ path: filePath, targetPath, ...edits })
     if (!result.ok) {
@@ -3520,7 +3613,43 @@ export default function App() {
     // Back to idle, not 'saved': only the copy was written — this tab's edits are
     // still pending, so a saved-confirmation next to the unsaved badge would lie
     setSaveState('idle')
+    if (applyingRedactions) {
+      redactionApplyConfirmedRef.current = false
+      setRedactions([])
+    }
     return true
+  }
+
+  const requestRedactionSaveAs = () => {
+    if (redactions.length === 0) return
+    const otherPending =
+      markups.length > 0 ||
+      annotDeletes.length > 0 ||
+      noteEdits.length > 0 ||
+      drawings.length > 0 ||
+      textEdits.length > 0 ||
+      textInserts.length > 0 ||
+      imageEdits.length > 0 ||
+      stampCfg !== null ||
+      formEdits.size > 0 ||
+      rotations.size > 0 ||
+      deleted.size > 0 ||
+      order !== null ||
+      metadata !== null
+    if (otherPending) {
+      showNotice(t('redactSaveFirst'))
+      return
+    }
+    if (!window.confirm(t('redactConfirm'))) return
+    redactionApplyConfirmedRef.current = true
+    setRedactionCopyInFlight(true)
+    void window.pdfApi
+      .requestRedactionCopy(filePath)
+      .catch(() => undefined)
+      .finally(() => {
+        redactionApplyConfirmedRef.current = false
+        setRedactionCopyInFlight(false)
+      })
   }
 
   // Autosave pauses while the shell's Save As flow is open: the save dialog blurs the
@@ -3536,7 +3665,7 @@ export default function App() {
   useAutosave(
     () =>
       savedOnceRef.current &&
-      dirty &&
+      ordinaryDirty &&
       saveInFlightRef.current === null &&
       filePath !== '' &&
       !readOnly &&
@@ -3547,6 +3676,7 @@ export default function App() {
   // ── Page operations ──
 
   const rotatePages = (origIdxs: number[], dir: RotateDelta): string | null => {
+    if (redactions.length > 0) return t('redactStructureBlocked')
     if (readOnly || origIdxs.length === 0) return null
     return applyEditOps([{ op: 'rotatePages', pages: origIdxs, dir }]).failures[0]?.error ?? null
   }
@@ -3557,11 +3687,19 @@ export default function App() {
 
   /** Reverse the visible page order; deleted pages stay at the tail like movePage */
   const reversePages = () => {
+    if (redactions.length > 0) {
+      showNotice(t('redactStructureBlocked'))
+      return
+    }
     if (pageCount <= 1 || readOnly) return
     commitOrder([...visList].reverse())
   }
 
   const deletePage = (origIdx: number) => {
+    if (redactions.length > 0) {
+      showNotice(t('redactStructureBlocked'))
+      return
+    }
     if (pageCount <= 1 || readOnly) return
     applyEditOps([{ op: 'deletePage', pageIndex: origIdx }])
   }
@@ -4410,19 +4548,54 @@ export default function App() {
   )
 
   // ── Live page preview: pdfium re-renders the touched region without the moved/
-  // resized/deleted images and without deleted saved annotations, so the original
-  // vanishes immediately instead of at save ──
+  // resized/deleted images, without deleted saved annotations and without the text
+  // runs being edited, so the original vanishes immediately instead of at save ──
 
-  /** Pages with pending erase ops → image rects to remove + saved annotations to remove */
+  /** The open draft's erase probe; keyed on the run, so typing doesn't re-request */
+  const draftProbe = useMemo(
+    () =>
+      textDraft
+        ? {
+            probe: textEraseProbe(
+              textDraft.origIdx,
+              textDraft.rect,
+              textDraft.oldText,
+              textDraft.fontSize,
+            ),
+            rect: textDraft.cover ? unionCover(textDraft.rect, textDraft.cover) : textDraft.rect,
+          }
+        : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the run, not the draft (typing must not re-request)
+    [
+      textDraft?.origIdx,
+      textDraft?.rect,
+      textDraft?.oldText,
+      textDraft?.fontSize,
+      textDraft?.cover,
+    ],
+  )
+  /** Pending edits the open draft stands in for (reopened / folded): the draft's probe
+      erases their run, so they take the draft's erased state */
+  const draftOwnedIds = useMemo(
+    () => new Set(textDraft ? [textDraft.editId, ...(textDraft.foldedIds ?? [])] : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- same: identity fields only
+    [textDraft?.editId, textDraft?.foldedIds],
+  )
+
+  /** Pages with pending erase ops → image rects, saved annotations and text runs to remove */
   const livePreviewRects = useMemo(() => {
     const map = new Map<
       number,
-      { rects: [number, number, number, number][]; annots: (SavedMarkupAnnot | SavedNoteAnnot)[] }
+      {
+        rects: [number, number, number, number][]
+        annots: (SavedMarkupAnnot | SavedNoteAnnot)[]
+        text: { probe: TextEditInput; rect: [number, number, number, number] }[]
+      }
     >()
     const jobFor = (pageIndex: number) => {
       let job = map.get(pageIndex)
       if (!job) {
-        job = { rects: [], annots: [] }
+        job = { rects: [], annots: [], text: [] }
         map.set(pageIndex, job)
       }
       return job
@@ -4431,12 +4604,40 @@ export default function App() {
       if (e.input.kind !== 'insertImage') jobFor(e.input.pageIndex).rects.push(e.input.oldRect)
     }
     for (const d of annotDeletes) jobFor(d.annot.pageIndex).annots.push(d.annot)
+    // The draft goes first: a reopened edit's run must be claimed by the draft's probe
+    if (draftProbe) jobFor(draftProbe.probe.pageIndex).text.push(draftProbe)
+    for (const te of textEdits) {
+      if (draftOwnedIds.has(te.id)) continue
+      const { pageIndex, rect, oldText, fontSize } = te.input
+      jobFor(pageIndex).text.push({
+        probe: textEraseProbe(pageIndex, rect, oldText, fontSize),
+        rect: te.cover ? unionCover(rect, te.cover) : rect,
+      })
+    }
     return map
-  }, [imageEdits, annotDeletes])
+  }, [imageEdits, annotDeletes, textEdits, draftProbe, draftOwnedIds])
 
   const [livePreview, setLivePreview] = useState<
-    Map<number, { png: string; clip: { x: number; y: number; width: number; height: number } }>
+    Map<
+      number,
+      {
+        png: string
+        clip: { x: number; y: number; width: number; height: number }
+        /** textEraseKey of every run the render erased */
+        erased: Set<string>
+      }
+    >
   >(new Map())
+  /** Whether a pending edit's original run is gone from the page render */
+  const runErased = (te: LocalTextEdit): boolean => {
+    const lp = livePreview.get(te.input.pageIndex)
+    if (!lp) return false
+    const probe = draftOwnedIds.has(te.id) && draftProbe ? draftProbe.probe : te.input
+    return lp.erased.has(textEraseKey(probe))
+  }
+  const draftErased =
+    !!draftProbe &&
+    !!livePreview.get(draftProbe.probe.pageIndex)?.erased.has(textEraseKey(draftProbe.probe))
   /** Last requested render key per page; skips redundant IPC round-trips */
   const livePreviewKeys = useRef(new Map<number, string>())
 
@@ -4459,7 +4660,11 @@ export default function App() {
       let y1 = Infinity
       let x2 = -Infinity
       let y2 = -Infinity
-      for (const r of [...job.rects, ...job.annots.map((a) => a.rect)]) {
+      for (const r of [
+        ...job.rects,
+        ...job.annots.map((a) => a.rect),
+        ...job.text.map((t) => t.rect),
+      ]) {
         const b = pdfRectToCss(geom, r, 1)
         x1 = Math.min(x1, b.left)
         y1 = Math.min(y1, b.top)
@@ -4486,7 +4691,11 @@ export default function App() {
       const annotKey = excludedAnnots
         .map((a) => `${a.objNum}:${a.subtype}:${imageRectKey(a.rect)}`)
         .join(',')
-      const key = `${job.rects.map(imageRectKey).join(';')}|${annotKey}|${pxWidth}|${rotIdx}`
+      const textKey = job.text.map((t) => textEraseKey(t.probe)).join(';')
+      // The clip is part of the key: a run's ink bounds arrive after its draft opens and
+      // widen the region, and the same probes must then render again
+      const clipKey = [clip.x, clip.y, clip.width, clip.height].map(Math.round).join(',')
+      const key = `${job.rects.map(imageRectKey).join(';')}|${annotKey}|${textKey}|${clipKey}|${pxWidth}|${rotIdx}`
       if (livePreviewKeys.current.get(pageIndex) === key) continue
       livePreviewKeys.current.set(pageIndex, key)
       void window.pdfApi
@@ -4495,15 +4704,21 @@ export default function App() {
           pageIndex,
           excludeRects: job.rects,
           ...(excludedAnnots.length > 0 ? { excludeAnnots: excludedAnnots } : {}),
+          ...(job.text.length > 0 ? { excludeText: job.text.map((t) => t.probe) } : {}),
           clip,
           pxWidth,
           rotate: rotIdx,
         })
-        .then((png) => {
+        .then((res) => {
           // Stale guard: a newer request for this page may have superseded this one
           // while the render ran — its result must not be overwritten by ours
           if (livePreviewKeys.current.get(pageIndex) !== key) return
-          if (png) setLivePreview((prev) => new Map(prev).set(pageIndex, { png, clip }))
+          if (!res) return
+          const erased = new Set<string>()
+          job.text.forEach((t, i) => {
+            if (res.textErased[i]) erased.add(textEraseKey(t.probe))
+          })
+          setLivePreview((prev) => new Map(prev).set(pageIndex, { png: res.png, clip, erased }))
         })
         .catch(() => {
           // Only clear the key if it is still ours; deleting a newer in-flight key
@@ -4712,6 +4927,10 @@ export default function App() {
 
   /** Extract/insert work on the file on disk — flush unsaved changes first; undefined = the save failed */
   const flushThen = async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
+    if (redactions.length > 0) {
+      opFailed(t('redactStructureBlocked'))
+      return undefined
+    }
     if (dirty && !(await save())) return undefined
     return fn()
   }
@@ -5407,6 +5626,11 @@ export default function App() {
   // Main process picked "Save" in the close prompt → save and report the result
   useEffect(() => {
     return window.pdfApi.onCloseSaveRequest(() => {
+      if (redactions.length > 0) {
+        showNotice(t('redactSaveAsHint'))
+        window.pdfApi.sendCloseSaveResult(false)
+        return
+      }
       void save().then((ok) => window.pdfApi.sendCloseSaveResult(ok))
     })
   })
@@ -6155,6 +6379,40 @@ export default function App() {
                     </button>
                   ))}
                   <button
+                    className={`rb-big${drawTool === 'redact' ? ' active' : ''}`}
+                    disabled={readOnly}
+                    data-tip={t('redactHint')}
+                    onClick={() => {
+                      setEditTextMode(false)
+                      setTextDraft(null)
+                      setEditImageMode(false)
+                      setDrawTool((tool) => (tool === 'redact' ? null : 'redact'))
+                    }}
+                  >
+                    <span className="rb-big-icon">
+                      <IconRect />
+                    </span>
+                    {t('redact')}
+                  </button>
+                  {redactions.length > 0 && (
+                    <>
+                      <button
+                        className="rb-big"
+                        data-tip={t('redactClear')}
+                        onClick={() => setRedactions([])}
+                      >
+                        {t('redactClear')}
+                      </button>
+                      <button
+                        className="rb-big"
+                        data-tip={t('redactApply')}
+                        onClick={requestRedactionSaveAs}
+                      >
+                        {t('redactApply')}
+                      </button>
+                    </>
+                  )}
+                  <button
                     className={`rb-big${pendingSign ? ' active' : ''}`}
                     disabled={readOnly}
                     data-tip={t('signTitle')}
@@ -6617,9 +6875,35 @@ export default function App() {
           <div className="pdf-body">
             {sidebar === 'outline' && outline && (
               <div className="pdf-thumbs pdf-outline-pane" style={{ width: sidebarW }}>
+                <div className="pdf-outline-header">
+                  <span>{t('outline')}</span>
+                  <button
+                    type="button"
+                    className="rb-icon"
+                    aria-label={t('aiCollapsePanel')}
+                    data-tip={t('aiCollapsePanel')}
+                    onClick={() => setSidebar(null)}
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="m14 6-6 6 6 6" />
+                    </svg>
+                  </button>
+                </div>
                 <OutlinePanel
                   outline={outline}
                   note={outlineGenerated ? t('outlineGenerated') : undefined}
+                  label={t('outline')}
+                  emptyLabel={t('searchNoResults')}
                   onGoToDest={(dest) => void goToDest(dest)}
                 />
               </div>
@@ -6727,6 +7011,7 @@ export default function App() {
                                 markups={mk}
                                 drawings={dw}
                                 textEdits={tes}
+                                erasedText={livePreview.get(origIdx)?.erased}
                                 textInserts={tis}
                                 imageEdits={ies}
                                 stamps={sts}
@@ -6830,6 +7115,7 @@ export default function App() {
                       return (
                         <div
                           key={origIdx}
+                          data-page={origIdx}
                           className={`pdf-page${editTextMode && !readOnly ? ' pdf-editing-text' : ''}${
                             pendingTextInsert ? ' pdf-inserting-text' : ''
                           }`}
@@ -7186,6 +7472,7 @@ export default function App() {
                                     te,
                                     geom,
                                     scale,
+                                    runErased(te),
                                   )
                                   // A border-drag of the block this edit addresses moves the
                                   // styled preview live with the pointer (the drag ghost of
@@ -7391,17 +7678,20 @@ export default function App() {
                                       )
                                   return (
                                     <>
-                                      {textDraft.cover && (
+                                      {textDraft.cover && !draftErased && (
                                         <div
                                           className="pdf-textedit-cover"
-                                          style={inflateCss(
-                                            pdfRectToCss(
-                                              geom,
-                                              unionCover(textDraft.rect, textDraft.cover),
-                                              scale,
+                                          style={{
+                                            ...inflateCss(
+                                              pdfRectToCss(
+                                                geom,
+                                                unionCover(textDraft.rect, textDraft.cover),
+                                                scale,
+                                              ),
+                                              1.5,
                                             ),
-                                            1.5,
-                                          )}
+                                            ...paperCss(false, textDraft.paper),
+                                          }}
                                         />
                                       )}
                                       <div
@@ -7518,6 +7808,7 @@ export default function App() {
                                             height: wrapCount * leadPx + (blk ? leadPx : 0) + 6,
                                             fontSize: fs,
                                             lineHeight: `${leadPx}px`,
+                                            ...paperCss(draftErased, textDraft.paper),
                                             ...(blk && blk.align !== 'left'
                                               ? { textAlign: blk.align }
                                               : {}),
@@ -7812,6 +8103,24 @@ export default function App() {
                                 }
                                 onMove={readOnly ? undefined : moveDrawing}
                                 onResize={readOnly ? undefined : resizeDrawing}
+                              />
+                              <RedactionLayer
+                                active={
+                                  !readOnly && !redactionCopyInFlight && drawTool === 'redact'
+                                }
+                                geom={geom}
+                                scale={scale}
+                                pageWidth={size.width}
+                                pageHeight={size.height}
+                                marks={redactions.filter((mark) => mark.pageIndex === origIdx)}
+                                markLabel={t('redact')}
+                                onCommit={(rect) =>
+                                  setRedactions((prev) => [
+                                    ...prev,
+                                    { id: newId(), pageIndex: origIdx, rect },
+                                  ])
+                                }
+                                onTooSmall={() => showNotice(t('redactHint'))}
                               />
                               {/* Ghost pin for the note being typed into the margin draft card */}
                               {noteDraft?.origIdx === origIdx &&
@@ -8178,7 +8487,7 @@ export default function App() {
               </div>
             )}
             {deleteToast && (
-              <div className="pdf-toast">
+              <div className="pdf-toast" role="status">
                 <span>{t(deletedInsertedText ? 'insertedTextDeleted' : 'annotationDeleted')}</span>
                 <button
                   type="button"
@@ -8192,7 +8501,7 @@ export default function App() {
               </div>
             )}
             {notice && (
-              <div className="pdf-toast pdf-toast-notice">
+              <div className="pdf-toast pdf-toast-notice" role="status">
                 <span>{notice}</span>
                 <button type="button" onClick={() => setNotice(null)}>
                   {t('ok')}

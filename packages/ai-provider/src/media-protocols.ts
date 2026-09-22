@@ -688,9 +688,12 @@ export async function analyzeMediaWithProvider(
 }
 
 /**
- * Cheap credential check — the settings-UI connection test; no image is
- * billed. A model listing is the closest thing every vendor has; vendors
- * without one answer 404/405 to a valid key, so only 401/403 count as failure.
+ * Cheap credential check for the settings-UI connection test; no image is
+ * billed. A model listing is the closest thing every vendor has. Vendors
+ * without a model-listing endpoint answer 404/405 even for a valid key, so
+ * only those two statuses count as a pass when the response is not ok.
+ * Every other non-ok status (auth failures, rate limits, server errors)
+ * is surfaced as a failure with the status code included.
  */
 export async function testMediaProvider(
   provider: ByokMediaProviderId,
@@ -712,11 +715,24 @@ export async function testMediaProvider(
             signal: guard,
           })
     if (resp.ok) return { ok: true }
+    // Vendors without a model-listing endpoint answer 404/405 to a valid
+    // key, so those statuses still mean the credentials are usable.
+    if (resp.status === 404 || resp.status === 405) return { ok: true }
     const body = await resp.text().catch(() => '')
-    if (resp.status === 401 || resp.status === 403 || provider === 'gemini') {
-      return { ok: false, error: `HTTP ${resp.status}: ${httpBodyDetail(body)}` }
+    const detail = httpBodyDetail(body)
+    if (resp.status === 429) {
+      return {
+        ok: false,
+        error: `HTTP 429: rate limit exceeded, retry later${detail ? ` (${detail})` : ''}`,
+      }
     }
-    return { ok: true }
+    if (resp.status >= 500) {
+      return {
+        ok: false,
+        error: `HTTP ${resp.status}: server error, retry later${detail ? ` (${detail})` : ''}`,
+      }
+    }
+    return { ok: false, error: `HTTP ${resp.status}: ${detail}` }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) }
   }

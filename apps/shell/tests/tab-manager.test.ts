@@ -1,5 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.mock('node:fs', () => {
+  const realpathSync = ((path?: string) => {
+    if (path === undefined) return undefined
+    if (path === '/real/file' || path === '/canonical/file' || path === '/REAL/FILE')
+      return '/real/file'
+    return path
+  }) as typeof import('node:fs').realpathSync
+
+  realpathSync.native = ((path?: string) => {
+    if (path === undefined) return undefined
+    if (path === '/real/file' || path === '/canonical/file' || path === '/REAL/FILE')
+      return '/real/file'
+    return path
+  }) as typeof import('node:fs').realpathSync.native
+
+  return { realpathSync }
+})
+
 /**
  * TabManager (src/main/tab-manager.ts): tab list state, activation,
  * close guards, and view lifecycle inside the shell's single window.
@@ -555,6 +573,37 @@ describe('file path bookkeeping', () => {
     expect(manager.findSlidesTabByPath('/tmp/b.pptx')).toBe('t2')
     expect(manager.findPdfTabByPath('/tmp/c.pdf')).toBe('t3')
     expect(manager.findPdfTabByPath('/tmp/missing.pdf')).toBeUndefined()
+  })
+
+  it('finds every document family by a canonicalized path alias', () => {
+    const docsId = manager.openDocsTab('/real/file')
+    const sheetsId = manager.openSheetsTab('/real/file')
+    const slidesId = manager.openSlidesTab('/real/file')
+    const pdfId = manager.openPdfTab('/real/file')
+    // markdown/html view factories need electron protocol mocks the shell
+    // suite does not provide, so seed their tab records directly: the
+    // finders only read kind/view/filePath.
+    const seedTab = (kind: string, filePath: string) => {
+      const tabs = (
+        manager as unknown as {
+          tabs: Array<{ id: string; kind: string; view: unknown; filePath: string }>
+        }
+      ).tabs
+      const id = `seed-${kind}`
+      tabs.push({ id, kind, view: {}, filePath })
+      return id
+    }
+    const markdownId = seedTab('markdown', '/real/file')
+    const htmlId = seedTab('html', '/real/file')
+
+    expect(manager.findDocsTabByPath('/canonical/file')).toBe(docsId)
+    expect(manager.findSheetsTabByPath('/REAL/FILE')).toBe(sheetsId)
+    expect(manager.findSlidesTabByPath('/canonical/file')).toBe(slidesId)
+    expect(manager.findPdfTabByPath('/REAL/FILE')).toBe(pdfId)
+    expect(manager.findMarkdownTabByPath('/canonical/file')).toBe(markdownId)
+    expect(manager.findHtmlTabByPath('/REAL/FILE')).toBe(htmlId)
+    expect(manager.findDocsTabByPath('/missing')).toBeUndefined()
+    expect(manager.findDocsTabByPath()).toBeUndefined()
   })
 
   it('reloads an existing pdf tab so a re-export rereads the file from disk', () => {

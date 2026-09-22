@@ -6,6 +6,7 @@ export const PDF_CHANNELS = {
   consumePending: 'pdf:consume-pending',
   readFile: 'pdf:read-file',
   save: 'pdf:save',
+  requestRedactionCopy: 'pdf:request-redaction-copy',
   autoRename: 'pdf:auto-rename',
   isUntitled: 'pdf:is-untitled',
   validateTextEdits: 'pdf:validate-text-edits',
@@ -416,6 +417,12 @@ export interface StaticFormFillRecord {
   align?: 'left' | 'center' | 'right'
 }
 
+/** A pending area selected for permanent native PDF redaction. PDF user space, y up. */
+export interface RedactionInput {
+  pageIndex: number
+  rect: [number, number, number, number]
+}
+
 /** One OCR line from the system engine: normalized bottom-left boxes relative to
     the submitted image ([x0,y0,x1,y1], 0..1), with optional word-level char boxes. */
 export interface PdfOcrLine {
@@ -434,12 +441,23 @@ export interface PagePreviewRequest {
   /** Saved annotations to erase. Full identity data is required because object numbers
       may be stale after a save rewrites the PDF. */
   excludeAnnots?: AnnotDeleteInput[]
+  /** Text runs being edited, to erase before rendering (same probe shape the open
+      validation sends; newText is ignored). The editor then sits transparent over
+      the page instead of covering the original run with a paper box. */
+  excludeText?: TextEditInput[]
   /** Region to render, in display coords at scale 1 (after total rotation, y down) */
   clip: { x: number; y: number; width: number; height: number }
   /** Output bitmap width in px (height follows the clip aspect) */
   pxWidth: number
   /** Extra unsaved display rotation on top of the page's /Rotate: 0-3 quarter turns cw */
   rotate: number
+}
+
+export interface PagePreviewResult {
+  /** Base64 PNG of the clip */
+  png: string
+  /** Per entry of excludeText: whether the run was erased from the render */
+  textErased: boolean[]
 }
 
 /** An image edit that could not be matched to the document at save time and was skipped */
@@ -481,6 +499,8 @@ export interface SavePdfRequest {
   textInserts?: TextInsertInput[]
   /** Content-stream image operations, applied right after textEdits (same pdfium stage) */
   imageEdits?: ImageEditInput[]
+  /** Permanent redactions are accepted only for an explicitly authorized Save As copy. */
+  redactions?: RedactionInput[]
   /** Complete resulting set; omitted means preserve existing embedded metadata. */
   staticFormFills?: StaticFormFillRecord[]
   /** Page rotation deltas (original page index → multiple of 90 clockwise) */
@@ -684,6 +704,8 @@ export interface PdfApi {
   readFile(path: string): Promise<ArrayBuffer>
   /** Write markups/form values/page ops back to the original file (pdf-lib, content streams untouched); path grants same as readFile. With targetPath set (Save As), the original is only read and the result goes to targetPath */
   save(request: SavePdfRequest): Promise<SavePdfResult>
+  /** Opens a Save As dialog and grants a single target for the confirmed redaction copy. */
+  requestRedactionCopy(path: string): Promise<boolean>
   /** Content-derived naming (docs/sheets analog): propose a file base name after a save.
       The main process renames only while the file still carries the shell's auto-created
       untitled name, so user-chosen names are never touched. */
@@ -716,7 +738,7 @@ export interface PdfApi {
   }): Promise<string | null>
   /** Live-preview render of a page region with the given images removed (base64 PNG);
       the renderer patches it over the raster so touched images vanish before save */
-  pagePreviewPng(request: PagePreviewRequest): Promise<string | null>
+  pagePreviewPng(request: PagePreviewRequest): Promise<PagePreviewResult | null>
   extractPages(request: ExtractPagesRequest): Promise<ExtractPagesResult>
   insertPdf(request: InsertPdfRequest): Promise<InsertPdfResult>
   insertBlankPage(request: InsertBlankPageRequest): Promise<InsertBlankPageResult>

@@ -297,14 +297,17 @@ body.vib .home {
   z-index: 30;
 }
 
-.login-hint button {
+/* class selectors so the per-button font-size below is not out-specified by a descendant rule */
+.login-hint-open,
+.login-hint-copy {
   border: none;
   background: none;
   font: inherit;
   cursor: pointer;
 }
 
-.login-hint button:hover {
+.login-hint-open:hover,
+.login-hint-copy:hover {
   background: var(--bg-hover);
 }
 
@@ -824,6 +827,8 @@ body.vib .home {
   position: relative;
   display: flex;
   justify-content: flex-end;
+  anchor-name: --row-actions;
+  anchor-scope: --row-actions;
 }
 
 .more-btn {
@@ -847,17 +852,29 @@ body.vib .home {
 }
 
 .row-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
+  position: fixed;
+  position-anchor: --row-actions;
+  top: calc(anchor(bottom) + 6px);
+  right: anchor(right);
+  position-try-fallbacks: flip-block, --row-menu-viewport;
+  position-visibility: anchors-visible;
   z-index: 20;
+  box-sizing: border-box;
   min-width: 160px;
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
   padding: 6px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 10px 28px rgb(0 0 0 / 14%);
   animation: menu-in 0.1s ease;
+}
+
+/* If neither side fits, keep the menu inside the viewport and scroll its items. */
+@position-try --row-menu-viewport {
+  top: 8px;
+  bottom: auto;
 }
 
 @keyframes menu-in {

@@ -74,6 +74,8 @@ export const pt = {
   ribbonPainterActiveTip:
     'Pincel de Formatação ativado: selecione o texto de destino para aplicar (clique novamente para cancelar)',
   ribbonGroupClipboard: 'Área de Transferência',
+  ribbonFontEastAsia: 'Fonte do leste asiático',
+  ribbonFontLatin: 'Fonte latina',
   ribbonFontFamilyTip: 'Fonte',
   ribbonFontsCommon: 'Fontes comuns',
   ribbonFontsSystem: 'Fontes do sistema',
@@ -102,7 +104,6 @@ export const pt = {
   ribbonThemeColorShadeTip: 'Cor do tema {r}-{c}',
   ribbonStandardColors: 'Cores Padrão',
   ribbonMoreColors: 'Mais Cores…',
-  ribbonGroupFont: 'Fonte',
   ribbonBullets: 'Marcadores',
   ribbonNumbering: 'Numeração',
   ribbonDecreaseIndent: 'Diminuir Recuo',

@@ -568,6 +568,37 @@ describe('checkForUpdatesNow (r148 manual check)', () => {
     expect(showUpdateWindow).not.toHaveBeenCalled()
   })
 
+  it('does not report up-to-date when the updater skips the check', async () => {
+    const { initAutoUpdater, checkForUpdatesNow } = await loadUpdater()
+    initAutoUpdater(() => null)
+    checkForUpdates.mockImplementation(() => Promise.resolve(null))
+    await checkForUpdatesNow()
+    expect(lastDialogOpts().type).toBe('warning')
+    expect(showUpdateWindow).not.toHaveBeenCalled()
+    expect(downloadUpdate).not.toHaveBeenCalled()
+  })
+
+  it('ignores duplicate clicks while checking and allows a retry afterwards', async () => {
+    const { initAutoUpdater, checkForUpdatesNow } = await loadUpdater()
+    initAutoUpdater(() => null)
+    let resolveCheck!: (value: null) => void
+    checkForUpdates.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveCheck = resolve
+        }),
+    )
+    const pending = checkForUpdatesNow()
+    await checkForUpdatesNow()
+    expect(checkForUpdates).toHaveBeenCalledTimes(1)
+    expect(showMessageBox).not.toHaveBeenCalled()
+    resolveCheck(null)
+    await pending
+    await checkForUpdatesNow()
+    expect(checkForUpdates).toHaveBeenCalledTimes(2)
+    expect(downloadUpdate).not.toHaveBeenCalled()
+  })
+
   it('re-offers a version the user dismissed with "later" this session', async () => {
     const { initAutoUpdater, checkForUpdatesNow } = await loadUpdater()
     initAutoUpdater(() => null)

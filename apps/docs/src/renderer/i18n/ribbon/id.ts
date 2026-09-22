@@ -74,6 +74,8 @@ export const id = {
   ribbonPainterActiveTip:
     'Penyalin Format aktif: pilih teks tujuan untuk menerapkannya (klik lagi untuk membatalkan)',
   ribbonGroupClipboard: 'Clipboard',
+  ribbonFontEastAsia: 'Font Asia Timur',
+  ribbonFontLatin: 'Font Latin',
   ribbonFontFamilyTip: 'Font',
   ribbonFontsCommon: 'Font umum',
   ribbonFontsSystem: 'Font sistem',
@@ -102,7 +104,6 @@ export const id = {
   ribbonThemeColorShadeTip: 'Warna tema {r}-{c}',
   ribbonStandardColors: 'Warna Standar',
   ribbonMoreColors: 'Warna Lainnya…',
-  ribbonGroupFont: 'Font',
   ribbonBullets: 'Poin',
   ribbonNumbering: 'Penomoran',
   ribbonDecreaseIndent: 'Kurangi Indentasi',

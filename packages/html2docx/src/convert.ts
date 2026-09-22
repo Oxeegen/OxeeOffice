@@ -24,11 +24,18 @@ export interface ConvertOptions {
 
 export interface ConvertResult {
   docx: Uint8Array
-  ir: any[]
+  ir: ValidatedIr[]
   /** Text that only survives as pixels (inside screenshots); lets evaluations
    *  tell "intentionally rasterized" from "actually lost". */
   screenshotText: string
   stats: { screenshots: number; rasterizedDocumentText: boolean }
+}
+
+/** Single validated top-level IR node produced by the in-page extractor. */
+export interface ValidatedIr {
+  type: string
+  shotId?: string
+  [key: string]: unknown
 }
 
 /** A4 at 96dpi so layout (line wraps, column gaps) matches print. */
@@ -37,8 +44,94 @@ const NAVIGATION_TIMEOUT_MS = 30000
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
+function createAbortError(): DOMException {
+  return new DOMException('html2docx conversion aborted', 'AbortError')
+}
+
 function throwIfAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) throw new DOMException('html2docx conversion aborted', 'AbortError')
+  if (signal?.aborted) throw createAbortError()
+}
+
+/**
+ * Validate raw page output before the converter touches it. Page JavaScript
+ * can be compromised or return an unexpected shape, so reject non-arrays,
+ * null items, and nodes without a string type instead of failing later
+ * with a confusing TypeError.
+ */
+export function normalizeIr(raw: unknown): ValidatedIr[] {
+  if (!Array.isArray(raw)) {
+    const received = raw === null ? 'null' : typeof raw
+    throw new Error(
+      `html2docx: extractor returned malformed IR (expected an array, got ${received}); ` +
+        `refusing to continue with compromised page JavaScript`,
+    )
+  }
+  return raw.map((item, index) => {
+    if (typeof item !== 'object' || item === null) {
+      throw new Error(
+        `html2docx: extractor returned malformed IR at index ${index} ` +
+          `(expected an object node); refusing to continue with compromised page JavaScript`,
+      )
+    }
+    const candidate = item as Record<string, unknown>
+    if (typeof candidate.type !== 'string' || candidate.type.length === 0) {
+      throw new Error(
+        `html2docx: extractor returned malformed IR at index ${index} ` +
+          `(missing string "type"); refusing to continue with compromised page JavaScript`,
+      )
+    }
+    if (
+      candidate.shotId !== undefined &&
+      candidate.shotId !== null &&
+      (typeof candidate.shotId !== 'string' || candidate.shotId.length === 0)
+    ) {
+      throw new Error(
+        `html2docx: extractor returned malformed IR at index ${index} ` +
+          `(invalid "shotId"); refusing to continue with compromised page JavaScript`,
+      )
+    }
+    // Numeric geometry flows from page JS into division (renderer scale =
+    // maxPx / node.width) and image dimensions. Reject NaN/Infinity/negative
+    // here so a hostile page cannot produce corrupt-geometry docx.
+    for (const key of ['width', 'height', 'widthFrac', 'heightPx', 'xPx', 'yPx'] as const) {
+      const v = candidate[key]
+      if (v !== undefined && v !== null) {
+        const n = Number(v)
+        const signed = key === 'xPx' || key === 'yPx'
+        if (!Number.isFinite(n) || (!signed && n < 0)) {
+          throw new Error(
+            `html2docx: extractor returned malformed IR at index ${index} ` +
+              `(invalid numeric "${key}"); refusing to continue with compromised page JavaScript`,
+          )
+        }
+      }
+    }
+    return item as ValidatedIr
+  })
+}
+
+/**
+ * Race a driver promise against an AbortSignal so aborting during a slow
+ * page wait (image decode with a long timeout) rejects immediately instead
+ * of hanging until the page-side timeout or finish event.
+ */
+export function raceWithAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise
+  if (signal.aborted) return Promise.reject(createAbortError())
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(createAbortError())
+    signal.addEventListener('abort', onAbort, { once: true })
+    promise.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort)
+        resolve(value)
+      },
+      (error) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(error)
+      },
+    )
+  })
 }
 
 export async function convertHtmlToDocx(
@@ -122,39 +215,44 @@ export async function convertHtmlToDocx(
 
   // Offscreen website images may remain deferred even without an explicit
   // loading="lazy" attribute. Visit the full page before screenshot-based
-  // extraction, then wait for every reachable image to decode.
-  await driver.evaluate(async () => {
-    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-    const originalY = window.scrollY
-    const htmlScrollBehavior = document.documentElement.style.scrollBehavior
-    const bodyScrollBehavior = document.body.style.scrollBehavior
-    document.documentElement.style.scrollBehavior = 'auto'
-    document.body.style.scrollBehavior = 'auto'
-    const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
-    const step = Math.max(400, Math.round(window.innerHeight * 0.75))
-    for (let y = 0; y <= maxY; y += step) {
-      window.scrollTo(0, y)
-      await wait(60)
-    }
-    window.scrollTo(0, maxY)
-    await wait(100)
-    const imageWaits = [...document.images].map((image) => {
-      if (image.complete && image.naturalWidth > 0) {
-        return image.decode?.().catch(() => {})
+  // extraction, then wait for every reachable image to decode. Race the
+  // page-side wait (which has a long per-image timeout) against the caller
+  // abort signal so aborting during load rejects immediately.
+  await raceWithAbort(
+    driver.evaluate(async () => {
+      const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+      const originalY = window.scrollY
+      const htmlScrollBehavior = document.documentElement.style.scrollBehavior
+      const bodyScrollBehavior = document.body.style.scrollBehavior
+      document.documentElement.style.scrollBehavior = 'auto'
+      document.body.style.scrollBehavior = 'auto'
+      const maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight)
+      const step = Math.max(400, Math.round(window.innerHeight * 0.75))
+      for (let y = 0; y <= maxY; y += step) {
+        window.scrollTo(0, y)
+        await wait(60)
       }
-      return new Promise<void>((resolve) => {
-        const finish = () => resolve()
-        image.addEventListener('load', finish, { once: true })
-        image.addEventListener('error', finish, { once: true })
-        setTimeout(finish, 15000)
+      window.scrollTo(0, maxY)
+      await wait(100)
+      const imageWaits = [...document.images].map((image) => {
+        if (image.complete && image.naturalWidth > 0) {
+          return image.decode?.().catch(() => {})
+        }
+        return new Promise<void>((resolve) => {
+          const finish = () => resolve()
+          image.addEventListener('load', finish, { once: true })
+          image.addEventListener('error', finish, { once: true })
+          setTimeout(finish, 15000)
+        })
       })
-    })
-    await Promise.all(imageWaits)
-    window.scrollTo(0, originalY)
-    await wait(100)
-    document.documentElement.style.scrollBehavior = htmlScrollBehavior
-    document.body.style.scrollBehavior = bodyScrollBehavior
-  })
+      await Promise.all(imageWaits)
+      window.scrollTo(0, originalY)
+      await wait(100)
+      document.documentElement.style.scrollBehavior = htmlScrollBehavior
+      document.body.style.scrollBehavior = bodyScrollBehavior
+    }),
+    signal,
+  )
   await sleep(200)
   throwIfAborted(signal)
   progress('load', 100)
@@ -207,7 +305,9 @@ export async function convertHtmlToDocx(
   }
   log('[html2docx] extracting intent tree')
   progress('extract', 0)
-  const ir = await driver.evaluate<any[]>(EXTRACTOR_CALL)
+  const rawIr = await driver.evaluate<unknown>(EXTRACTOR_CALL)
+  // Page JavaScript may be compromised, so validate the shape before use.
+  const ir = normalizeIr(rawIr)
   if (onIr) {
     const trace = await driver.evaluate<unknown[]>(() => (globalThis as any).__h2dTrace || [])
     onIr(ir, trace)
@@ -230,7 +330,7 @@ export async function convertHtmlToDocx(
   const shotIds: string[] = []
   const shotNodes = new Map<string, any>()
   const pageBgShotIds = new Set<string>(
-    ir.filter((node) => node.type === 'pagebg' && node.shotId).map((node) => node.shotId),
+    ir.flatMap((node) => (node.type === 'pagebg' && node.shotId ? [node.shotId] : [])),
   )
   const collectRunShots = (runs: any[] | undefined) => {
     for (const run of runs || []) {
@@ -427,40 +527,61 @@ export async function convertHtmlToDocx(
     } catch (e) {
       log(`[html2docx] screenshot ${id} failed: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
+      // Each restore runs independently so one failure cannot skip the
+      // remaining restores or leave the page mutated for the next shot.
       if (shotNode?.unwrap) {
-        await driver.evaluate((shotId: string) => {
-          const target = document.querySelector(`[data-h2d-id="${shotId}"]`)
-          if (!target) return
-          target.setAttribute('style', target.getAttribute('data-h2d-unwrap-style') || '')
-          target.removeAttribute('data-h2d-unwrap-style')
-        }, id)
+        try {
+          await driver.evaluate((shotId: string) => {
+            const target = document.querySelector(`[data-h2d-id="${shotId}"]`)
+            if (!target) return
+            target.setAttribute('style', target.getAttribute('data-h2d-unwrap-style') || '')
+            target.removeAttribute('data-h2d-unwrap-style')
+          }, id)
+        } catch (e) {
+          log(
+            `[html2docx] restore unwrap ${id} failed: ${e instanceof Error ? e.message : String(e)}`,
+          )
+        }
       }
       if (shotNode?.isolate) {
-        await driver.evaluate(() => {
-          for (const candidate of document.querySelectorAll<HTMLElement>(
-            '[data-h2d-isolate-visibility]',
-          )) {
-            candidate.style.visibility = candidate.getAttribute('data-h2d-isolate-visibility') || ''
-            candidate.removeAttribute('data-h2d-isolate-visibility')
-          }
-          for (const scrubbed of document.querySelectorAll('[data-h2d-isolate-bg]')) {
-            scrubbed.setAttribute('style', scrubbed.getAttribute('data-h2d-isolate-bg') || '')
-            scrubbed.removeAttribute('data-h2d-isolate-bg')
-          }
-        })
+        try {
+          await driver.evaluate(() => {
+            for (const candidate of document.querySelectorAll<HTMLElement>(
+              '[data-h2d-isolate-visibility]',
+            )) {
+              candidate.style.visibility =
+                candidate.getAttribute('data-h2d-isolate-visibility') || ''
+              candidate.removeAttribute('data-h2d-isolate-visibility')
+            }
+            for (const scrubbed of document.querySelectorAll('[data-h2d-isolate-bg]')) {
+              scrubbed.setAttribute('style', scrubbed.getAttribute('data-h2d-isolate-bg') || '')
+              scrubbed.removeAttribute('data-h2d-isolate-bg')
+            }
+          })
+        } catch (e) {
+          log(
+            `[html2docx] restore isolate ${id} failed: ${e instanceof Error ? e.message : String(e)}`,
+          )
+        }
       }
       if (pageBgShotIds.has(id)) {
-        await driver.evaluate((shotId: string) => {
-          const backdrop = document.querySelector(`[data-h2d-id="${shotId}"]`)
-          if (backdrop) {
-            backdrop.setAttribute('style', backdrop.getAttribute('data-h2d-old-style') || '')
-            backdrop.removeAttribute('data-h2d-old-style')
-          }
-          for (const child of document.body.children as HTMLCollectionOf<HTMLElement>) {
-            child.style.visibility = child.getAttribute('data-h2d-old-visibility') || ''
-            child.removeAttribute('data-h2d-old-visibility')
-          }
-        }, id)
+        try {
+          await driver.evaluate((shotId: string) => {
+            const backdrop = document.querySelector(`[data-h2d-id="${shotId}"]`)
+            if (backdrop) {
+              backdrop.setAttribute('style', backdrop.getAttribute('data-h2d-old-style') || '')
+              backdrop.removeAttribute('data-h2d-old-style')
+            }
+            for (const child of document.body.children as HTMLCollectionOf<HTMLElement>) {
+              child.style.visibility = child.getAttribute('data-h2d-old-visibility') || ''
+              child.removeAttribute('data-h2d-old-visibility')
+            }
+          }, id)
+        } catch (e) {
+          log(
+            `[html2docx] restore pagebg ${id} failed: ${e instanceof Error ? e.message : String(e)}`,
+          )
+        }
       }
     }
   }

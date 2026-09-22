@@ -10,6 +10,10 @@ import { MINIMAL_STYLESHEET_XML } from './xlsx-default-styles'
 
 const DELIMITERS = [',', ';', '\t'] as const
 
+/** Excel's sheet bounds; anything past them cannot land in a workbook anyway. */
+export const MAX_CSV_ROWS = 1_048_576
+export const MAX_CSV_COLS = 16_384
+
 // Excel writes CSV in the system's legacy charset, not UTF-8 (GBK on Chinese
 // Windows, Shift_JIS on Japanese), so decoding everything as UTF-8 turns every
 // non-ASCII cell into replacement characters.
@@ -158,8 +162,21 @@ export function parseCsv(input: string, delimiter = sniffDelimiter(input)): stri
   const stripped = splitSepDeclaration(input).text
   const text = stripped.startsWith('﻿') ? stripped.slice(1) : stripped
   const rows: string[][] = []
+  const fail = (msg: string): never => {
+    throw new Error(`CSV import rejected: ${msg}`)
+  }
   let row: string[] = []
   let field = ''
+  const pushField = (): void => {
+    row.push(field)
+    if (row.length > MAX_CSV_COLS) fail(`too many columns (cap ${MAX_CSV_COLS})`)
+    field = ''
+  }
+  const pushRow = (): void => {
+    rows.push(row)
+    if (rows.length > MAX_CSV_ROWS) fail(`too many rows (cap ${MAX_CSV_ROWS})`)
+    row = []
+  }
   let quoted = false
   for (let index = 0; index < text.length; index += 1) {
     const character = text[index]
@@ -179,21 +196,18 @@ export function parseCsv(input: string, delimiter = sniffDelimiter(input)): stri
     if (character === '"' && field === '') {
       quoted = true
     } else if (character === delimiter) {
-      row.push(field)
-      field = ''
+      pushField()
     } else if (character === '\n' || character === '\r') {
       if (character === '\r' && text[index + 1] === '\n') index += 1
-      row.push(field)
-      rows.push(row)
-      row = []
-      field = ''
+      pushField()
+      pushRow()
     } else {
       field += character
     }
   }
   if (field !== '' || row.length > 0) {
-    row.push(field)
-    rows.push(row)
+    pushField()
+    pushRow()
   }
   // A trailing newline produces one empty row — drop it.
   while (rows.length > 0 && rows[rows.length - 1]?.every((cell) => cell === '')) rows.pop()

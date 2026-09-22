@@ -75,6 +75,8 @@ export const it = {
   ribbonPainterActiveTip:
     'Copia formato attivo: seleziona il testo di destinazione per applicare (fai clic di nuovo per annullare)',
   ribbonGroupClipboard: 'Appunti',
+  ribbonFontEastAsia: 'Carattere asiatico orientale',
+  ribbonFontLatin: 'Carattere latino',
   ribbonFontFamilyTip: 'Tipo di carattere',
   ribbonFontsCommon: 'Caratteri comuni',
   ribbonFontsSystem: 'Caratteri di sistema',
@@ -103,7 +105,6 @@ export const it = {
   ribbonThemeColorShadeTip: 'Colore tema {r}-{c}',
   ribbonStandardColors: 'Colori standard',
   ribbonMoreColors: 'Altri colori…',
-  ribbonGroupFont: 'Carattere',
   ribbonBullets: 'Elenchi puntati',
   ribbonNumbering: 'Elenchi numerati',
   ribbonDecreaseIndent: 'Riduci rientro',

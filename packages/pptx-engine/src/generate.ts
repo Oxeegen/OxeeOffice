@@ -293,11 +293,13 @@ function findRunSpans(xml: string): Span[] {
   return spans
 }
 
-/** Points → ST_TextFontSize hundredths, clamped to the schema range (1pt..4000pt). */
+/** Points → ST_TextFontSize hundredths, clamped to the schema range (1pt..4000pt).
+ *  Non-finite inputs land on the lower bound (Math.max/min propagate NaN). */
 const MIN_FONT_SIZE_PT = 1
 const MAX_FONT_SIZE_PT = 4000
-function szAttr(pt: number): string {
-  return String(Math.round(Math.min(MAX_FONT_SIZE_PT, Math.max(MIN_FONT_SIZE_PT, pt)) * 100))
+export function szAttr(pt: number): string {
+  const safe = Number.isFinite(pt) ? pt : MIN_FONT_SIZE_PT
+  return String(Math.round(Math.min(MAX_FONT_SIZE_PT, Math.max(MIN_FONT_SIZE_PT, safe)) * 100))
 }
 
 /** Integer attribute value inside a schema range; NaN/Infinity land on the lower bound. */

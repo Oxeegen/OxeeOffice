@@ -1541,6 +1541,21 @@ export function setSheetsShellWindow(win: BrowserWindow | null): void {
   sheetsShellWindow = win
 }
 
+/** the window hosting a tab's WebContentsView when BrowserWindow.fromWebContents
+ *  cannot tell (detached "Open in New Window" editors) */
+let hostWindowHook: ((wc: WebContents) => BrowserWindow | undefined) | null = null
+export function setSheetsHostWindowHook(
+  fn: ((wc: WebContents) => BrowserWindow | undefined) | null,
+): void {
+  hostWindowHook = fn
+}
+
+function hostWindowFor(wc: WebContents): BrowserWindow | undefined {
+  const own = hostWindowHook?.(wc) ?? BrowserWindow.fromWebContents(wc)
+  if (own && !own.isDestroyed()) return own
+  return sheetsShellWindow && !sheetsShellWindow.isDestroyed() ? sheetsShellWindow : undefined
+}
+
 interface SheetsTabSession {
   readonly webContents: WebContents
   readonly client: XlsxSidecarClient
@@ -1555,6 +1570,8 @@ interface SheetsTabSession {
  * tab (or a closed-then-reopened tab) registered and overwrote the previous closure. */
 /// Same ceiling as local add_image (readLocalImage's 20MB check)
 const MAX_REMOTE_IMAGE_BYTES = 20 * 1024 * 1024
+/** Max CSV bytes converted on open: prevents 500MB CSV OOMing main before sidecar limits. */
+const MAX_CSV_IMPORT_BYTES = 32 * 1024 * 1024
 
 const sheetsTabs = new Map<number, SheetsTabSession>()
 let activeSheetsWebContents: WebContents | null = null
@@ -1585,7 +1602,7 @@ function resolveTransferredEdits(
 }
 
 function dialogParent(event: IpcMainInvokeEvent): BrowserWindow | undefined {
-  return sheetsShellWindow ?? BrowserWindow.fromWebContents(event.sender) ?? undefined
+  return hostWindowFor(event.sender)
 }
 
 async function openFileDialog(event: IpcMainInvokeEvent, options: OpenDialogOptions) {
@@ -2677,9 +2694,7 @@ export function registerSheetsIpc(): void {
     ) {
       return screenSourcesResultSchema.parse({ status: 'denied', sources: [] })
     }
-    // In tab mode the sheets renderer is a WebContentsView, so fromWebContents
-    // on the sender is null; the shell window is the one to exclude.
-    const selfWindow = sheetsShellWindow ?? BrowserWindow.fromWebContents(event.sender)
+    const selfWindow = hostWindowFor(event.sender)
     const selfId = selfWindow?.getMediaSourceId()
     return screenSourcesResultSchema.parse({
       status: 'ok',
@@ -3518,6 +3533,16 @@ export function registerProjectIpc(): void {
         scope?: { label: string; text?: string }
       },
     ) => {
+      if (args.role !== 'user' && args.role !== 'assistant') {
+        throw new Error(`Invalid chat role: ${String(args.role)}`)
+      }
+      if (typeof args.text !== 'string' || args.text.length > 200_000) {
+        throw new Error('Invalid chat text: must be a string up to 200000 chars')
+      }
+      if (args.tools && !Array.isArray(args.tools)) throw new Error('Invalid chat tools')
+      if (args.attachments && !Array.isArray(args.attachments)) {
+        throw new Error('Invalid chat attachments')
+      }
       const msg: Parameters<ProjectStore['appendChatMessage']>[2] = {
         role: args.role,
         text: args.text,
@@ -3980,6 +4005,8 @@ async function prepareWorkbookForOpen(
   const openPath = join(directory, `${stem}.xlsx`)
   try {
     if (extension === 'csv') {
+      const csvStat = await stat(path)
+      if (csvStat.size > MAX_CSV_IMPORT_BYTES) throw new Error(tm('errFileTooLarge'))
       await writeFile(
         openPath,
         await csvToXlsxBuffer(decodeCsvBuffer(await readFile(path), legacyCsvCharset())),
