@@ -62,6 +62,11 @@ function bringToFront(win: BrowserWindow): void {
 const DEFAULT_SIZE: Record<string, { width: number; height: number }> = {
   docs: { width: 1360, height: 900 },
   sheets: { width: 1440, height: 900 },
+  // OxeeOffice brand hook: the editors upstream did not detach yet
+  slides: { width: 1440, height: 900 },
+  pdf: { width: 1200, height: 940 },
+  markdown: { width: 1200, height: 900 },
+  html: { width: 1360, height: 900 },
 }
 
 export function isDetachedEditorWindow(win: BrowserWindow): boolean {

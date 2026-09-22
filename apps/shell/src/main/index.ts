@@ -4197,7 +4197,8 @@ function registerTabsIpc(): void {
   ipcMain.handle(TABS_CHANNELS.detach, (_event, id: unknown) => {
     if (typeof id !== 'string') return
     const tab = tabManager?.list().find((t) => t.id === id)
-    if (tab && (tab.kind === 'docs' || tab.kind === 'sheets')) detachTabToWindow(id)
+    // OxeeOffice brand hook: every editor detaches, not just docs and sheets
+    if (tab && tab.kind !== 'home') detachTabToWindow(id)
   })
   // per-tab context menu — native for the same reason as the tab list above
   ipcMain.handle(TABS_CHANNELS.showTabMenu, (_event, id: unknown, x: unknown, y: unknown) => {
@@ -4205,9 +4206,8 @@ function registerTabsIpc(): void {
     const tab = tabManager.list().find((t) => t.id === id)
     if (!tab || tab.kind === 'home') return
     const template: MenuItemConstructorOptions[] = []
-    // MVP: docs + sheets; the other editors follow once their
-    // detached-window quirks (slides fullscreen bleed, pdf) are covered
-    if (tab.kind === 'docs' || tab.kind === 'sheets') {
+    // OxeeOffice brand hook: every editor detaches, not just docs and sheets
+    {
       template.push({
         label: tm('menuOpenInNewWindow'),
         click: () => detachTabToWindow(id),

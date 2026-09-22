@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactElement } from 'react'
 import type { TabsApi, TabSummary } from '../../shared/tabs-api'
 import { useI18n } from './locale'
+// OxeeOffice brand hook: drag a tab out of the strip to detach it
+import { isTearOff } from './oxee-tab-tearoff'
 
 declare global {
   interface Window {
@@ -143,6 +145,10 @@ export function TabBar() {
     widths: number[]
     target: number
     started: boolean
+    /** OxeeOffice brand hook: pointer-down y, and whether the drag reads as a tear-off */
+    startY: number
+    kind: string
+    tearOff: boolean
   }
   const dragRef = useRef<DragInfo | null>(null)
   const [dragVisual, setDragVisual] = useState<{
@@ -151,6 +157,8 @@ export function TabBar() {
     from: number
     target: number
     width: number
+    /** OxeeOffice brand hook */
+    tearOff?: boolean
   } | null>(null)
 
   const finishDrag = (pointerId: number, commit: boolean) => {
@@ -166,6 +174,11 @@ export function TabBar() {
       return
     }
     setDragVisual(null)
+    // OxeeOffice brand hook: released below the strip → its own window
+    if (commit && drag.tearOff) {
+      void window.aiOfficeTabs.detach(drag.id)
+      return
+    }
     if (commit && drag.target !== drag.from) {
       // optimistic local reorder so clearing the transforms causes no flash;
       // the main-process broadcast arrives with the identical order
@@ -274,7 +287,7 @@ export function TabBar() {
           return (
             <div
               key={tab.id}
-              className={`tab-item ${tab.kind === 'home' ? 'tab-home' : ''} ${tab.active ? 'active' : ''} ${dragVisual?.id === tab.id ? 'drag-source' : ''}`}
+              className={`tab-item ${tab.kind === 'home' ? 'tab-home' : ''} ${tab.active ? 'active' : ''} ${dragVisual?.id === tab.id ? 'drag-source' : ''} ${dragVisual?.id === tab.id && dragVisual.tearOff ? 'oxee-tear-off' : ''}`}
               // long file names ellipsize in the strip — hover reveals the
               // full title (the close button's own tooltip still wins there)
               title={tab.title}
@@ -305,6 +318,10 @@ export function TabBar() {
                   id: tab.id,
                   from: index,
                   startX: event.clientX,
+                  // OxeeOffice brand hook: tear-off geometry
+                  startY: event.clientY,
+                  kind: tab.kind,
+                  tearOff: false,
                   lefts: rects.map((r) => r.left),
                   widths: rects.map((r) => r.width),
                   target: index,
@@ -332,6 +349,9 @@ export function TabBar() {
                   }
                   drag.started = true
                 }
+                // OxeeOffice brand hook: far enough below the strip tears the
+                // tab out; coming back up returns it to reordering
+                drag.tearOff = isTearOff(event.clientY - drag.startY, drag.kind)
                 // keep the tab inside the strip; slot 0 (Home) is off limits
                 const last = drag.lefts.length - 1
                 const minDx = drag.lefts[1] - drag.lefts[drag.from]
@@ -366,6 +386,7 @@ export function TabBar() {
                   from: drag.from,
                   target,
                   width: drag.widths[drag.from],
+                  tearOff: drag.tearOff, // OxeeOffice brand hook
                 })
               }}
               onPointerUp={(event) => finishDrag(event.pointerId, true)}

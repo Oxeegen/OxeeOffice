@@ -79,6 +79,26 @@ const HOOKS = [
     ],
   },
   {
+    file: 'apps/shell/src/main/index.ts',
+    why: 'every editor tab can be detached, not just docs and sheets',
+    must: ["if (tab && tab.kind !== 'home') detachTabToWindow(id)"],
+  },
+  {
+    file: 'apps/shell/src/main/detached-windows.ts',
+    why: 'detached-window sizes for the editors upstream did not detach',
+    must: ['slides: { width: 1440, height: 900 }', 'pdf: { width: 1200, height: 940 }'],
+  },
+  {
+    file: 'apps/shell/src/renderer/src/TabBar.tsx',
+    why: 'drag a tab below the strip to detach it',
+    must: [
+      "import { isTearOff } from './oxee-tab-tearoff'",
+      'drag.tearOff = isTearOff(event.clientY - drag.startY, drag.kind)',
+      'void window.aiOfficeTabs.detach(drag.id)',
+      'oxee-tear-off',
+    ],
+  },
+  {
     file: 'packages/agent-core/src/types.ts',
     why: 'compaction request tagged for worker-model routing',
     must: ["purpose?: 'compaction'"],
@@ -146,7 +166,7 @@ const HOOKS = [
   {
     file: 'packages/ai-provider/src/search-settings.ts',
     why: 'Oxeegen (Brave) search entry and defaults',
-    must: ['= withOxeegenSearch([', 'return withOxeegenSearchDefaults({', "['serper', 'tavily', 'oxeegen']"],
+    must: ['= withOxeegenSearch([', 'return withOxeegenSearchDefaults({', "['serper', 'tavily', 'parallel', 'oxeegen']"],
   },
   {
     file: 'packages/ai-provider/src/index.ts',
@@ -161,7 +181,7 @@ const HOOKS = [
   {
     file: 'packages/ai-search/src/index.ts',
     why: 'Brave runs first for the Oxeegen search entry',
-    must: ["braveKey: o.braveKey ?? ''", 'await braveWebSearch(o.braveKey, query, maxResults)', 'await braveImageSearch(o.braveKey, query, maxResults)'],
+    must: ["braveKey: o.braveKey ?? ''", 'await braveWebSearch(o.braveKey, q, max)', 'await braveImageSearch(o.braveKey, q, max)'],
   },
   {
     file: 'packages/ai-search/src/search-tools.ts',
@@ -181,7 +201,7 @@ const HOOKS = [
   {
     file: 'apps/shell/src/renderer/src/SettingsModal.tsx',
     why: 'no Account page, region buttons, no cloud-tools switch, Brave hint',
-    must: ["initialSettingsSection('account')", 'visibleSettingsSections(SECTIONS)', 'id="set-ai-region"', 'id={`set-ai-${cap}-region`}', '{!oxeegenLayerEnabled() && (', '? OXEEGEN_SEARCH_HINT', '? OXEEGEN_CHAT_HINT', "{provider !== 'oxeegen' && ("],
+    must: ["initialSettingsSection(target?.section ?? 'account')", 'visibleSettingsSections(SECTIONS)', 'id="set-ai-region"', 'id={`set-ai-${cap}-region`}', '{!oxeegenLayerEnabled() && (', '? OXEEGEN_SEARCH_HINT', '? OXEEGEN_CHAT_HINT', "{provider !== 'oxeegen' && ("],
   },
   {
     file: 'apps/shell/src/renderer/src/Onboarding.tsx',
@@ -298,6 +318,8 @@ const FORK_FILES = [
   'packages/agent-core/tests/oxee-compaction-purpose.test.ts',
   'apps/slides/tests/oxee-page-concurrency.test.ts',
   'apps/slides/src/renderer/ai/oxee-deck-references.ts',
+  'apps/shell/src/renderer/src/oxee-tab-tearoff.ts',
+  'apps/shell/tests/oxee-tab-tearoff.test.ts',
   'packages/ai-search/src/brave.ts',
   'packages/ai-search/tests/oxeegen-search.test.ts',
   'apps/shell/src/renderer/src/oxeegen-settings.tsx',
