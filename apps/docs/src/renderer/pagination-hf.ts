@@ -114,9 +114,21 @@ const ROMAN: Array<[number, string]> = [
   [1, 'I'],
 ]
 
+/** Page numbers arrive from the file (w:pgNumType w:start) and AI setups: a
+ *  non-finite or huge value must not hang toRoman/toLetters or OOM toGreek's
+ *  repeat(). Bound to a million pages (far beyond real documents). */
+const MAX_PAGE_NUMBER = 1_000_000
+
+function boundedPageNumber(n: number): number {
+  if (!Number.isFinite(n)) return 1
+  const floored = Math.floor(n)
+  if (floored < 1) return 1
+  return Math.min(floored, MAX_PAGE_NUMBER)
+}
+
 function toRoman(n: number): string {
   let out = ''
-  let rest = Math.max(1, Math.floor(n))
+  let rest = boundedPageNumber(n)
   for (const [v, s] of ROMAN) {
     while (rest >= v) {
       out += s
@@ -129,7 +141,7 @@ function toRoman(n: number): string {
 /** 1→A ... 26→Z, 27→AA (Word letter numbering) */
 function toLetters(n: number): string {
   let out = ''
-  let rest = Math.max(1, Math.floor(n))
+  let rest = boundedPageNumber(n)
   while (rest > 0) {
     rest -= 1
     out = String.fromCharCode(65 + (rest % 26)) + out
@@ -139,10 +151,11 @@ function toLetters(n: number): string {
 }
 
 function toGreek(n: number, base: number): string {
-  if (n < 1) return String(n)
+  const bounded = boundedPageNumber(n)
+  if (bounded < 1) return String(bounded)
   // 24-letter alphabet (no final sigma); 25 -> αα, skip the ς slot from the 18th letter on
-  const idx = ((n - 1) % 24) + 1
-  const repeat = Math.floor((n - 1) / 24) + 1
+  const idx = ((bounded - 1) % 24) + 1
+  const repeat = Math.floor((bounded - 1) / 24) + 1
   return String.fromCharCode(base + idx - 1 + (idx >= 18 ? 1 : 0)).repeat(repeat)
 }
 

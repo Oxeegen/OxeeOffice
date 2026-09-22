@@ -1317,7 +1317,15 @@ function summarize(results: OpResult[]): string {
   const total = results.reduce((sum, r) => sum + r.changed, 0)
   if (total === 0) {
     const skipped = results.reduce((sum, r) => sum + r.skippedProtected, 0)
-    return skipped > 0 ? t('aiCmdNoneSkipped', { count: skipped }) : t('aiCmdNone')
+    if (skipped > 0) return t('aiCmdNoneSkipped', { count: skipped })
+    // blocks were found but needed no edit: say so, or the model retries other selectors.
+    // deleteBlocks is the only op whose `matched` includes its tracked-deleted targets;
+    // elsewhere skippedDeleted counts hits already left out of `matched`, hence the clamp.
+    const unchanged = results.reduce(
+      (sum, r) => sum + Math.max(0, r.matched - (r.skippedDeleted ?? 0)),
+      0,
+    )
+    return unchanged > 0 ? t('aiCmdNoneUnchanged', { count: unchanged }) : t('aiCmdNone')
   }
   const parts = results.map((r) => {
     let part: string

@@ -453,6 +453,21 @@ describe('savePdfToPath', () => {
     expect(readdirSync(dir)).toEqual(['doc.pdf'])
   })
 
+  it('skips markups with non-finite colors or quads instead of corrupting the file', async () => {
+    const nanColor = { ...highlight, color: [NaN, 0, 0] as [number, number, number] }
+    const outOfRange = { ...highlight, color: [2, 0, 0] as [number, number, number] }
+    const nanQuads = { ...highlight, quads: [[10, NaN, 60, 100, 10, 88, 60, 88]] }
+    const emptyQuads = { ...highlight, quads: [] as number[][] }
+    const out = await PDFDocument.load(
+      await apply(
+        await makePdf([[612, 792]]),
+        request({ markups: [highlight, nanColor, outOfRange, nanQuads, emptyQuads] }),
+      ),
+    )
+    // only the valid highlight survives; the output still re-opens cleanly
+    expect(pageAnnots(out, 0).map(subtypeOf)).toEqual(['Highlight'])
+  })
+
   it('a failed save leaves the source and target untouched and cleans up temp files', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'gen-pdf-'))
     const src = join(dir, 'original.pdf')

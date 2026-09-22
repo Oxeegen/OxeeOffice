@@ -134,6 +134,7 @@ export const ms = {
   aiClarifyOther: 'Lain-lain (taip sendiri)',
   aiClarifySkip: 'Langkau tinjauan',
   aiClarifyNext: 'Seterusnya',
+  aiClarifyPrev: 'Sebelumnya',
   aiClarifySubmit: 'Jana',
   aiSumReadAttachment: 'Baca lampiran',
   aiSumReadAttachmentName: 'Baca lampiran {name}',

@@ -62,6 +62,7 @@ export const he = {
   aiClarifyDecideAnswer: '(החלט בשבילי)',
   aiClarifyMulti: 'בחירה מרובה',
   aiClarifyNext: 'הבא',
+  aiClarifyPrev: 'הקודם',
   aiClarifyOther: 'אחר (הקלד)',
   aiClarifySelected: 'נבחרו {n}',
   aiClarifySkip: 'דלג על השאלון',

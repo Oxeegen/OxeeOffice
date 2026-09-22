@@ -32,7 +32,17 @@ function compareScalars(a: CellScalar, b: CellScalar): number {
   const rankA = rank(a)
   const rankB = rank(b)
   if (rankA !== rankB) return rankA - rankB
-  if (typeof a === 'number' && typeof b === 'number') return a - b
+  // A subtraction comparator returns NaN for NaN/Infinity-Infinity inputs,
+  // which makes Array.sort nondeterministic. Order non-finite numbers
+  // (error values) after finite ones instead.
+  if (typeof a === 'number' && typeof b === 'number') {
+    const aFinite = Number.isFinite(a)
+    const bFinite = Number.isFinite(b)
+    if (aFinite && bFinite) return a < b ? -1 : a > b ? 1 : 0
+    if (aFinite) return -1
+    if (bFinite) return 1
+    return 0
+  }
   if (typeof a === 'boolean' && typeof b === 'boolean') return Number(a) - Number(b)
   return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' })
 }

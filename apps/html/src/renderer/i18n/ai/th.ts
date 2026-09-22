@@ -64,6 +64,7 @@ export const th = {
   aiClarifyDecideAnswer: '(ตัดสินใจให้ฉัน)',
   aiClarifyMulti: 'เลือกได้หลายข้อ',
   aiClarifyNext: 'ถัดไป',
+  aiClarifyPrev: 'ก่อนหน้า',
   aiClarifyOther: 'อื่น ๆ (พิมพ์เอง)',
   aiClarifySelected: 'เลือกแล้ว {n}',
   aiClarifySkip: 'ข้ามแบบสอบถาม',

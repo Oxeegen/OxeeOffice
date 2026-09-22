@@ -64,6 +64,7 @@ export const ar = {
   aiClarifyDecideAnswer: '(قرِّر بالنيابة عني)',
   aiClarifyMulti: 'اختيار متعدد',
   aiClarifyNext: 'التالي',
+  aiClarifyPrev: 'السابق',
   aiClarifyOther: 'أخرى (يمكن الكتابة)',
   aiClarifySelected: 'تم تحديد {n}',
   aiClarifySkip: 'تخطي الاستبيان',

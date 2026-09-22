@@ -2,8 +2,8 @@
  * ai:web-search / ai:image-search for the editors' main processes: reads
  * ai-settings.json live and turns the search provider choice into
  * SearchOptions — Genspark keeps the historic chain (gsk when signed in and
- * cloud tools are on, then env keys, then DuckDuckGo); a user Serper / Tavily
- * key runs first and skips gsk.
+ * cloud tools are on, then env keys, then DuckDuckGo); a selected custom provider
+ * runs first and skips gsk. Parallel uses its free MCP when no key is saved.
  */
 
 import {
@@ -22,7 +22,8 @@ export function searchOptionsFromSettings(settings: AiSettings): SearchOptions {
   if (provider === 'oxeegen') {
     return { useGsk: false, braveKey: settings.search!.providers.oxeegen?.apiKey ?? '' }
   }
-  const key = settings.search!.providers[provider].apiKey
+  const key = settings.search!.providers?.[provider]?.apiKey?.trim() ?? ''
+  if (provider === 'parallel') return { useGsk: false, parallelKey: key, prefer: 'parallel' }
   return provider === 'tavily'
     ? { useGsk: false, tavilyKey: key, prefer: 'tavily' }
     : { useGsk: false, serperKey: key }
@@ -36,20 +37,25 @@ export function imageSearchTool(settingsPath: string, query: string, maxResults 
   return imageSearch(query, maxResults, searchOptionsFromSettings(readAiSettingsFile(settingsPath)))
 }
 
-/** settings-UI test: one minimal query against the given key must be answered by that backend */
+/** settings-UI test: the selected backend (keyed or free) must answer one minimal query. */
 export async function testSearchProvider(
   provider: AiSearchProviderId,
   apiKey: string,
 ): Promise<{ ok: boolean; error?: string }> {
   if (provider === 'genspark') return { ok: true }
-  if (!apiKey) return { ok: false, error: 'API key is empty' }
+  apiKey = apiKey.trim()
+  if (!apiKey && provider !== 'parallel') return { ok: false, error: 'API key is empty' }
   const options: SearchOptions =
     // OxeeOffice brand hook: the Oxeegen entry is tested against Brave
     provider === 'oxeegen'
-      ? { useGsk: false, braveKey: apiKey, serperKey: '', tavilyKey: '' }
-      : provider === 'tavily'
-      ? { useGsk: false, tavilyKey: apiKey, serperKey: '', prefer: 'tavily' }
-      : { useGsk: false, serperKey: apiKey, tavilyKey: '' }
+      ? { useGsk: false, braveKey: apiKey, serperKey: '', tavilyKey: '', parallelKey: '' }
+      : {
+          useGsk: false,
+          serperKey: provider === 'serper' ? apiKey : '',
+          tavilyKey: provider === 'tavily' ? apiKey : '',
+          parallelKey: provider === 'parallel' ? apiKey : '',
+          prefer: provider,
+        }
   const r = await webSearch('GenOffice', 1, options)
   if (r.method === provider || (provider === 'oxeegen' && r.method === 'brave')) return { ok: true }
   return {
@@ -57,6 +63,6 @@ export async function testSearchProvider(
     error:
       r.method === 'error'
         ? (r.error ?? 'search failed')
-        : `${provider} did not answer (key rejected or quota exhausted); fell back to ${r.method}`,
+        : `${provider} did not answer (service unavailable, key rejected or quota exhausted); fell back to ${r.method}`,
   }
 }

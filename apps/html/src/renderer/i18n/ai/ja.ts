@@ -64,6 +64,7 @@ export const ja = {
   aiClarifyDecideAnswer: '（おまかせ）',
   aiClarifyMulti: '複数選択',
   aiClarifyNext: '次へ',
+  aiClarifyPrev: '前へ',
   aiClarifyOther: 'その他（自由記入）',
   aiClarifySelected: '{n} 件選択',
   aiClarifySkip: 'アンケートをスキップ',

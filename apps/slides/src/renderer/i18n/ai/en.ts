@@ -134,6 +134,7 @@ export const en = {
   aiClarifyOther: 'Other (type in)',
   aiClarifySkip: 'Skip survey',
   aiClarifyNext: 'Next',
+  aiClarifyPrev: 'Previous',
   aiClarifySubmit: 'Generate',
   aiSumReadAttachment: 'Read attachment',
   aiSumReadAttachmentName: 'Read attachment {name}',

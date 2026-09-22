@@ -200,33 +200,37 @@ export function decodeMhtToHtml(bytes: Uint8Array): string | null {
   if (!htmlPart) return null
   const htmlBytes = decodeTransfer(htmlPart)
   const charset = headerParam(htmlPart.headers.get('content-type'), 'charset')
-  let html = charset ? decodeWithCharset(htmlBytes, charset) : decodeHtmlBytes(htmlBytes)
+  const html = charset ? decodeWithCharset(htmlBytes, charset) : decodeHtmlBytes(htmlBytes)
   const baseLocation = htmlPart.headers.get('content-location') ?? ''
+  // one map + one pass over the html: per-part regexes made this parts x html
+  const inline = new Map<string, string>()
   for (const part of parts) {
     if (part === htmlPart) continue
     const ct = (part.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
     if (!ct.startsWith('image/')) continue
     const dataUrl = `data:${ct};base64,${btoa(latin1(decodeTransfer(part)))}`
-    const refs = new Set<string>()
     const location = part.headers.get('content-location')
     if (location) {
-      refs.add(location)
+      inline.set(location.toLowerCase(), dataUrl)
       if (baseLocation) {
         const base = baseLocation.replace(/[^/]*$/, '')
-        if (location.startsWith(base)) refs.add(location.slice(base.length))
+        if (location.startsWith(base))
+          inline.set(location.slice(base.length).toLowerCase(), dataUrl)
       }
     }
     const cid = part.headers.get('content-id')?.replace(/^<|>$/g, '')
-    if (cid) refs.add(`cid:${cid}`)
-    for (const ref of refs) {
-      const escaped = ref.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-      html = html.replace(
-        new RegExp(`(src|href)\\s*=\\s*(["']?)${escaped}\\2`, 'gi'),
-        (_m, attr: string, q: string) => `${attr}=${q || '"'}${dataUrl}${q || '"'}`,
-      )
-    }
+    if (cid) inline.set(`cid:${cid}`.toLowerCase(), dataUrl)
   }
-  return html
+  if (inline.size === 0) return html
+  return html.replace(
+    /\b(src|href)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi,
+    (m, attr: string, dq?: string, sq?: string, uq?: string) => {
+      const dataUrl = inline.get((dq ?? sq ?? uq ?? '').toLowerCase())
+      if (!dataUrl) return m
+      const q = sq !== undefined ? "'" : '"'
+      return `${attr}=${q}${dataUrl}${q}`
+    },
+  )
 }
 
 export function altChunkPartPath(rels: Map<string, RelInfo>, rId: string): string | null {

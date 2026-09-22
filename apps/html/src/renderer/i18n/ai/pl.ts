@@ -64,6 +64,7 @@ export const pl = {
   aiClarifyDecideAnswer: '(zdecyduj za mnie)',
   aiClarifyMulti: 'Wielokrotny wybór',
   aiClarifyNext: 'Dalej',
+  aiClarifyPrev: 'Wstecz',
   aiClarifyOther: 'Inne (wpisz)',
   aiClarifySelected: 'wybrano: {n}',
   aiClarifySkip: 'Pomiń ankietę',

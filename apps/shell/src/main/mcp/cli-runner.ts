@@ -77,10 +77,17 @@ function parseJson(stdout: string): CliJsonOk | CliJsonError | undefined {
   }
 }
 
+/** Child output budget: past this the buffers are truncated and the child killed. */
+export const MAX_CLI_OUTPUT_BYTES = 64 * 1024 * 1024
+
 export function createCliRunner(paths: CliRunnerPaths): CliRunner {
   return {
     run(args, options = {}) {
-      const timeoutMs = options.timeoutMs ?? 120_000
+      // timeoutMs arrives from tool callers: a NaN/Infinity value would break
+      // the watchdog (NaN fires immediately, Infinity never), so normalize it.
+      const timeoutMs = Number.isFinite(options.timeoutMs)
+        ? Math.min(Math.max(1000, Math.floor(options.timeoutMs as number)), 600_000)
+        : 120_000
       return new Promise<CliRunOutcome>((resolve) => {
         const child = spawn(paths.executable, [paths.entry, ...args, '--json'], {
           env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', ...paths.env },
@@ -89,18 +96,32 @@ export function createCliRunner(paths: CliRunnerPaths): CliRunner {
         let stdout = ''
         let stderr = ''
         let settled = false
+        let truncated = false
         const finish = (outcome: CliRunOutcome): void => {
           if (settled) return
           settled = true
           clearTimeout(timer)
           resolve(outcome)
         }
+        // Unbounded child output would OOM the shell main process: cap the
+        // buffers and kill the child past the budget.
+        const onChunk = (chunk: Buffer, stream: 'out' | 'err'): void => {
+          if (stream === 'out') stdout += chunk.toString()
+          else stderr += chunk.toString()
+          if (stdout.length + stderr.length > MAX_CLI_OUTPUT_BYTES && !truncated) {
+            truncated = true
+            child.kill()
+            stdout = stdout.slice(0, MAX_CLI_OUTPUT_BYTES)
+            stderr = `${stderr.slice(0, 1000)}\n…output truncated past ${MAX_CLI_OUTPUT_BYTES} bytes`
+            finish({ ok: false, code: -1, stdout, stderr })
+          }
+        }
         const timer = setTimeout(() => {
           child.kill()
           finish({ ok: false, code: -1, stdout, stderr: `${stderr}\ngenoffice timed out` })
         }, timeoutMs)
-        child.stdout?.on('data', (chunk: Buffer) => (stdout += chunk.toString()))
-        child.stderr?.on('data', (chunk: Buffer) => (stderr += chunk.toString()))
+        child.stdout?.on('data', (chunk: Buffer) => onChunk(chunk, 'out'))
+        child.stderr?.on('data', (chunk: Buffer) => onChunk(chunk, 'err'))
         child.on('error', (err) => {
           finish({ ok: false, code: -1, stdout, stderr: `${stderr}\n${String(err)}` })
         })

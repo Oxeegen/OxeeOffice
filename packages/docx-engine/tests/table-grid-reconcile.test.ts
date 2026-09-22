@@ -389,3 +389,23 @@ describe('tblW-auto layout grid flag', () => {
     expect(modern.layoutGrid).toBeUndefined()
   })
 })
+
+describe('hostile colSpan values', () => {
+  it('clamps non-finite and huge spans instead of throwing or emitting invalid OOXML', async () => {
+    const start = Date.now()
+    const xml = generateTableModelXml({
+      rows: [
+        [
+          { paras: ['a'], colSpan: Infinity },
+          { paras: ['b'], colSpan: 1e9 },
+        ],
+      ],
+    })
+    expect(Date.now() - start).toBeLessThan(5000)
+    expect(xml).not.toContain('Infinity')
+    expect(xml).toContain('<w:gridSpan w:val="1000"/>')
+    // the clamped model round-trips through the parser with a finite grid
+    const doc = await parseDocx(await buildDocx({ bodyXml: xml }))
+    expect(doc.blocks[0].table).toBeDefined()
+  })
+})

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { metafileToDataUrl } from '@genoffice/docx-engine/metafile'
-import { createImageLoader } from '../src/renderer/image-loader'
+import { createImageLoader, MAX_METAFILE_BASE64_CHARS } from '../src/renderer/image-loader'
 
 vi.mock('@genoffice/docx-engine/metafile', () => ({
   metafileToDataUrl: vi.fn(async () => 'data:image/png;base64,AA=='),
@@ -114,5 +114,16 @@ describe('metafile rasterization waits for private fonts', () => {
     loader.load(['data:image/x-emf;base64,AQAAAA=='])
     await vi.advanceTimersByTimeAsync(0)
     expect(metafileToDataUrl).toHaveBeenCalledTimes(1)
+  })
+
+  it('refuses oversized metafiles before base64 decoding', async () => {
+    const apply = vi.fn()
+    const loader = createImageLoader(apply, 16, 100)
+    const huge = `data:image/x-emf;base64,${'A'.repeat(MAX_METAFILE_BASE64_CHARS + 1)}`
+    loader.load([huge])
+    await vi.advanceTimersByTimeAsync(0)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(metafileToDataUrl).not.toHaveBeenCalled()
+    expect(apply).not.toHaveBeenCalled()
   })
 })

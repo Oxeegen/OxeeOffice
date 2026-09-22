@@ -52,6 +52,15 @@ function splitVerticalBorderSpacing(style: any = {}) {
   }
 }
 
+/**
+ * Zero-area or hostile image nodes produce Infinity/NaN scales: land the
+ * rendered pixel size on a finite >= 1px value so wp:extent stays valid.
+ */
+function finitePx(value: number): number {
+  if (!Number.isFinite(value)) return 1
+  return Math.max(1, Math.round(value))
+}
+
 function withExternalBorderSpacing(
   context,
   paragraph,
@@ -597,8 +606,8 @@ class Generator {
     if (node.spacingBeforePx > 2 && !node.pageComposition) {
       output.push(spacerParagraph(this.context, node.spacingBeforePx))
     }
-    const renderedWidthPx = Math.round(node.width * scale)
-    const renderedHeightPx = Math.round(node.height * scale)
+    const renderedWidthPx = finitePx(node.width * scale)
+    const renderedHeightPx = finitePx(node.height * scale)
     const imageRun = new ImageRun({
       type: 'png',
       data: img,

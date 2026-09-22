@@ -207,13 +207,17 @@ export function resolveAiMediaSettings(
   const providers = { ...defaults.providers }
   for (const [id, config] of Object.entries(stored.providers ?? {})) {
     if (!config || typeof config !== 'object') continue
+    // Hand-edited settings files can carry non-string values: trim only
+    // strings (like the search-settings guard) instead of crashing.
+    const str = (v: unknown, fallback: string): string =>
+      typeof v === 'string' ? v.trim() : fallback
     const base = providers[id as AiMediaProviderId]
     providers[id as AiMediaProviderId] = {
-      apiKey: (config.apiKey ?? base?.apiKey ?? '').trim(),
-      imageModel: (config.imageModel ?? base?.imageModel ?? '').trim(),
-      analysisModel: (config.analysisModel ?? base?.analysisModel ?? '').trim(),
+      apiKey: str(config.apiKey, base?.apiKey ?? ''),
+      imageModel: str(config.imageModel, base?.imageModel ?? ''),
+      analysisModel: str(config.analysisModel, base?.analysisModel ?? ''),
       ...(config.baseUrl !== undefined
-        ? { baseUrl: config.baseUrl.trim() }
+        ? { baseUrl: str(config.baseUrl, base?.baseUrl ?? '') }
         : base?.baseUrl !== undefined
           ? { baseUrl: base.baseUrl }
           : {}),

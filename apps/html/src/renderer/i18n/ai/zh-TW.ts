@@ -58,6 +58,7 @@ export const zhTW = {
   aiClarifyDecideAnswer: '（幫我決定）',
   aiClarifyMulti: '可複選',
   aiClarifyNext: '下一題',
+  aiClarifyPrev: '上一題',
   aiClarifyOther: '其他(可填寫)',
   aiClarifySelected: '已選 {n} 項',
   aiClarifySkip: '略過問卷',

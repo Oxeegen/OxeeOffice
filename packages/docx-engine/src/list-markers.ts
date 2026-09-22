@@ -214,7 +214,11 @@ export function customEnumItems(format: string): string[] | null {
   return items.length >= 2 && items.every(Boolean) ? items : null
 }
 
-export function formatNumber(value: number, numFmt: string, customFormat?: string): string {
+export function formatNumber(rawValue: number, numFmt: string, customFormat?: string): string {
+  // Numbering values arrive from the file (w:start/w:val): a hostile 1e9
+  // would loop toRoman ~1M times and build a 38MB toLetters repeat string,
+  // and Infinity never terminates. Bound once at the choke point.
+  const value = Number.isFinite(rawValue) ? Math.min(Math.floor(rawValue), 999_999) : 0
   if (numFmt === 'custom') {
     const items = customFormat ? customEnumItems(customFormat) : null
     // enumeration exhausted: cycle (best-effort; Word's continuation rules are undocumented)

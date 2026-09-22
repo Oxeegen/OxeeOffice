@@ -164,6 +164,25 @@ const SUBTYPE: Record<MarkupInput['type'], string> = {
   strikeout: 'StrikeOut',
 }
 
+/**
+ * Markup inputs arrive from the renderer/AI layer: reject colors outside 0-1,
+ * empty quad lists, and non-finite quad coordinates before they reach the
+ * appearance stream (Math.min(...[]) is Infinity, NaN poisons BBox/Rect).
+ */
+function validMarkup(m: MarkupInput): boolean {
+  if (!Array.isArray(m.color) || m.color.length !== 3) return false
+  if (!m.color.every((c) => typeof c === 'number' && Number.isFinite(c) && c >= 0 && c <= 1)) {
+    return false
+  }
+  if (!Array.isArray(m.quads) || m.quads.length === 0) return false
+  return m.quads.every(
+    (q) =>
+      Array.isArray(q) &&
+      q.length === 8 &&
+      q.every((v) => typeof v === 'number' && Number.isFinite(v)),
+  )
+}
+
 function addMarkup(pdfDoc: PDFDocument, page: PDFPage, m: MarkupInput): void {
   const xs = m.quads.flatMap((q) => [q[0]!, q[2]!, q[4]!, q[6]!])
   const ys = m.quads.flatMap((q) => [q[1]!, q[3]!, q[5]!, q[7]!])
@@ -925,7 +944,7 @@ export async function applySaveRequest(
   }
   for (const m of request.markups) {
     const page = pages[m.pageIndex]
-    if (page) addMarkup(pdfDoc, page, m)
+    if (page && validMarkup(m)) addMarkup(pdfDoc, page, m)
   }
   const noteRefs = new Map<string, PDFRef>()
   for (const d of request.drawings ?? []) {

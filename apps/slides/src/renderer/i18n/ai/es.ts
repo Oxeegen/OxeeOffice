@@ -137,6 +137,7 @@ export const es = {
   aiClarifyOther: 'Otro (escríbelo)',
   aiClarifySkip: 'Omitir encuesta',
   aiClarifyNext: 'Siguiente',
+  aiClarifyPrev: 'Anterior',
   aiClarifySubmit: 'Generar',
   aiSumReadAttachment: 'Leer datos adjuntos',
   aiSumReadAttachmentName: 'Leer archivo adjunto {name}',

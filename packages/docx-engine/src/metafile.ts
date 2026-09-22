@@ -28,12 +28,36 @@ function isGzip(bytes: Uint8Array): boolean {
   return bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b
 }
 
+/** Decompression bombs must not exhaust renderer memory during conversion */
+export const MAX_METAFILE_GUNZIP_BYTES = 64 * 1024 * 1024
+
 async function gunzip(bytes: Uint8Array): Promise<Uint8Array> {
   // copy to a fresh ArrayBuffer-backed view (BlobPart rejects ArrayBufferLike)
-  const stream = new Blob([new Uint8Array(bytes)])
+  const reader = new Blob([new Uint8Array(bytes)])
     .stream()
     .pipeThrough(new DecompressionStream('gzip'))
-  return new Uint8Array(await new Response(stream).arrayBuffer())
+    .getReader()
+  const chunks: Uint8Array[] = []
+  let total = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    total += value.byteLength
+    if (total > MAX_METAFILE_GUNZIP_BYTES) {
+      await reader.cancel()
+      throw new Error(
+        `metafile gunzip output exceeds ${MAX_METAFILE_GUNZIP_BYTES} bytes (possible zip bomb)`,
+      )
+    }
+    chunks.push(value)
+  }
+  const out = new Uint8Array(total)
+  let off = 0
+  for (const chunk of chunks) {
+    out.set(chunk, off)
+    off += chunk.byteLength
+  }
+  return out
 }
 
 /** EMR_HEADER iType plus the ' EMF' signature at offset 40 */

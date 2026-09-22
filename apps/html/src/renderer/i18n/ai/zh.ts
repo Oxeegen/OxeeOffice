@@ -57,6 +57,7 @@ export const zh = {
   aiClarifyDecideAnswer: '（帮我决定）',
   aiClarifyMulti: '可多选',
   aiClarifyNext: '下一题',
+  aiClarifyPrev: '上一题',
   aiClarifyOther: '其他(可填写)',
   aiClarifySelected: '已选 {n} 项',
   aiClarifySkip: '跳过调研',

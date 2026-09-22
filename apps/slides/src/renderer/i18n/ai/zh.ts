@@ -126,6 +126,7 @@ export const zh = {
   aiClarifyOther: '其他(可填写)',
   aiClarifySkip: '跳过调研',
   aiClarifyNext: '下一题',
+  aiClarifyPrev: '上一题',
   aiClarifySubmit: '开始生成',
   aiSumReadAttachment: '读取附件',
   aiSumReadAttachmentName: '读取附件 {name}',

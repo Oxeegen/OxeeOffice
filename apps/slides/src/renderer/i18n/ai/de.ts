@@ -138,6 +138,7 @@ export const de = {
   aiClarifyOther: 'Sonstiges (eingeben)',
   aiClarifySkip: 'Umfrage überspringen',
   aiClarifyNext: 'Weiter',
+  aiClarifyPrev: 'Zurück',
   aiClarifySubmit: 'Generieren',
   aiSumReadAttachment: 'Anlage gelesen',
   aiSumReadAttachmentName: 'Anlage {name} gelesen',

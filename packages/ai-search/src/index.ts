@@ -1,8 +1,8 @@
 /**
  * Search utilities (main process) — gsk (Genspark CLI) first, then Serper Google API,
- * then Tavily, with DuckDuckGo as the keyless last resort. Runs in the main process
+ * then Tavily and Parallel, with DuckDuckGo as the keyless last resort. Runs in the main process
  * (Node fetch / child process) to avoid renderer CORS; the Serper key reuses SERPER_API_KEY,
- * the Tavily key reuses TAVILY_API_KEY.
+ * the Tavily key reuses TAVILY_API_KEY and Parallel uses PARALLEL_API_KEY.
  * For gsk auth see ./gsk.ts (`gsk login` or GSK_API_KEY).
  */
 
@@ -14,6 +14,7 @@ import {
   type WebSearchResult,
 } from './shared'
 import { gskImageSearch, gskWebSearch, hasGskAuth } from './gsk'
+import { parallelMcpSearch } from './parallel-mcp'
 // OxeeOffice brand hook: Brave behind the Oxeegen search entry (brave.ts)
 import { braveImageSearch, braveWebSearch } from './brave'
 
@@ -25,10 +26,11 @@ export * from './search-tools'
 
 const SERPER_KEY = () => process.env.SERPER_API_KEY ?? ''
 const TAVILY_KEY = () => process.env.TAVILY_API_KEY ?? ''
+const PARALLEL_KEY = () => process.env.PARALLEL_API_KEY ?? ''
 
 /**
  * Backend selection for one search. Keys default to the SERPER_API_KEY /
- * TAVILY_API_KEY env vars; settings-driven callers (search-tools.ts) pass the
+ * TAVILY_API_KEY / PARALLEL_API_KEY env vars; settings-driven callers (search-tools.ts) pass the
  * user's key and turn gsk off so the chosen backend runs first.
  */
 export interface SearchOptions {
@@ -36,9 +38,10 @@ export interface SearchOptions {
   useGsk?: boolean
   serperKey?: string
   tavilyKey?: string
-  /** which keyed backend to try first (default serper) */
-  prefer?: 'serper' | 'tavily'
-  /** OxeeOffice brand hook: Brave key (the Oxeegen search entry); tried before Serper/Tavily */
+  parallelKey?: string
+  /** which backend to try first (default serper); selecting parallel also enables its free MCP */
+  prefer?: 'serper' | 'tavily' | 'parallel'
+  /** OxeeOffice brand hook: Brave key (the Oxeegen search entry); tried before the others */
   braveKey?: string
 }
 
@@ -48,6 +51,7 @@ function normalizeOptions(opts: boolean | SearchOptions | undefined): Required<S
     useGsk: o.useGsk ?? true,
     serperKey: o.serperKey ?? SERPER_KEY(),
     tavilyKey: o.tavilyKey ?? TAVILY_KEY(),
+    parallelKey: o.parallelKey ?? PARALLEL_KEY(),
     prefer: o.prefer ?? 'serper',
     braveKey: o.braveKey ?? '', // OxeeOffice brand hook
   }
@@ -136,7 +140,67 @@ async function tavilyWebSearch(
   }
 }
 
+/** Parallel's API and free Search MCP return source excerpts, not a synthesized answer. */
+async function parallelWebSearch(
+  key: string,
+  query: string,
+  maxResults: number,
+  allowFreeMcp: boolean,
+): Promise<WebSearchResponse | null> {
+  key = key.trim()
+  if (!key && !allowFreeMcp) return null
+  try {
+    let data: Record<string, unknown>
+    if (key) {
+      const resp = await fetchWithTimeout('https://api.parallel.ai/v1/search', {
+        method: 'POST',
+        headers: { 'x-api-key': key, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ search_queries: [query], mode: 'fast' }),
+      })
+      if (!resp.ok) return null
+      data = asRecord(await resp.json())
+    } else {
+      data = asRecord(await parallelMcpSearch(query))
+    }
+    const raw: unknown[] = Array.isArray(data.results) ? data.results : []
+    const results: WebSearchResult[] = []
+    for (const item of raw) {
+      const result = asRecord(item)
+      if (typeof result.url !== 'string' || !/^https?:\/\//i.test(result.url)) continue
+      const excerpts: unknown[] = Array.isArray(result.excerpts) ? result.excerpts : []
+      results.push({
+        title: typeof result.title === 'string' && result.title ? result.title : result.url,
+        url: result.url,
+        snippet: excerpts
+          .filter((excerpt): excerpt is string => typeof excerpt === 'string')
+          .join('\n'),
+      })
+    }
+    // v1 search has no result-count parameter; apply GenOffice's limit locally.
+    const limited = results.slice(0, maxResults)
+    return limited.length ? { results: limited, method: 'parallel' } : null
+  } catch {
+    return null
+  }
+}
+
 // ── Web search ──────────────────────────────────────────────────────
+
+/**
+ * Model-driven search args arrive unvalidated: clamp the result count to a
+ * finite 1..20 and truncate the query so a wild maxResults cannot inflate
+ * backend cost/loops and a megabyte query cannot flood request bodies.
+ */
+function normalizeSearchArgs(
+  query: string,
+  maxResults: number,
+  fallback: number,
+): { query: string; max: number } {
+  const max = Number.isFinite(maxResults)
+    ? Math.min(Math.max(1, Math.floor(maxResults)), 20)
+    : fallback
+  return { query: typeof query === 'string' ? query.slice(0, 500) : '', max }
+}
 
 export async function webSearch(
   query: string,
@@ -144,35 +208,35 @@ export async function webSearch(
   options: boolean | SearchOptions = true,
 ): Promise<WebSearchResponse> {
   const o = normalizeOptions(options)
+  const { query: q, max } = normalizeSearchArgs(query, maxResults, 6)
   // useGsk=false: the user turned Genspark cloud tools off or picked their own
   // search key — skip straight to the keyed/free backends
   if (o.useGsk && hasGskAuth()) {
     try {
-      const r = await gskWebSearch(query, maxResults)
+      const r = await gskWebSearch(q, max)
       if (r.results.length) return { ...r, method: 'gsk' }
     } catch {
-      /* fall back to Serper/Tavily/DuckDuckGo */
+      /* fall back to Serper/Tavily/Parallel/DuckDuckGo */
     }
   }
   // OxeeOffice brand hook: Brave first when the Oxeegen search entry has a key
-  const brave = await braveWebSearch(o.braveKey, query, maxResults)
+  const brave = await braveWebSearch(o.braveKey, q, max)
   if (brave) return brave
-  const keyed =
-    o.prefer === 'tavily'
-      ? [
-          () => tavilyWebSearch(o.tavilyKey, query, maxResults),
-          () => serperWebSearch(o.serperKey, query, maxResults),
-        ]
-      : [
-          () => serperWebSearch(o.serperKey, query, maxResults),
-          () => tavilyWebSearch(o.tavilyKey, query, maxResults),
-        ]
-  for (const attempt of keyed) {
-    const r = await attempt()
+  const keyed = {
+    serper: () => serperWebSearch(o.serperKey, q, max),
+    tavily: () => tavilyWebSearch(o.tavilyKey, q, max),
+    parallel: () => parallelWebSearch(o.parallelKey, q, max, o.prefer === 'parallel'),
+  }
+  const order = [
+    o.prefer,
+    ...(['serper', 'tavily', 'parallel'] as const).filter((id) => id !== o.prefer),
+  ]
+  for (const id of order) {
+    const r = await keyed[id]()
     if (r) return r
   }
   try {
-    return { results: await duckWebSearch(query, maxResults), method: 'duckduckgo' }
+    return { results: await duckWebSearch(q, max), method: 'duckduckgo' }
   } catch (err) {
     // an unreachable backend must not read as an empty result set
     return { results: [], method: 'error', error: `duckduckgo: ${String(err)}` }
@@ -191,25 +255,26 @@ export async function imageSearch(
   error?: string
 }> {
   const o = normalizeOptions(options)
+  const { query: q, max } = normalizeSearchArgs(query, maxResults, 8)
   if (o.useGsk && hasGskAuth()) {
     try {
-      const images = await gskImageSearch(query, maxResults)
+      const images = await gskImageSearch(q, max)
       if (images.length) return { images, method: 'gsk' }
     } catch {
       /* fall back to Serper/DuckDuckGo */
     }
   }
   // OxeeOffice brand hook: Brave first when the Oxeegen search entry has a key
-  const brave = await braveImageSearch(o.braveKey, query, maxResults)
+  const brave = await braveImageSearch(o.braveKey, q, max)
   if (brave) return brave
-  // Tavily has no image endpoint; Serper is the only keyed image backend
+  // Tavily and Parallel have no image endpoint; Serper is the only keyed image backend
   const key = o.serperKey
   if (key) {
     try {
       const resp = await fetchWithTimeout('https://google.serper.dev/images', {
         method: 'POST',
         headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ q: query, num: Math.min(maxResults, 10), gl: 'us', hl: 'en' }),
+        body: JSON.stringify({ q, num: Math.min(max, 10), gl: 'us', hl: 'en' }),
       })
       if (resp.ok) {
         const data = asRecord(await resp.json())
@@ -229,7 +294,7 @@ export async function imageSearch(
           if (typeof img.imageWidth === 'number') entry.width = img.imageWidth
           if (typeof img.imageHeight === 'number') entry.height = img.imageHeight
           images.push(entry)
-          if (images.length >= maxResults) break
+          if (images.length >= max) break
         }
         if (images.length) return { images, method: 'serper' }
       }
@@ -238,7 +303,7 @@ export async function imageSearch(
     }
   }
   try {
-    return { images: await duckImageSearch(query, maxResults), method: 'duckduckgo' }
+    return { images: await duckImageSearch(q, max), method: 'duckduckgo' }
   } catch (err) {
     // an unreachable backend must not read as an empty gallery
     return { images: [], method: 'error', error: `duckduckgo: ${String(err)}` }

@@ -164,9 +164,13 @@ Independently of the PATH, every launch of the packaged app writes the launcher 
 
 ## Cloud commands
 
-`search`, `image` and `media` reuse the editors' provider routing: Genspark
-when signed in (`~/.genoffice/auth.json`) and cloud tools are on, otherwise the
-Serper / Tavily or BYOK image / media provider chosen in the app's AI settings
+`search`, `image` and `media` reuse the editors' provider routing. Search uses
+the selected Serper / Tavily provider when its key is configured, or Parallel
+with an optional key (a blank saved key uses its free, rate-limited Search MCP);
+otherwise Genspark is the default when signed in (`~/.genoffice/auth.json`)
+and cloud tools are on, with free-source fallbacks when unavailable. Parallel
+and Tavily provide web search only. Image generation and media analysis use
+the corresponding provider chosen in the app's AI settings
 (`GenOffice/ai-settings.json` in the platform config directory, override with
 `GENOFFICE_AI_SETTINGS`). `HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY` are honoured.
 Search results, image bytes and analysis text come back in the JSON `detail`;

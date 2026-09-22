@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   AI_CUSTOM_FONT_MAX_PX,
@@ -9,6 +9,7 @@ import {
   clampAiCustomFontSize,
 } from '@genoffice/ui'
 import type { AiFontSize, AiPanelPrefs, AiPanelSide } from '@genoffice/ui'
+import type { FileSearchSettings, JevEndpoint } from '../../shared/home-api'
 import {
   DEFAULT_MAX_OUTPUT_TOKENS,
   MAX_MAX_OUTPUT_TOKENS,
@@ -147,7 +148,7 @@ function CustomFontSizeInput({
   )
 }
 
-type SectionId = 'account' | 'aiModel' | 'aiMedia' | 'general' | 'integrations' | 'about'
+export type SectionId = 'account' | 'aiModel' | 'aiMedia' | 'general' | 'integrations' | 'about'
 
 const SECTIONS: readonly { id: SectionId; labelKey: StringKey }[] = [
   { id: 'account', labelKey: 'setSecAccount' },
@@ -266,6 +267,20 @@ function Field({
   )
 }
 
+/**
+ * Long enough that typing an address does not fire a request per keystroke,
+ * short enough that the picker is populated by the time the eye reaches it.
+ */
+const CUSTOM_MODELS_DEBOUNCE_MS = 400
+
+/** replace one catalog entry's model list, leaving every other entry untouched */
+function foldModels(providerId: string, models: string[]) {
+  return (current: AiCatalogEntry[]): AiCatalogEntry[] =>
+    current.map((entry) =>
+      entry.id === providerId ? { ...entry, models, defaultModel: '' } : entry,
+    )
+}
+
 /** AI model pane: provider / model / key / base URL, saved to userData/ai-settings.json */
 function AiModelPane({ t }: { t: TFunc }) {
   const [catalog, setCatalog] = useState<AiCatalogEntry[]>(
@@ -316,6 +331,64 @@ function AiModelPane({ t }: { t: TFunc }) {
       alive = false
     }
   }, [refreshCodexModels])
+
+  // A user-hosted endpoint gets the same live model list as Codex, asked of the
+  // endpoint itself. Keyed on the catalog's `needsBaseUrl` flag rather than on
+  // the literal 'custom' id, so it follows the slot rather than the name, and
+  // stays a no-op while any other provider is selected — a local server saved
+  // months ago is never contacted while Genspark is in use.
+  const endpointProvider = catalog.find(
+    (entry) => entry.id === settings?.provider && entry.needsBaseUrl,
+  )?.id
+  const endpointConfig = settings ? settings.providers[settings.provider] : undefined
+  const endpointBaseUrl = (endpointConfig?.baseUrl ?? '').trim()
+  const endpointApiKey = endpointConfig?.apiKey ?? ''
+  // The stored model decides where the pin goes below, but changing it must not
+  // send another request, so it is read when the reply lands rather than keyed on.
+  const selectedModelRef = useRef('')
+  useEffect(() => {
+    selectedModelRef.current = endpointConfig?.model ?? ''
+  })
+  /** the address that produced the list currently folded in; '' when none is */
+  const listedForRef = useRef('')
+
+  useEffect(() => {
+    if (!endpointProvider) return
+    // A list belonging to a different server — or to no server, once the address
+    // is cleared — is misinformation, so it goes the moment the address changes:
+    // the free-text box is the honest thing to show while the answer is unknown.
+    if (listedForRef.current && listedForRef.current !== endpointBaseUrl) {
+      listedForRef.current = ''
+      setCatalog(foldModels(endpointProvider, []))
+    }
+    if (!endpointBaseUrl || !window.aiOffice.getCustomModels) return
+    let cancelled = false
+    const timer = setTimeout(() => {
+      void window.aiOffice
+        .getCustomModels(endpointBaseUrl, endpointApiKey)
+        .then((live) => {
+          // A server that will not answer leaves the current list alone: a blip
+          // must not wipe a picker mid-use.
+          if (cancelled || !live || live.models.length === 0) return
+          // A hand-typed id is pinned to the top so it never vanishes from the
+          // picker. The catalog is the only thing written — writing settings
+          // here would revert whatever the user typed while the probe was in
+          // flight, since `updateConfig` rebuilds them from its own render.
+          const selected = selectedModelRef.current.trim()
+          const models =
+            selected && !live.models.includes(selected) ? [selected, ...live.models] : live.models
+          listedForRef.current = endpointBaseUrl
+          setCatalog(foldModels(endpointProvider, models))
+        })
+        .catch(() => undefined)
+    }, CUSTOM_MODELS_DEBOUNCE_MS)
+    // React's own cleanup drops a superseded reply, so a slow answer from the
+    // previous address can never overwrite a fast one from the current address.
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [endpointProvider, endpointBaseUrl, endpointApiKey])
 
   if (!settings) return null
   const provider = settings.provider
@@ -389,7 +462,30 @@ function AiModelPane({ t }: { t: TFunc }) {
 
   return (
     <>
-      <h3 className="set-pane-title">{t('setSecAiModel')}</h3>
+      <div className="set-pane-head">
+        <h3 className="set-pane-title">{t('setSecAiModel')}</h3>
+        <div className="set-pane-actions">
+          <AiStatusPill
+            status={
+              testing
+                ? { kind: 'testing', text: t('setAiTesting') }
+                : testResult
+                  ? testResult.ok
+                    ? { kind: 'ok', text: t('setAiTestOk') }
+                    : { kind: 'err', text: testResult.error || t('setAiTestFail') }
+                  : saved
+                    ? { kind: 'ok', text: t('setAiSaved') }
+                    : null
+            }
+          />
+          <button className="set-btn" disabled={testing} onClick={test}>
+            {t('setAiTest')}
+          </button>
+          <button className="set-btn primary" disabled={!dirty} onClick={save}>
+            {t('setAiSave')}
+          </button>
+        </div>
+      </div>
       <div className="set-field">
         <div className="set-field-text">
           <label className="set-field-label">{t('setAiProvider')}</label>
@@ -566,32 +662,24 @@ function AiModelPane({ t }: { t: TFunc }) {
         />
       </div>
       )}
-      <div className="set-pane-footer">
-        <AiStatusPill
-          status={
-            testing
-              ? { kind: 'testing', text: t('setAiTesting') }
-              : testResult
-                ? testResult.ok
-                  ? { kind: 'ok', text: t('setAiTestOk') }
-                  : { kind: 'err', text: testResult.error || t('setAiTestFail') }
-                : saved
-                  ? { kind: 'ok', text: t('setAiSaved') }
-                  : null
-          }
-        />
-        <button className="set-btn" disabled={testing} onClick={test}>
-          {t('setAiTest')}
-        </button>
-        <button className="set-btn primary" disabled={!dirty} onClick={save}>
-          {t('setAiSave')}
-        </button>
-      </div>
     </>
   )
 }
 
 type Capability = 'image' | 'analysis' | 'video' | 'search'
+/** a tested block: the four capabilities plus the Jev reranker of the local file search */
+type TestedBlock = Capability | 'rerank'
+/** where an outside entry point (e.g. the home list's Jev button) lands when it opens the modal */
+export interface SettingsTarget {
+  section: SectionId
+  block?: TestedBlock
+}
+type TestResult = { ok: boolean; error?: string }
+
+const JEV_ENDPOINTS: { value: JevEndpoint; label: string }[] = [
+  { value: 'openrouter', label: 'OpenRouter' },
+  { value: 'direct', label: 'TypeSafe' },
+]
 
 /**
  * AI media & search pane, one block per capability — web search, image
@@ -600,7 +688,15 @@ type Capability = 'image' | 'analysis' | 'video' | 'search'
  * and base URL are stored once and shared by every block that picks it.
  * Saved into the same ai-settings.json as the chat provider.
  */
-function AiMediaPane({ t }: { t: TFunc }) {
+function AiMediaPane({
+  t,
+  onFileSearchChange,
+  focusBlock,
+}: {
+  t: TFunc
+  onFileSearchChange?: () => void
+  focusBlock?: TestedBlock
+}) {
   const [mediaCatalog] = useState<AiMediaProviderMeta[]>(
     () => window.aiOffice.getAiMediaProviders?.() ?? [],
   )
@@ -608,15 +704,27 @@ function AiMediaPane({ t }: { t: TFunc }) {
     () => window.aiOffice.getAiSearchProviders?.() ?? [],
   )
   const [settings, setSettings] = useState<AiSettings | null>(null)
+  const [fileSearch, setFileSearchState] = useState<FileSearchSettings | null>(null)
   const [dirty, setDirty] = useState(false)
   const [saved, setSaved] = useState(false)
   const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
+  const [testResults, setTestResults] = useState<Partial<Record<TestedBlock, TestResult>> | null>(
+    null,
+  )
+  const focused = useRef(false)
+  const scrollToFocused = (el: HTMLDivElement | null) => {
+    if (!el || focused.current) return
+    focused.current = true
+    el.scrollIntoView({ block: 'start' })
+  }
 
   useEffect(() => {
     let alive = true
     void window.aiOffice.getAiSettings?.().then((s) => {
       if (alive && s) setSettings(s)
+    })
+    void window.aiOffice.getFileSearchSettings?.().then((v) => {
+      if (alive && v) setFileSearchState(v)
     })
     return () => {
       alive = false
@@ -630,7 +738,7 @@ function AiMediaPane({ t }: { t: TFunc }) {
   const touch = () => {
     setDirty(true)
     setSaved(false)
-    setTestResult(null)
+    setTestResults(null)
   }
   const setMedia = (next: AiMediaSettings) => {
     setSettings({ ...settings, media: next })
@@ -638,6 +746,10 @@ function AiMediaPane({ t }: { t: TFunc }) {
   }
   const setSearch = (next: AiSearchSettings) => {
     setSettings({ ...settings, search: next })
+    touch()
+  }
+  const setFileSearch = (next: FileSearchSettings) => {
+    setFileSearchState(next)
     touch()
   }
   const mediaConfigOf = (id: AiMediaProviderId) => {
@@ -660,55 +772,130 @@ function AiMediaPane({ t }: { t: TFunc }) {
     })
 
   const save = () => {
-    window.aiOffice
-      .setAiSettings?.(settings)
+    Promise.all([
+      window.aiOffice.setAiSettings?.(settings),
+      fileSearch ? window.aiOffice.setFileSearchSettings?.(fileSearch) : undefined,
+    ])
       .then(() => {
         setDirty(false)
         setSaved(true)
+        onFileSearchChange?.()
       })
       .catch((error) => {
         window.alert(error instanceof Error ? error.message : String(error))
       })
   }
-  // every distinct BYOK vendor the four blocks point at is checked once; first failure wins
+  // every block reports its own verdict; blocks sharing a vendor share that vendor's one check
   const test = async () => {
     setTesting(true)
-    setTestResult(null)
-    try {
-      const vendors = new Set<AiMediaProviderId>(
-        [media.imageProvider, media.analysisProvider, media.videoAnalysisProvider].filter(
-          (id) => id !== 'genspark',
-        ),
-      )
-      const checks: Promise<{ ok: boolean; error?: string } | undefined>[] = [...vendors].map(
-        (id) =>
+    setTestResults(null)
+    const results: Partial<Record<TestedBlock, TestResult>> = {}
+    const fallback: TestResult = { ok: true }
+    const vendorChecks = new Map<AiMediaProviderId, Promise<TestResult>>()
+    const vendorCheck = (id: AiMediaProviderId) => {
+      let pending = vendorChecks.get(id)
+      if (!pending) {
+        pending =
           window.aiOffice.testAiMediaSettings?.({ provider: id, config: mediaConfigOf(id) }) ??
-          Promise.resolve(undefined),
-      )
-      if (search.provider !== 'genspark') {
-        checks.push(
+          Promise.resolve(fallback)
+        vendorChecks.set(id, pending)
+      }
+      return pending
+    }
+    const blocks: [TestedBlock, () => Promise<TestResult>][] = [
+      [
+        'search',
+        () =>
           window.aiOffice.testAiSearchSettings?.({
             provider: search.provider,
-            apiKey: search.providers[search.provider]?.apiKey ?? '',
-          }) ?? Promise.resolve(undefined),
-        )
-      }
-      if (checks.length === 0) {
-        checks.push(
-          window.aiOffice.testAiMediaSettings?.({
-            provider: 'genspark',
-            config: mediaConfigOf('genspark'),
-          }) ?? Promise.resolve(undefined),
-        )
-      }
-      const results = await Promise.all(checks)
-      setTestResult(results.find((r) => r && !r.ok) ?? { ok: true })
-    } catch (error) {
-      setTestResult({ ok: false, error: error instanceof Error ? error.message : String(error) })
-    } finally {
-      setTesting(false)
+            apiKey:
+              search.provider === 'genspark'
+                ? ''
+                : (search.providers[search.provider]?.apiKey ?? ''),
+          }) ?? Promise.resolve(fallback),
+      ],
+      ['image', () => vendorCheck(media.imageProvider)],
+      ['analysis', () => vendorCheck(media.analysisProvider)],
+      ['video', () => vendorCheck(media.videoAnalysisProvider)],
+    ]
+    if (fileSearch?.rerank) {
+      blocks.push([
+        'rerank',
+        () =>
+          window.aiOffice.testFileSearchRerank?.({
+            endpoint: fileSearch.jevEndpoint,
+            apiKey: fileSearch.jevKeys[fileSearch.jevEndpoint],
+          }) ?? Promise.resolve(fallback),
+      ])
     }
+    await Promise.all(
+      blocks.map(async ([block, run]) => {
+        try {
+          results[block] = await run()
+        } catch (error) {
+          results[block] = {
+            ok: false,
+            error: error instanceof Error ? error.message : String(error),
+          }
+        }
+      }),
+    )
+    setTestResults(results)
+    setTesting(false)
   }
+
+  const blockLabel = (block: TestedBlock) =>
+    block === 'search'
+      ? t('setAiCapSearch')
+      : block === 'image'
+        ? t('setAiCapImage')
+        : block === 'analysis'
+          ? t('setAiCapAnalysis')
+          : block === 'video'
+            ? t('setAiCapVideo')
+            : t('setAiCapFileSearch')
+  const blockProvider = (block: TestedBlock) => {
+    if (block === 'rerank')
+      return JEV_ENDPOINTS.find((e) => e.value === fileSearch?.jevEndpoint)?.label ?? ''
+    if (block === 'search')
+      return searchCatalog.find((m) => m.id === search.provider)?.label ?? search.provider
+    const id =
+      block === 'image'
+        ? media.imageProvider
+        : block === 'video'
+          ? media.videoAnalysisProvider
+          : media.analysisProvider
+    return mediaCatalog.find((m) => m.id === id)?.label ?? id
+  }
+  const blockStatus = (block: TestedBlock): AiStatus | null => {
+    if (testing) return { kind: 'testing', text: t('setAiTesting') }
+    const r = testResults?.[block]
+    if (!r) return null
+    return r.ok
+      ? { kind: 'ok', text: t('setAiTestOk') }
+      : { kind: 'err', text: r.error || t('setAiTestFail') }
+  }
+  const subhead = (block: TestedBlock, title: string) => (
+    <div className="set-pane-subhead" ref={block === focusBlock ? scrollToFocused : undefined}>
+      <h4 className="set-pane-subtitle">{title}</h4>
+      <AiStatusPill status={blockStatus(block)} />
+    </div>
+  )
+  const failed = testResults
+    ? (Object.keys(testResults) as TestedBlock[]).filter((b) => !testResults[b]?.ok)
+    : []
+  const headStatus: AiStatus | null = testing
+    ? { kind: 'testing', text: t('setAiTesting') }
+    : testResults
+      ? failed.length === 0
+        ? { kind: 'ok', text: t('setAiTestOk') }
+        : {
+            kind: 'err',
+            text: `${blockLabel(failed[0]!)} · ${blockProvider(failed[0]!)}: ${testResults[failed[0]!]?.error || t('setAiTestFail')}`,
+          }
+      : saved
+        ? { kind: 'ok', text: t('setAiSaved') }
+        : null
 
   const providerRow = (
     label: string,
@@ -866,7 +1053,7 @@ function AiMediaPane({ t }: { t: TFunc }) {
     const modelField = cap === 'image' ? 'imageModel' : 'analysisModel'
     return (
       <section key={cap}>
-        <h4 className="set-pane-subtitle">{title}</h4>
+        {subhead(cap, title)}
         {providerRow(title, id, options, pick)}
         <div className="set-field-desc set-ai-note">
           {id === 'genspark' ? t('setAiMediaGensparkHint') : meta.description}
@@ -906,10 +1093,21 @@ function AiMediaPane({ t }: { t: TFunc }) {
 
   return (
     <>
-      <h3 className="set-pane-title">{t('setSecAiMedia')}</h3>
+      <div className="set-pane-head">
+        <h3 className="set-pane-title">{t('setSecAiMedia')}</h3>
+        <div className="set-pane-actions">
+          <AiStatusPill status={headStatus} />
+          <button className="set-btn" disabled={testing} onClick={() => void test()}>
+            {t('setAiTest')}
+          </button>
+          <button className="set-btn primary" disabled={!dirty} onClick={save}>
+            {t('setAiSave')}
+          </button>
+        </div>
+      </div>
       <div className="set-field-desc set-ai-note">{t('setAiSharedKeyHint')}</div>
       <section>
-        <h4 className="set-pane-subtitle">{t('setAiCapSearch')}</h4>
+        {subhead('search', t('setAiCapSearch'))}
         {providerRow(t('setAiCapSearch'), search.provider, searchCatalog, (v) =>
           setSearch({ ...search, provider: v as AiSearchSettings['provider'] }),
         )}
@@ -919,9 +1117,11 @@ function AiMediaPane({ t }: { t: TFunc }) {
             ? OXEEGEN_SEARCH_HINT
             : search.provider === 'genspark'
             ? t('setAiSearchGensparkHint')
-            : searchMeta?.imageSearch
-              ? t('setAiSearchSerperHint')
-              : t('setAiSearchTavilyHint')}
+            : search.provider === 'parallel'
+              ? t('setAiSearchParallelHint')
+              : searchMeta?.imageSearch
+                ? t('setAiSearchSerperHint')
+                : t('setAiSearchTavilyHint')}
         </div>
         {search.provider !== 'genspark' &&
           keyRow('set-ai-search-key', searchKey, searchMeta?.keyPlaceholder ?? 'API Key', (v) =>
@@ -931,30 +1131,60 @@ function AiMediaPane({ t }: { t: TFunc }) {
             }),
           )}
       </section>
+      {fileSearch && (
+        <section>
+          {subhead('rerank', t('setAiCapFileSearch'))}
+          <div className="set-field">
+            <div className="set-field-text">
+              <div className="set-field-stack">
+                <div className="set-field-label">{t('setSearchRerank')}</div>
+                <div className="set-field-desc">{t('setSearchRerankDesc')}</div>
+              </div>
+            </div>
+            <button
+              className="set-switch"
+              role="switch"
+              aria-checked={fileSearch.rerank}
+              aria-label={t('setSearchRerank')}
+              onClick={() => setFileSearch({ ...fileSearch, rerank: !fileSearch.rerank })}
+            />
+          </div>
+          {fileSearch.rerank && (
+            <>
+              <div className="set-field">
+                <div className="set-field-text">
+                  <label className="set-field-label">{t('setSearchRerankEndpoint')}</label>
+                </div>
+                <Dropdown
+                  className="set-dd"
+                  value={fileSearch.jevEndpoint}
+                  ariaLabel={t('setSearchRerankEndpoint')}
+                  options={JEV_ENDPOINTS}
+                  onPick={(v) =>
+                    setFileSearch({
+                      ...fileSearch,
+                      jevEndpoint: v === 'direct' ? 'direct' : 'openrouter',
+                    })
+                  }
+                />
+              </div>
+              {keyRow(
+                'set-search-jev-key',
+                fileSearch.jevKeys[fileSearch.jevEndpoint],
+                fileSearch.jevEndpoint === 'openrouter' ? 'sk-or-…' : 'API Key',
+                (v) =>
+                  setFileSearch({
+                    ...fileSearch,
+                    jevKeys: { ...fileSearch.jevKeys, [fileSearch.jevEndpoint]: v },
+                  }),
+              )}
+            </>
+          )}
+        </section>
+      )}
       {mediaBlock('image')}
       {mediaBlock('analysis')}
       {mediaBlock('video')}
-      <div className="set-pane-footer">
-        <AiStatusPill
-          status={
-            testing
-              ? { kind: 'testing', text: t('setAiTesting') }
-              : testResult
-                ? testResult.ok
-                  ? { kind: 'ok', text: t('setAiTestOk') }
-                  : { kind: 'err', text: testResult.error || t('setAiTestFail') }
-                : saved
-                  ? { kind: 'ok', text: t('setAiSaved') }
-                  : null
-          }
-        />
-        <button className="set-btn" disabled={testing} onClick={() => void test()}>
-          {t('setAiTest')}
-        </button>
-        <button className="set-btn primary" disabled={!dirty} onClick={save}>
-          {t('setAiSave')}
-        </button>
-      </div>
     </>
   )
 }
@@ -964,7 +1194,7 @@ interface AiStatus {
   text: string
 }
 
-/** colored feedback pill in the AI pane footer: spinner while testing, then success/error */
+/** colored feedback pill in the AI pane header: spinner while testing, then success/error */
 function AiStatusPill({ status }: { status: AiStatus | null }) {
   if (!status) return null
   return (
@@ -1023,12 +1253,16 @@ export interface SettingsModalProps {
   onOpenLoginUrl: () => void
   onCopyLoginUrl: () => void
   onClose: () => void
+  /** the Jev search settings were saved; the home search re-judges or drops its current order */
+  onFileSearchChange?: () => void
   /** closes the modal and launches the Genspark login flow (progress shows on the account entry) */
   onLogin: () => void
   onLogout: () => void
   /** an installed skill is older than the bundled one: dot on the Integrations entry */
   skillUpdateDue?: boolean
   onSkillUpdateDue?: (due: boolean) => void
+  /** open on this section / block instead of the account page */
+  target?: SettingsTarget | null
 }
 
 export function SettingsModal({
@@ -1040,14 +1274,16 @@ export function SettingsModal({
   onOpenLoginUrl,
   onCopyLoginUrl,
   onClose,
+  onFileSearchChange,
   onLogin,
   onLogout,
   skillUpdateDue: updateDue = false,
   onSkillUpdateDue,
+  target,
 }: SettingsModalProps) {
   const { lang, setLang, t } = useI18n()
   // OxeeOffice brand hook: no Account page, open on AI Model
-  const [section, setSection] = useState<SectionId>(initialSettingsSection('account'))
+  const [section, setSection] = useState<SectionId>(initialSettingsSection(target?.section ?? 'account'))
   const [theme, setTheme] = useState<UiTheme>('system')
   const [saveDir, setSaveDir] = useState('')
   const [analyticsOn, setAnalyticsOn] = useState(true)
@@ -1207,7 +1443,13 @@ export function SettingsModal({
               </>
             )}
             {section === 'aiModel' && <AiModelPane t={t} />}
-            {section === 'aiMedia' && <AiMediaPane t={t} />}
+            {section === 'aiMedia' && (
+              <AiMediaPane
+                t={t}
+                onFileSearchChange={onFileSearchChange}
+                focusBlock={target?.block}
+              />
+            )}
             {section === 'general' && (
               <>
                 <h3 className="set-pane-title">{t('setSecGeneral')}</h3>

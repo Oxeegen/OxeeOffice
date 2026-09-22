@@ -92,6 +92,17 @@ describe('media settings', () => {
     expect(media.providers.openai.imageModel).toBe('gpt-image-2')
   })
 
+  it('tolerates non-string values in a hand-edited settings file', () => {
+    const media = resolveAiMediaSettings({
+      providers: {
+        openai: { apiKey: 123, baseUrl: null, imageModel: 42, analysisModel: {} },
+      },
+    } as never)
+    expect(media.providers.openai.apiKey).toBe('')
+    expect(media.providers.openai.baseUrl).toBe('')
+    expect(media.providers.openai.imageModel).toBe('gpt-image-2')
+  })
+
   it('activates a BYOK media provider per capability, only when usable and capable', () => {
     expect(activeMediaProvider(openaiSettings(), 'image')).toBe('openai')
     expect(activeMediaProvider(openaiSettings(), 'analysis')).toBe('openai')

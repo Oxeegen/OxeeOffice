@@ -17,7 +17,7 @@ import {
   type SheetStructuralOps,
   type XlsxMutation,
 } from '@genoffice/xlsx-gateway/gateway/xlsx-gateway'
-import type { SheetEditPlan } from '@genoffice/xlsx-gateway/gateway/xlsx-sheets'
+import { maxRelationshipId, type SheetEditPlan } from '@genoffice/xlsx-gateway/gateway/xlsx-sheets'
 import { EMPTY_PAYLOADS, type GatewayPayloads } from './xlsx-gateway-ops'
 import type { WorkbookStyleEdit } from '@genoffice/xlsx-gateway/shared/edit-schemas'
 import {
@@ -982,26 +982,39 @@ const STYLES_XML =
   '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
   '</styleSheet>'
 
-/** The app's blank workbook has no stylesheet; the formula engine refuses to import such a package, so add a minimal one. */
+const STYLES_REL_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles'
+const STYLES_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml'
+
+/**
+ * The blank workbook normally ships a stylesheet of its own; this tops one up for a
+ * blank that does not, because the formula engine refuses to import such a package.
+ * Every part is added only when missing — a second styles Override or Relationship
+ * would duplicate a PartName and a Relationship Id, which makes Excel repair the file.
+ */
 export async function blankWorkbook(sheetName = 'Sheet1'): Promise<Buffer> {
   const zip = await JSZip.loadAsync(await blankXlsxBuffer(sheetName))
-  zip.file('xl/styles.xml', STYLES_XML)
+  if (!zip.file('xl/styles.xml')) zip.file('xl/styles.xml', STYLES_XML)
   const types = await zip.file('[Content_Types].xml')!.async('string')
-  zip.file(
-    '[Content_Types].xml',
-    types.replace(
-      '</Types>',
-      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>',
-    ),
-  )
+  if (!types.includes('PartName="/xl/styles.xml"')) {
+    zip.file(
+      '[Content_Types].xml',
+      types.replace(
+        '</Types>',
+        `<Override PartName="/xl/styles.xml" ContentType="${STYLES_CONTENT_TYPE}"/></Types>`,
+      ),
+    )
+  }
   const rels = await zip.file('xl/_rels/workbook.xml.rels')!.async('string')
-  zip.file(
-    'xl/_rels/workbook.xml.rels',
-    rels.replace(
-      '</Relationships>',
-      '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>',
-    ),
-  )
+  if (!rels.includes(`Type="${STYLES_REL_TYPE}"`)) {
+    zip.file(
+      'xl/_rels/workbook.xml.rels',
+      rels.replace(
+        '</Relationships>',
+        `<Relationship Id="rId${maxRelationshipId(rels) + 1}" ` +
+          `Type="${STYLES_REL_TYPE}" Target="styles.xml"/></Relationships>`,
+      ),
+    )
+  }
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' })
 }
 
@@ -1093,7 +1106,11 @@ export interface WriteOutcome {
   cachedValues: boolean
   /** `Sheet!A1` of formulas left without a cached value on purpose */
   uncached?: string[]
+  /** `Sheet!A1` of formulas the engine could not parse (a reference it cannot read) */
+  unparsed?: string[]
   warning?: string
+  /** formulas the engine could not parse — reported apart from `warning`, which is about missing functions */
+  formulaError?: string
   /** side effects a program should know about that are not formula related */
   notes?: { code: string; message: string }[]
 }
@@ -1183,17 +1200,27 @@ export async function writeWorkbook(
     }
   }
   try {
-    const { values, uncached } = await evaluateFormulas(outputPath, formulaCells, renames)
+    const { values, uncached, unparsed } = await evaluateFormulas(outputPath, formulaCells, renames)
     if (values.length) {
       const second = await save(values)
       await atomicWriteFile(outputPath, second.buffer)
-      if (uncached.length === 0) return { ...base, cachedValues: true }
-      const shown = uncached.slice(0, 3).join(', ') + (uncached.length > 3 ? ', …' : '')
+      if (uncached.length === 0 && unparsed.length === 0) return { ...base, cachedValues: true }
+      const skipped = uncached.length + unparsed.length
       return {
         ...base,
-        cachedValues: uncached.length < formulaCells.length,
-        uncached,
-        warning: `${uncached.length} formula(s) use functions the local engine does not evaluate (${shown}); they have no cached value and recalculate on open`,
+        cachedValues: skipped < formulaCells.length,
+        ...(uncached.length ? { uncached } : {}),
+        ...(unparsed.length ? { unparsed } : {}),
+        ...(uncached.length
+          ? {
+              warning: `${uncached.length} formula(s) use functions the local engine does not evaluate (${list(uncached)}); they have no cached value and recalculate on open`,
+            }
+          : {}),
+        ...(unparsed.length
+          ? {
+              formulaError: `${unparsed.length} formula(s) the local engine could not parse (${list(unparsed)}); check their references — they have no cached value and recalculate on open`,
+            }
+          : {}),
       }
     }
     return {
@@ -1218,12 +1245,17 @@ export async function writeWorkbook(
  * Excel error: neither result is cached. The cell keeps its formula and no
  * <v>, and Excel computes it on open (fullCalcOnLoad).
  */
-const UNCACHED_RESULTS = new Set(['#NAME?', '#ERROR!'])
+/** The engine knows the syntax but not the function: Excel computes it on open. */
+const UNKNOWN_FUNCTION_RESULT = '#NAME?'
+/** The engine could not parse the formula at all — a reference it cannot read, not a missing function. */
+const UNPARSED_RESULT = '#ERROR!'
+const list = (cells: readonly string[]) =>
+  cells.slice(0, 3).join(', ') + (cells.length > 3 ? ', …' : '')
 async function evaluateFormulas(
   path: string,
   formulaCells: readonly CellEdit[],
   renames: Record<string, string>,
-): Promise<{ values: SheetFormulaValues[]; uncached: string[] }> {
+): Promise<{ values: SheetFormulaValues[]; uncached: string[]; unparsed: string[] }> {
   const bySheet = new Map<string, CellEdit[]>()
   for (const e of formulaCells) bySheet.set(e.sheetName, [...(bySheet.get(e.sheetName) ?? []), e])
   // edits carry the file's original sheet names; the written file has the renamed ones
@@ -1233,13 +1265,21 @@ async function evaluateFormulas(
   return withSidecar(async (client) => {
     const out: SheetFormulaValues[] = []
     const uncached: string[] = []
+    const unparsed: string[] = []
     for (const [sheet, cells] of bySheet) {
       const evaluated = await recalcRange(client, path, renames[sheet] ?? sheet, boundingBox(cells))
       const values = evaluated
         .filter((cell) => wanted.has(`${originalName(cell.sheet)} ${cell.row} ${cell.column}`))
         .map((cell) => {
-          if (UNCACHED_RESULTS.has(cell.formatted)) {
+          // Both leave the cell without a cached value — the file is correct
+          // and Excel recomputes on open — but they have different causes and
+          // the caller reports them apart.
+          if (cell.formatted === UNKNOWN_FUNCTION_RESULT) {
             uncached.push(`${sheet}!${toA1Address(cell.row, cell.column)}`)
+            return { row: cell.row, column: cell.column, value: null }
+          }
+          if (cell.formatted === UNPARSED_RESULT) {
+            unparsed.push(`${sheet}!${toA1Address(cell.row, cell.column)}`)
             return { row: cell.row, column: cell.column, value: null }
           }
           if (cell.isError) {
@@ -1254,7 +1294,7 @@ async function evaluateFormulas(
       // the refresh is keyed like the edits, by the file's original sheet name
       if (values.length) out.push({ sheetName: sheet, cells: values })
     }
-    return { values: out, uncached }
+    return { values: out, uncached, unparsed }
   })
 }
 

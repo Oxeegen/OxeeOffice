@@ -58,7 +58,7 @@ export function patchImageParagraphXml(xml: string, patch: ImagePatch): string {
         a = a.replace(new RegExp(`\\s*\\b${name}="[^"]*"`), '')
         if (value != null) a += ` ${name}="${value}"`
       }
-      if (patch.rotDeg !== undefined) {
+      if (patch.rotDeg !== undefined && Number.isFinite(patch.rotDeg)) {
         const norm = ((Math.round(patch.rotDeg) % 360) + 360) % 360
         setAttr('rot', norm ? String(norm * 60000) : null)
       }
@@ -68,12 +68,18 @@ export function patchImageParagraphXml(xml: string, patch: ImagePatch): string {
     })
   }
   if (patch.widthPx && patch.heightPx) {
-    const cx = Math.max(1, Math.round(patch.widthPx * EMU_PER_PX))
-    const cy = Math.max(1, Math.round(patch.heightPx * EMU_PER_PX))
-    const resize = (tag: string) =>
-      tag.replace(/cx="\d+"/, `cx="${cx}"`).replace(/cy="\d+"/, `cy="${cy}"`)
-    out = out.replace(/<wp:extent[^>]*\/?>/, resize)
-    out = out.replace(/<a:ext[^>]*\/>/, resize)
+    // Non-finite dimensions must not land in the XML verbatim (cx="Infinity"
+    // is schema-invalid); skip the resize and keep the original extents.
+    const toEmu = (px: number): number | null =>
+      Number.isFinite(px) ? Math.max(1, Math.round(px * EMU_PER_PX)) : null
+    const cx = toEmu(patch.widthPx)
+    const cy = toEmu(patch.heightPx)
+    if (cx !== null && cy !== null) {
+      const resize = (tag: string) =>
+        tag.replace(/cx="\d+"/, `cx="${cx}"`).replace(/cy="\d+"/, `cy="${cy}"`)
+      out = out.replace(/<wp:extent[^>]*\/?>/, resize)
+      out = out.replace(/<a:ext[^>]*\/>/, resize)
+    }
   }
   // Word lays the drawing out against the unrotated wp:extent plus
   // wp:effectExtent: a 90°/270° turn of a non-square picture needs the extra
@@ -124,18 +130,26 @@ export function patchImageParagraphXml(xml: string, patch: ImagePatch): string {
       }
     }
   }
-  // Rewrite posOffset values inside positionH / positionV (surgical)
+  // Rewrite posOffset values inside positionH / positionV (surgical). Non-finite
+  // offsets would land verbatim (posOffset>NaN<) — skip and keep the original.
+  const finiteOffset = (v: number): number | null => (Number.isFinite(v) ? Math.round(v) : null)
   if (patch.posOffsetX !== undefined) {
-    out = out.replace(
-      /(<wp:positionH[^>]*>[\s\S]*?)<wp:posOffset>-?\d+<\/wp:posOffset>([\s\S]*?<\/wp:positionH>)/,
-      `$1<wp:posOffset>${Math.round(patch.posOffsetX)}</wp:posOffset>$2`,
-    )
+    const x = finiteOffset(patch.posOffsetX)
+    if (x !== null) {
+      out = out.replace(
+        /(<wp:positionH[^>]*>[\s\S]*?)<wp:posOffset>-?\d+<\/wp:posOffset>([\s\S]*?<\/wp:positionH>)/,
+        `$1<wp:posOffset>${x}</wp:posOffset>$2`,
+      )
+    }
   }
   if (patch.posOffsetY !== undefined) {
-    out = out.replace(
-      /(<wp:positionV[^>]*>[\s\S]*?)<wp:posOffset>-?\d+<\/wp:posOffset>([\s\S]*?<\/wp:positionV>)/,
-      `$1<wp:posOffset>${Math.round(patch.posOffsetY)}</wp:posOffset>$2`,
-    )
+    const y = finiteOffset(patch.posOffsetY)
+    if (y !== null) {
+      out = out.replace(
+        /(<wp:positionV[^>]*>[\s\S]*?)<wp:posOffset>-?\d+<\/wp:posOffset>([\s\S]*?<\/wp:positionV>)/,
+        `$1<wp:posOffset>${y}</wp:posOffset>$2`,
+      )
+    }
   }
   return out
 }
@@ -1827,6 +1841,17 @@ function cellBordersXml(borders: NonNullable<TableCell['borders']>): string {
   return `<w:tcBorders>${side('top')}${side('left')}${side('bottom')}${side('right')}</w:tcBorders>`
 }
 
+/** colSpan arrives from parsed files/ops models: Infinity would emit
+ *  w:val="Infinity" and blow up the grid build (Array.from({length: Infinity})
+ *  throws). Clamp to 1..1000 at every emit site. */
+function cellSpan(cell: TableCell): number {
+  // colSpan arrives from parsed files/ops models as a number, but XML attr
+  // plumbing can leave a numeric string behind: coerce before validating.
+  const span = Number(cell.colSpan ?? 1)
+  if (!Number.isFinite(span)) return 1
+  return Math.min(Math.max(1, Math.floor(span)), 1000)
+}
+
 function tableCellXml(
   cell: TableCell,
   width: number,
@@ -1840,11 +1865,8 @@ function tableCellXml(
   const children: PPrChild[] =
     cell.rawTcPr && cell.rawTcPr.endsWith('</w:tcPr>') ? splitXmlChildren(rawInner) : []
   setTcPrChild(children, 'w:tcW', `<w:tcW w:w="${width}" w:type="dxa"/>`)
-  setTcPrChild(
-    children,
-    'w:gridSpan',
-    cell.colSpan && cell.colSpan > 1 ? `<w:gridSpan w:val="${cell.colSpan}"/>` : null,
-  )
+  const span = cellSpan(cell)
+  setTcPrChild(children, 'w:gridSpan', span > 1 ? `<w:gridSpan w:val="${span}"/>` : null)
   const merge = verticalMerge ?? cell.vMerge
   setTcPrChild(
     children,
@@ -1962,7 +1984,7 @@ export function generateTableModelXml(model: TableModel, originalTableXml?: stri
   const columnCount = Math.max(
     1,
     model.colWidthsPct?.length ?? 0,
-    ...model.rows.map((row) => row.reduce((sum, cell) => sum + (cell.colSpan ?? 1), 0)),
+    ...model.rows.map((row) => row.reduce((sum, cell) => sum + cellSpan(cell), 0)),
   )
   const percentages =
     model.colWidthsPct?.length === columnCount
@@ -2012,7 +2034,7 @@ export function generateTableModelXml(model: TableModel, originalTableXml?: stri
       // they advance the grid but are never written as w:tc
       const edges = { before: 0, wBefore: 0, after: 0, wAfter: 0 }
       for (const cell of row) {
-        const span = Math.max(1, cell.colSpan ?? 1)
+        const span = cellSpan(cell)
         const width = widths
           .slice(gridColumn, gridColumn + span)
           .reduce((sum, value) => sum + value, 0)

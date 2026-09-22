@@ -134,6 +134,7 @@ export const pl = {
   aiClarifyOther: 'Inne (wpisz)',
   aiClarifySkip: 'Pomiń ankietę',
   aiClarifyNext: 'Dalej',
+  aiClarifyPrev: 'Wstecz',
   aiClarifySubmit: 'Generuj',
   aiSumReadAttachment: 'Odczyt załącznika',
   aiSumReadAttachmentName: 'Odczyt załącznika {name}',

@@ -1,6 +1,9 @@
 /** home-screen dictionary; zh defines the key set, en must match (type-checked) */
 export const strings = {
   zh: {
+    addFolderRoot: '添加文件夹…',
+    removeFolderRoot: '从列表移除',
+    rootUnavailable: '不可用',
     // Sidebar navigation
     navRecent: '最近',
     navStarred: '收藏',
@@ -90,6 +93,12 @@ export const strings = {
     moveToFolder: '移动到文件夹…',
     moveToFolderTitle: '移动到文件夹',
     searchFolders: '搜索文件夹',
+    searchFilesPlaceholder: '搜索文件名和内容…',
+    searchIndexing: '正在索引 {n} 个文件…',
+    searchNoResults: '没有匹配「{q}」的文件',
+    searchResultCount: '{n} 个结果',
+    searchResultCountOne: '{n} 个结果',
+    searchClear: '清除搜索',
     noMatchingFolders: '没有匹配的文件夹。',
     currentFolder: '当前',
     moveCount: '移动 {n} 项',
@@ -157,6 +166,12 @@ export const strings = {
     setAnalytics: '发送匿名使用统计',
     setAnalyticsDesc:
       '该功能默认开启，可随时在“设置 → 常规”中关闭。使用 Google Analytics 4；Google 会接收您的公网 IP 地址和传输元数据，但绝不收集文档内容或文件名。',
+    setSearchRerank: 'Jev 搜索重排',
+    setSearchRerankDesc:
+      '把本机搜索的前 20 条命中片段发给 TypeSafe 的 Jev 模型，按相关性重新排序。默认关闭；开启后命中片段会离开本机。',
+    setSearchRerankEndpoint: 'Jev 端点',
+    searchRerankedBy: '已由 Jev 按相关性重排',
+    searchJevSettings: 'Jev 语义排序',
     setAiPanelSide: 'AI 侧边栏位置',
     aiPanelSideLeft: '左侧',
     aiPanelSideRight: '右侧',
@@ -308,10 +323,13 @@ export const strings = {
       '网页与图片搜索使用 Genspark 账号登录；未登录或关闭云工具时改用免费来源。',
     setAiSearchSerperHint: 'Serper 用你的 key 同时提供网页与图片搜索。',
     setAiSearchTavilyHint: 'Tavily 用你的 key 提供网页搜索；图片搜索改用免费来源。',
+    setAiSearchParallelHint:
+      '留空 API key 即可免费使用 Parallel 搜索（用量有限）。填写 key 可使用你的 Parallel 账户。图片搜索使用其他来源。',
     setAiCapImage: '生图',
     setAiCapAnalysis: '图片解析',
     setAiCapVideo: '视频解析',
     setAiCapSearch: '网络搜索',
+    setAiCapFileSearch: '本机文件搜索',
     setAiSharedKeyHint: '同一服务商的 key 与 Base URL 在各项能力间共用，只需填一次。',
     setAiGskTools: 'Genspark 云工具',
     setAiGskToolsDesc:
@@ -357,6 +375,9 @@ export const strings = {
     onbBack: '上一步',
   },
   en: {
+    addFolderRoot: 'Add folder…',
+    removeFolderRoot: 'Remove from list',
+    rootUnavailable: 'Not available',
     navRecent: 'Recent',
     navStarred: 'Starred',
     navCloud: 'Genspark Projects',
@@ -443,6 +464,12 @@ export const strings = {
     moveToFolder: 'Move to folder…',
     moveToFolderTitle: 'Move to folder',
     searchFolders: 'Search folders',
+    searchFilesPlaceholder: 'Search file names and contents…',
+    searchIndexing: 'Indexing {n} files…',
+    searchNoResults: 'No files match “{q}”',
+    searchResultCount: '{n} results',
+    searchResultCountOne: '{n} result',
+    searchClear: 'Clear search',
     noMatchingFolders: 'No matching folders.',
     currentFolder: 'Current',
     moveCount: 'Move {n}',
@@ -510,6 +537,12 @@ export const strings = {
     setAnalytics: 'Send anonymous usage statistics',
     setAnalyticsDesc:
       'Enabled by default and can be turned off anytime in Settings → General. Uses Google Analytics 4; Google receives your public IP address and transport metadata, but document contents and file names are never collected.',
+    setSearchRerank: 'Jev search reranking',
+    setSearchRerankDesc:
+      "Sends the top 20 local hits' excerpts to TypeSafe's Jev model and reorders them by relevance. Off by default; when on, excerpts leave this device.",
+    setSearchRerankEndpoint: 'Jev endpoint',
+    searchRerankedBy: 'Reordered by relevance with Jev',
+    searchJevSettings: 'Jev semantic reranking',
     setAiPanelSide: 'AI sidebar position',
     aiPanelSideLeft: 'Left',
     aiPanelSideRight: 'Right',
@@ -670,10 +703,13 @@ export const strings = {
     setAiSearchSerperHint: 'Serper serves both web and image search with your key.',
     setAiSearchTavilyHint:
       'Tavily serves web search with your key; image search falls back to free sources.',
+    setAiSearchParallelHint:
+      'Leave the key blank for free Parallel search (limited usage). Add a key to use your Parallel account. Image search uses other sources.',
     setAiCapImage: 'Image generation',
     setAiCapAnalysis: 'Image analysis',
     setAiCapVideo: 'Video analysis',
     setAiCapSearch: 'Web search',
+    setAiCapFileSearch: 'Local file search',
     setAiSharedKeyHint:
       "A vendor's key and base URL are shared across capabilities; enter them once.",
     setAiGskTools: 'Genspark cloud tools',
@@ -721,6 +757,9 @@ export const strings = {
     onbBack: 'Back',
   },
   ja: {
+    addFolderRoot: 'フォルダーを追加…',
+    removeFolderRoot: 'リストから削除',
+    rootUnavailable: '利用不可',
     // Sidebar navigation
     navRecent: '最近使用',
     navStarred: 'お気に入り',
@@ -814,6 +853,12 @@ export const strings = {
     moveToFolder: 'フォルダーに移動…',
     moveToFolderTitle: 'フォルダーに移動',
     searchFolders: 'フォルダーを検索',
+    searchFilesPlaceholder: 'ファイル名と内容を検索…',
+    searchIndexing: '{n} 件のファイルをインデックス中…',
+    searchNoResults: '「{q}」に一致するファイルはありません',
+    searchResultCount: '{n} 件の結果',
+    searchResultCountOne: '{n} 件の結果',
+    searchClear: '検索をクリア',
     noMatchingFolders: '一致するフォルダーはありません。',
     currentFolder: '現在',
     moveCount: '{n} 件を移動',
@@ -884,6 +929,12 @@ export const strings = {
     setAnalytics: '匿名の使用状況統計を送信',
     setAnalyticsDesc:
       '既定で有効です。設定 → 一般でいつでも無効にできます。Google Analytics 4 を使用し、Google は公開 IP アドレスと通信メタデータを受け取りますが、文書の内容やファイル名は収集されません。',
+    setSearchRerank: 'Jev 検索リランク',
+    setSearchRerankDesc:
+      'ローカル検索の上位 20 件の抜粋を TypeSafe の Jev モデルに送り、関連度で並べ替えます。既定ではオフ。オンにすると抜粋が端末外に送信されます。',
+    setSearchRerankEndpoint: 'Jev エンドポイント',
+    searchRerankedBy: 'Jev が関連度で並べ替えました',
+    searchJevSettings: 'Jev セマンティック並べ替え',
     setAiPanelSide: 'AI サイドバーの位置',
     aiPanelSideLeft: '左側',
     aiPanelSideRight: '右側',
@@ -1046,10 +1097,13 @@ export const strings = {
     setAiSearchSerperHint: 'Serper はあなたのキーで Web 検索と画像検索の両方を提供します。',
     setAiSearchTavilyHint:
       'Tavily はあなたのキーで Web 検索を提供します。画像検索は無料ソースにフォールバックします。',
+    setAiSearchParallelHint:
+      'キーを空欄にすると Parallel 検索を無料で使えます（利用制限あり）。キーを入力すると自分の Parallel アカウントを使用します。画像検索には他のソースを使用します。',
     setAiCapImage: '画像生成',
     setAiCapAnalysis: '画像解析',
     setAiCapVideo: '動画解析',
     setAiCapSearch: 'Web 検索',
+    setAiCapFileSearch: 'ローカルファイル検索',
     setAiSharedKeyHint:
       '同じプロバイダーのキーと Base URL は各機能で共有されます。一度入力すれば済みます。',
     setAiGskTools: 'Genspark クラウドツール',
@@ -1099,6 +1153,9 @@ export const strings = {
     onbBack: '戻る',
   },
   ko: {
+    addFolderRoot: '폴더 추가…',
+    removeFolderRoot: '목록에서 제거',
+    rootUnavailable: '사용할 수 없음',
     // Sidebar navigation
     navRecent: '최근 사용',
     navStarred: '즐겨찾기',
@@ -1190,6 +1247,12 @@ export const strings = {
     moveToFolder: '폴더로 이동…',
     moveToFolderTitle: '폴더로 이동',
     searchFolders: '폴더 검색',
+    searchFilesPlaceholder: '파일 이름과 내용 검색…',
+    searchIndexing: '파일 {n}개 색인 중…',
+    searchNoResults: '“{q}”과 일치하는 파일이 없습니다',
+    searchResultCount: '결과 {n}개',
+    searchResultCountOne: '결과 {n}개',
+    searchClear: '검색 지우기',
     noMatchingFolders: '일치하는 폴더가 없습니다.',
     currentFolder: '현재',
     moveCount: '{n}개 이동',
@@ -1257,6 +1320,12 @@ export const strings = {
     setAnalytics: '익명 사용 통계 보내기',
     setAnalyticsDesc:
       '기본적으로 켜져 있으며 설정 → 일반에서 언제든 끌 수 있습니다. Google Analytics 4를 사용하며 Google은 공인 IP 주소와 전송 메타데이터를 수신하지만 문서 내용이나 파일 이름은 수집하지 않습니다.',
+    setSearchRerank: 'Jev 검색 재정렬',
+    setSearchRerankDesc:
+      '로컬 검색 상위 20개 결과의 발췌문을 TypeSafe의 Jev 모델로 보내 관련도 순으로 재정렬합니다. 기본은 꺼짐이며, 켜면 발췌문이 기기 밖으로 전송됩니다.',
+    setSearchRerankEndpoint: 'Jev 엔드포인트',
+    searchRerankedBy: 'Jev가 관련도 순으로 재정렬함',
+    searchJevSettings: 'Jev 시맨틱 재정렬',
     setAiPanelSide: 'AI 사이드바 위치',
     aiPanelSideLeft: '왼쪽',
     aiPanelSideRight: '오른쪽',
@@ -1415,10 +1484,13 @@ export const strings = {
     setAiSearchSerperHint: 'Serper는 내 키로 웹 검색과 이미지 검색을 모두 제공합니다.',
     setAiSearchTavilyHint:
       'Tavily는 내 키로 웹 검색을 제공합니다. 이미지 검색은 무료 소스로 대체됩니다.',
+    setAiSearchParallelHint:
+      '키를 비워 두면 Parallel 검색을 무료로 사용할 수 있습니다(사용량 제한). 키를 입력하면 자신의 Parallel 계정을 사용합니다. 이미지 검색은 다른 소스를 사용합니다.',
     setAiCapImage: '이미지 생성',
     setAiCapAnalysis: '이미지 분석',
     setAiCapVideo: '동영상 분석',
     setAiCapSearch: '웹 검색',
+    setAiCapFileSearch: '로컬 파일 검색',
     setAiSharedKeyHint:
       '같은 제공자의 키와 Base URL은 모든 기능에서 공유되므로 한 번만 입력하면 됩니다.',
     setAiGskTools: 'Genspark 클라우드 도구',
@@ -1468,6 +1540,9 @@ export const strings = {
     onbBack: '이전',
   },
   fr: {
+    addFolderRoot: 'Ajouter un dossier…',
+    removeFolderRoot: 'Retirer de la liste',
+    rootUnavailable: 'Indisponible',
     // Sidebar navigation
     navRecent: 'Récents',
     navStarred: 'Favoris',
@@ -1561,6 +1636,12 @@ export const strings = {
     moveToFolder: 'Déplacer vers un dossier…',
     moveToFolderTitle: 'Déplacer vers un dossier',
     searchFolders: 'Rechercher des dossiers',
+    searchFilesPlaceholder: 'Rechercher dans les noms et le contenu…',
+    searchIndexing: 'Indexation de {n} fichiers…',
+    searchNoResults: 'Aucun fichier ne correspond à « {q} »',
+    searchResultCount: '{n} résultats',
+    searchResultCountOne: '{n} résultat',
+    searchClear: 'Effacer la recherche',
     noMatchingFolders: 'Aucun dossier correspondant.',
     currentFolder: 'Actuel',
     moveCount: 'Déplacer {n}',
@@ -1633,6 +1714,12 @@ export const strings = {
     setAnalytics: "Envoyer des statistiques d'utilisation anonymes",
     setAnalyticsDesc:
       'Activé par défaut et désactivable dans Paramètres → Général. Utilise Google Analytics 4 ; Google reçoit votre adresse IP publique et les métadonnées de transport, mais jamais le contenu des documents ni les noms de fichiers.',
+    setSearchRerank: 'Reclassement Jev',
+    setSearchRerankDesc:
+      'Envoie les extraits des 20 premiers résultats locaux au modèle Jev de TypeSafe et les réordonne par pertinence. Désactivé par défaut ; une fois activé, les extraits quittent cet appareil.',
+    setSearchRerankEndpoint: 'Point de terminaison Jev',
+    searchRerankedBy: 'Réordonné par pertinence avec Jev',
+    searchJevSettings: 'Reclassement sémantique Jev',
     setAiPanelSide: 'Position de la barre latérale IA',
     aiPanelSideLeft: 'Gauche',
     aiPanelSideRight: 'Droite',
@@ -1799,10 +1886,13 @@ export const strings = {
       "Serper assure la recherche web et la recherche d'images avec votre clé.",
     setAiSearchTavilyHint:
       "Tavily assure la recherche web avec votre clé ; la recherche d'images se rabat sur des sources gratuites.",
+    setAiSearchParallelHint:
+      'Laissez la clé vide pour la recherche Parallel gratuite (usage limité). Ajoutez une clé pour utiliser votre compte Parallel. La recherche d’images utilise d’autres sources.',
     setAiCapImage: "Génération d'images",
     setAiCapAnalysis: "Analyse d'images",
     setAiCapVideo: 'Analyse vidéo',
     setAiCapSearch: 'Recherche web',
+    setAiCapFileSearch: 'Recherche de fichiers locaux',
     setAiSharedKeyHint:
       "La clé et l'URL de base d'un fournisseur sont partagées entre les capacités ; saisissez-les une seule fois.",
     setAiGskTools: 'Outils cloud Genspark',
@@ -1852,6 +1942,9 @@ export const strings = {
     onbBack: 'Retour',
   },
   de: {
+    addFolderRoot: 'Ordner hinzufügen…',
+    removeFolderRoot: 'Aus der Liste entfernen',
+    rootUnavailable: 'Nicht verfügbar',
     // Sidebar navigation
     navRecent: 'Zuletzt verwendet',
     navStarred: 'Favoriten',
@@ -1947,6 +2040,12 @@ export const strings = {
     moveToFolder: 'In Ordner verschieben…',
     moveToFolderTitle: 'In Ordner verschieben',
     searchFolders: 'Ordner suchen',
+    searchFilesPlaceholder: 'Dateinamen und Inhalte durchsuchen…',
+    searchIndexing: '{n} Dateien werden indexiert…',
+    searchNoResults: 'Keine Dateien passen zu „{q}“',
+    searchResultCount: '{n} Ergebnisse',
+    searchResultCountOne: '{n} Ergebnis',
+    searchClear: 'Suche löschen',
     noMatchingFolders: 'Keine passenden Ordner.',
     currentFolder: 'Aktuell',
     moveCount: '{n} verschieben',
@@ -2020,6 +2119,12 @@ export const strings = {
     setAnalytics: 'Anonyme Nutzungsstatistiken senden',
     setAnalyticsDesc:
       'Standardmäßig aktiviert und unter Einstellungen → Allgemein deaktivierbar. Verwendet Google Analytics 4; Google erhält Ihre öffentliche IP-Adresse und Transportmetadaten, aber keine Dokumentinhalte oder Dateinamen.',
+    setSearchRerank: 'Jev-Neusortierung',
+    setSearchRerankDesc:
+      'Sendet die Auszüge der 20 besten lokalen Treffer an das Jev-Modell von TypeSafe und sortiert sie nach Relevanz. Standardmäßig aus; wenn aktiv, verlassen Auszüge dieses Gerät.',
+    setSearchRerankEndpoint: 'Jev-Endpunkt',
+    searchRerankedBy: 'Mit Jev nach Relevanz sortiert',
+    searchJevSettings: 'Semantische Neuordnung mit Jev',
     setAiPanelSide: 'Position der KI-Seitenleiste',
     aiPanelSideLeft: 'Links',
     aiPanelSideRight: 'Rechts',
@@ -2186,10 +2291,13 @@ export const strings = {
     setAiSearchSerperHint: 'Serper liefert mit deinem Schlüssel Web- und Bildsuche.',
     setAiSearchTavilyHint:
       'Tavily liefert mit deinem Schlüssel die Websuche; die Bildsuche greift auf kostenlose Quellen zurück.',
+    setAiSearchParallelHint:
+      'Ohne Schlüssel ist die Parallel-Suche kostenlos (begrenzte Nutzung). Mit einem Schlüssel verwenden Sie Ihr Parallel-Konto. Die Bildsuche nutzt andere Quellen.',
     setAiCapImage: 'Bildgenerierung',
     setAiCapAnalysis: 'Bildanalyse',
     setAiCapVideo: 'Videoanalyse',
     setAiCapSearch: 'Websuche',
+    setAiCapFileSearch: 'Lokale Dateisuche',
     setAiSharedKeyHint:
       'Schlüssel und Base URL eines Anbieters gelten für alle Fähigkeiten; einmal eintragen genügt.',
     setAiGskTools: 'Genspark-Cloud-Tools',
@@ -2239,6 +2347,9 @@ export const strings = {
     onbBack: 'Zurück',
   },
   es: {
+    addFolderRoot: 'Añadir carpeta…',
+    removeFolderRoot: 'Quitar de la lista',
+    rootUnavailable: 'No disponible',
     // Sidebar navigation
     navRecent: 'Recientes',
     navStarred: 'Destacados',
@@ -2333,6 +2444,12 @@ export const strings = {
     moveToFolder: 'Mover a carpeta…',
     moveToFolderTitle: 'Mover a carpeta',
     searchFolders: 'Buscar carpetas',
+    searchFilesPlaceholder: 'Buscar en nombres y contenido…',
+    searchIndexing: 'Indexando {n} archivos…',
+    searchNoResults: 'Ningún archivo coincide con «{q}»',
+    searchResultCount: '{n} resultados',
+    searchResultCountOne: '{n} resultado',
+    searchClear: 'Borrar búsqueda',
     noMatchingFolders: 'No hay carpetas coincidentes.',
     currentFolder: 'Actual',
     moveCount: 'Mover {n}',
@@ -2405,6 +2522,12 @@ export const strings = {
     setAnalytics: 'Enviar estadísticas de uso anónimas',
     setAnalyticsDesc:
       'Activado de forma predeterminada y desactivable en Configuración → General. Usa Google Analytics 4; Google recibe tu IP pública y metadatos de transporte, pero nunca el contenido de documentos ni los nombres de archivo.',
+    setSearchRerank: 'Reordenación con Jev',
+    setSearchRerankDesc:
+      'Envía los extractos de los 20 mejores resultados locales al modelo Jev de TypeSafe y los reordena por relevancia. Desactivado por defecto; al activarlo, los extractos salen de este dispositivo.',
+    setSearchRerankEndpoint: 'Punto de conexión de Jev',
+    searchRerankedBy: 'Reordenado por relevancia con Jev',
+    searchJevSettings: 'Reordenación semántica con Jev',
     setAiPanelSide: 'Posición de la barra lateral de IA',
     aiPanelSideLeft: 'Izquierda',
     aiPanelSideRight: 'Derecha',
@@ -2569,10 +2692,13 @@ export const strings = {
     setAiSearchSerperHint: 'Serper ofrece búsqueda web y de imágenes con tu clave.',
     setAiSearchTavilyHint:
       'Tavily ofrece búsqueda web con tu clave; la búsqueda de imágenes recurre a fuentes gratuitas.',
+    setAiSearchParallelHint:
+      'Deja la clave vacía para usar la búsqueda gratuita de Parallel (uso limitado). Añade una clave para usar tu cuenta de Parallel. Las imágenes se buscan en otras fuentes.',
     setAiCapImage: 'Generación de imágenes',
     setAiCapAnalysis: 'Análisis de imágenes',
     setAiCapVideo: 'Análisis de vídeo',
     setAiCapSearch: 'Búsqueda web',
+    setAiCapFileSearch: 'Búsqueda de archivos locales',
     setAiSharedKeyHint:
       'La clave y la URL base de un proveedor se comparten entre capacidades; introdúcelas una sola vez.',
     setAiGskTools: 'Herramientas en la nube de Genspark',
@@ -2622,6 +2748,9 @@ export const strings = {
     onbBack: 'Atrás',
   },
   th: {
+    addFolderRoot: 'เพิ่มโฟลเดอร์…',
+    removeFolderRoot: 'นำออกจากรายการ',
+    rootUnavailable: 'ไม่พร้อมใช้งาน',
     // Sidebar navigation
     navRecent: 'ล่าสุด',
     navStarred: 'รายการโปรด',
@@ -2713,6 +2842,12 @@ export const strings = {
     moveToFolder: 'ย้ายไปยังโฟลเดอร์…',
     moveToFolderTitle: 'ย้ายไปยังโฟลเดอร์',
     searchFolders: 'ค้นหาโฟลเดอร์',
+    searchFilesPlaceholder: 'ค้นหาชื่อไฟล์และเนื้อหา…',
+    searchIndexing: 'กำลังจัดทำดัชนี {n} ไฟล์…',
+    searchNoResults: 'ไม่มีไฟล์ที่ตรงกับ “{q}”',
+    searchResultCount: '{n} ผลลัพธ์',
+    searchResultCountOne: '{n} ผลลัพธ์',
+    searchClear: 'ล้างการค้นหา',
     noMatchingFolders: 'ไม่พบโฟลเดอร์ที่ตรงกัน',
     currentFolder: 'ปัจจุบัน',
     moveCount: 'ย้าย {n} รายการ',
@@ -2780,6 +2915,12 @@ export const strings = {
     setAnalytics: 'ส่งสถิติการใช้งานแบบไม่ระบุตัวตน',
     setAnalyticsDesc:
       'เปิดใช้งานเป็นค่าเริ่มต้นและปิดได้ทุกเมื่อใน การตั้งค่า → ทั่วไป ใช้ Google Analytics 4 โดย Google จะได้รับ IP สาธารณะและข้อมูลเมตาการรับส่งข้อมูล แต่จะไม่เก็บเนื้อหาเอกสารหรือชื่อไฟล์',
+    setSearchRerank: 'จัดอันดับใหม่ด้วย Jev',
+    setSearchRerankDesc:
+      'ส่งข้อความตัดตอนของผลลัพธ์ 20 อันดับแรกไปยังโมเดล Jev ของ TypeSafe เพื่อจัดอันดับใหม่ตามความเกี่ยวข้อง ปิดเป็นค่าเริ่มต้น เมื่อเปิด ข้อความตัดตอนจะถูกส่งออกจากอุปกรณ์นี้',
+    setSearchRerankEndpoint: 'ปลายทาง Jev',
+    searchRerankedBy: 'จัดอันดับใหม่ตามความเกี่ยวข้องโดย Jev',
+    searchJevSettings: 'จัดอันดับเชิงความหมายด้วย Jev',
     setAiPanelSide: 'ตำแหน่งแถบด้านข้าง AI',
     aiPanelSideLeft: 'ซ้าย',
     aiPanelSideRight: 'ขวา',
@@ -2936,10 +3077,13 @@ export const strings = {
     setAiSearchSerperHint: 'Serper ให้บริการค้นหาเว็บและภาพด้วยคีย์ของคุณ',
     setAiSearchTavilyHint:
       'Tavily ให้บริการค้นหาเว็บด้วยคีย์ของคุณ ส่วนการค้นหาภาพจะใช้แหล่งข้อมูลฟรีแทน',
+    setAiSearchParallelHint:
+      'เว้นคีย์ว่างไว้เพื่อค้นหาด้วย Parallel ฟรี (จำกัดการใช้งาน) เพิ่มคีย์เพื่อใช้บัญชี Parallel ของคุณ การค้นหารูปภาพใช้แหล่งข้อมูลอื่น',
     setAiCapImage: 'สร้างภาพ',
     setAiCapAnalysis: 'วิเคราะห์ภาพ',
     setAiCapVideo: 'วิเคราะห์วิดีโอ',
     setAiCapSearch: 'ค้นหาเว็บ',
+    setAiCapFileSearch: 'ค้นหาไฟล์ในเครื่อง',
     setAiSharedKeyHint:
       'คีย์และ Base URL ของผู้ให้บริการเดียวกันใช้ร่วมกันทุกความสามารถ กรอกครั้งเดียวพอ',
     setAiGskTools: 'เครื่องมือคลาวด์ Genspark',
@@ -2988,6 +3132,9 @@ export const strings = {
     onbBack: 'ย้อนกลับ',
   },
   id: {
+    addFolderRoot: 'Tambah folder…',
+    removeFolderRoot: 'Hapus dari daftar',
+    rootUnavailable: 'Tidak tersedia',
     // Sidebar navigation
     navRecent: 'Terbaru',
     navStarred: 'Berbintang',
@@ -3080,6 +3227,12 @@ export const strings = {
     moveToFolder: 'Pindahkan ke folder…',
     moveToFolderTitle: 'Pindahkan ke folder',
     searchFolders: 'Cari folder',
+    searchFilesPlaceholder: 'Cari nama dan isi file…',
+    searchIndexing: 'Mengindeks {n} file…',
+    searchNoResults: 'Tidak ada file yang cocok dengan “{q}”',
+    searchResultCount: '{n} hasil',
+    searchResultCountOne: '{n} hasil',
+    searchClear: 'Hapus pencarian',
     noMatchingFolders: 'Tidak ada folder yang cocok.',
     currentFolder: 'Saat ini',
     moveCount: 'Pindahkan {n}',
@@ -3151,6 +3304,12 @@ export const strings = {
     setAnalytics: 'Kirim statistik penggunaan anonim',
     setAnalyticsDesc:
       'Aktif secara default dan dapat dimatikan di Pengaturan → Umum. Menggunakan Google Analytics 4; Google menerima IP publik dan metadata transport Anda, tetapi tidak pernah mengumpulkan isi dokumen atau nama file.',
+    setSearchRerank: 'Peringkat ulang Jev',
+    setSearchRerankDesc:
+      'Mengirim kutipan 20 hasil lokal teratas ke model Jev dari TypeSafe dan mengurutkannya ulang berdasarkan relevansi. Nonaktif secara bawaan; saat aktif, kutipan keluar dari perangkat ini.',
+    setSearchRerankEndpoint: 'Endpoint Jev',
+    searchRerankedBy: 'Diurutkan ulang berdasarkan relevansi oleh Jev',
+    searchJevSettings: 'Pengurutan semantik Jev',
     setAiPanelSide: 'Posisi bilah samping AI',
     aiPanelSideLeft: 'Kiri',
     aiPanelSideRight: 'Kanan',
@@ -3312,10 +3471,13 @@ export const strings = {
     setAiSearchSerperHint: 'Serper menyediakan pencarian web dan gambar dengan kunci Anda.',
     setAiSearchTavilyHint:
       'Tavily menyediakan pencarian web dengan kunci Anda; pencarian gambar memakai sumber gratis.',
+    setAiSearchParallelHint:
+      'Kosongkan kunci untuk pencarian Parallel gratis (penggunaan terbatas). Tambahkan kunci untuk menggunakan akun Parallel Anda. Pencarian gambar memakai sumber lain.',
     setAiCapImage: 'Pembuatan gambar',
     setAiCapAnalysis: 'Analisis gambar',
     setAiCapVideo: 'Analisis video',
     setAiCapSearch: 'Pencarian web',
+    setAiCapFileSearch: 'Pencarian file lokal',
     setAiSharedKeyHint:
       'Kunci dan Base URL satu penyedia dipakai bersama oleh semua kemampuan; cukup isi sekali.',
     setAiGskTools: 'Alat cloud Genspark',
@@ -3365,6 +3527,9 @@ export const strings = {
     onbBack: 'Kembali',
   },
   ru: {
+    addFolderRoot: 'Добавить папку…',
+    removeFolderRoot: 'Убрать из списка',
+    rootUnavailable: 'Недоступно',
     // Sidebar navigation
     navRecent: 'Недавние',
     navStarred: 'Избранное',
@@ -3457,6 +3622,12 @@ export const strings = {
     moveToFolder: 'Переместить в папку…',
     moveToFolderTitle: 'Переместить в папку',
     searchFolders: 'Поиск папок',
+    searchFilesPlaceholder: 'Поиск по именам и содержимому…',
+    searchIndexing: 'Индексация {n} файлов…',
+    searchNoResults: 'Нет файлов, соответствующих «{q}»',
+    searchResultCount: '{n} результатов',
+    searchResultCountOne: '{n} результат',
+    searchClear: 'Очистить поиск',
     noMatchingFolders: 'Подходящих папок нет.',
     currentFolder: 'Текущая',
     moveCount: 'Переместить {n}',
@@ -3525,6 +3696,12 @@ export const strings = {
     setAnalytics: 'Отправлять анонимную статистику использования',
     setAnalyticsDesc:
       'Включено по умолчанию и отключается в Настройки → Общие. Используется Google Analytics 4; Google получает публичный IP и транспортные метаданные, но не содержимое документов и не имена файлов.',
+    setSearchRerank: 'Переранжирование Jev',
+    setSearchRerankDesc:
+      'Отправляет фрагменты 20 лучших локальных результатов модели Jev от TypeSafe и переупорядочивает их по релевантности. По умолчанию выключено; при включении фрагменты покидают это устройство.',
+    setSearchRerankEndpoint: 'Конечная точка Jev',
+    searchRerankedBy: 'Переупорядочено по релевантности с помощью Jev',
+    searchJevSettings: 'Семантическая сортировка Jev',
     setAiPanelSide: 'Положение боковой панели ИИ',
     aiPanelSideLeft: 'Слева',
     aiPanelSideRight: 'Справа',
@@ -3687,10 +3864,13 @@ export const strings = {
     setAiSearchSerperHint: 'Serper обеспечивает веб-поиск и поиск изображений с вашим ключом.',
     setAiSearchTavilyHint:
       'Tavily обеспечивает веб-поиск с вашим ключом; поиск изображений использует бесплатные источники.',
+    setAiSearchParallelHint:
+      'Оставьте ключ пустым для бесплатного поиска Parallel (с ограничениями). Добавьте ключ для использования своего аккаунта Parallel. Поиск изображений использует другие источники.',
     setAiCapImage: 'Генерация изображений',
     setAiCapAnalysis: 'Анализ изображений',
     setAiCapVideo: 'Анализ видео',
     setAiCapSearch: 'Веб-поиск',
+    setAiCapFileSearch: 'Поиск локальных файлов',
     setAiSharedKeyHint:
       'Ключ и базовый URL провайдера общие для всех функций; введите их один раз.',
     setAiGskTools: 'Облачные инструменты Genspark',
@@ -3740,6 +3920,9 @@ export const strings = {
     onbBack: 'Назад',
   },
   ar: {
+    addFolderRoot: 'إضافة مجلد…',
+    removeFolderRoot: 'إزالة من القائمة',
+    rootUnavailable: 'غير متاح',
     // Sidebar navigation
     navRecent: 'الأخيرة',
     navStarred: 'المفضلة',
@@ -3831,6 +4014,12 @@ export const strings = {
     moveToFolder: 'نقل إلى مجلد…',
     moveToFolderTitle: 'نقل إلى مجلد',
     searchFolders: 'البحث في المجلدات',
+    searchFilesPlaceholder: 'ابحث في أسماء الملفات والمحتوى…',
+    searchIndexing: 'جارٍ فهرسة {n} ملفًا…',
+    searchNoResults: 'لا توجد ملفات تطابق "{q}"',
+    searchResultCount: '{n} نتيجة',
+    searchResultCountOne: 'نتيجة واحدة ({n})',
+    searchClear: 'مسح البحث',
     noMatchingFolders: 'لا توجد مجلدات مطابقة.',
     currentFolder: 'الحالي',
     moveCount: 'نقل {n}',
@@ -3899,6 +4088,12 @@ export const strings = {
     setAnalytics: 'إرسال إحصاءات استخدام مجهولة الهوية',
     setAnalyticsDesc:
       'مفعّل افتراضيًا ويمكن إيقافه في الإعدادات ← عام. يستخدم Google Analytics 4؛ تتلقى Google عنوان IP العام وبيانات النقل، ولكن لا يتم جمع محتوى المستندات أو أسماء الملفات.',
+    setSearchRerank: 'إعادة ترتيب Jev',
+    setSearchRerankDesc:
+      'يرسل مقتطفات أفضل 20 نتيجة محلية إلى نموذج Jev من TypeSafe ويعيد ترتيبها حسب الصلة. معطّل افتراضيًا؛ عند التفعيل تخرج المقتطفات من هذا الجهاز.',
+    setSearchRerankEndpoint: 'نقطة نهاية Jev',
+    searchRerankedBy: 'أُعيد ترتيبها حسب الصلة بواسطة Jev',
+    searchJevSettings: 'إعادة الترتيب الدلالي بواسطة Jev',
     setAiPanelSide: 'موضع الشريط الجانبي للذكاء الاصطناعي',
     aiPanelSideLeft: 'اليسار',
     aiPanelSideRight: 'اليمين',
@@ -4055,10 +4250,13 @@ export const strings = {
     setAiSearchSerperHint: 'يوفّر Serper البحث في الويب والصور بمفتاحك.',
     setAiSearchTavilyHint:
       'يوفّر Tavily البحث في الويب بمفتاحك؛ ويعود البحث في الصور إلى مصادر مجانية.',
+    setAiSearchParallelHint:
+      'اترك المفتاح فارغًا لاستخدام بحث Parallel مجانًا (استخدام محدود). أضف مفتاحًا لاستخدام حسابك في Parallel. يستخدم بحث الصور مصادر أخرى.',
     setAiCapImage: 'توليد الصور',
     setAiCapAnalysis: 'تحليل الصور',
     setAiCapVideo: 'تحليل الفيديو',
     setAiCapSearch: 'البحث في الويب',
+    setAiCapFileSearch: 'البحث في الملفات المحلية',
     setAiSharedKeyHint:
       'مفتاح المزوّد وعنوان Base URL مشتركان بين جميع القدرات؛ أدخلهما مرة واحدة فقط.',
     setAiGskTools: 'أدوات Genspark السحابية',
@@ -4107,6 +4305,9 @@ export const strings = {
     onbBack: 'رجوع',
   },
   pt: {
+    addFolderRoot: 'Adicionar pasta…',
+    removeFolderRoot: 'Remover da lista',
+    rootUnavailable: 'Indisponível',
     navRecent: 'Recentes',
     navStarred: 'Favoritos',
     navCloud: 'Genspark Projects',
@@ -4194,6 +4395,12 @@ export const strings = {
     moveToFolder: 'Mover para pasta…',
     moveToFolderTitle: 'Mover para pasta',
     searchFolders: 'Pesquisar pastas',
+    searchFilesPlaceholder: 'Pesquisar nomes e conteúdo…',
+    searchIndexing: 'Indexando {n} arquivos…',
+    searchNoResults: 'Nenhum arquivo corresponde a “{q}”',
+    searchResultCount: '{n} resultados',
+    searchResultCountOne: '{n} resultado',
+    searchClear: 'Limpar pesquisa',
     noMatchingFolders: 'Nenhuma pasta correspondente.',
     currentFolder: 'Atual',
     moveCount: 'Mover {n}',
@@ -4263,6 +4470,12 @@ export const strings = {
     setAnalytics: 'Enviar estatísticas de uso anônimas',
     setAnalyticsDesc:
       'Ativado por padrão e pode ser desativado em Configurações → Geral. Usa o Google Analytics 4; o Google recebe seu IP público e metadados de transporte, mas nunca o conteúdo dos documentos ou nomes de arquivos.',
+    setSearchRerank: 'Reordenação com Jev',
+    setSearchRerankDesc:
+      'Envia os trechos dos 20 melhores resultados locais ao modelo Jev da TypeSafe e os reordena por relevância. Desativado por padrão; quando ativo, os trechos saem deste dispositivo.',
+    setSearchRerankEndpoint: 'Endpoint do Jev',
+    searchRerankedBy: 'Reordenado por relevância com Jev',
+    searchJevSettings: 'Reordenação semântica com Jev',
     setAiPanelSide: 'Posição da barra lateral de IA',
     aiPanelSideLeft: 'Esquerda',
     aiPanelSideRight: 'Direita',
@@ -4428,10 +4641,13 @@ export const strings = {
     setAiSearchSerperHint: 'O Serper oferece busca na web e de imagens com a sua chave.',
     setAiSearchTavilyHint:
       'O Tavily oferece busca na web com a sua chave; a busca de imagens recorre a fontes gratuitas.',
+    setAiSearchParallelHint:
+      'Deixe a chave vazia para pesquisar gratuitamente com Parallel (uso limitado). Adicione uma chave para usar sua conta Parallel. A pesquisa de imagens usa outras fontes.',
     setAiCapImage: 'Geração de imagens',
     setAiCapAnalysis: 'Análise de imagens',
     setAiCapVideo: 'Análise de vídeo',
     setAiCapSearch: 'Busca na web',
+    setAiCapFileSearch: 'Pesquisa de arquivos locais',
     setAiSharedKeyHint:
       'A chave e a URL base de um provedor são compartilhadas entre as capacidades; insira-as uma só vez.',
     setAiGskTools: 'Ferramentas na nuvem Genspark',
@@ -4479,6 +4695,9 @@ export const strings = {
     onbBack: 'Voltar',
   },
   it: {
+    addFolderRoot: 'Aggiungi cartella…',
+    removeFolderRoot: "Rimuovi dall'elenco",
+    rootUnavailable: 'Non disponibile',
     navRecent: 'Recenti',
     navStarred: 'Preferiti',
     navCloud: 'Genspark Projects',
@@ -4566,6 +4785,12 @@ export const strings = {
     moveToFolder: 'Sposta nella cartella…',
     moveToFolderTitle: 'Sposta nella cartella',
     searchFolders: 'Cerca cartelle',
+    searchFilesPlaceholder: 'Cerca nei nomi e nel contenuto…',
+    searchIndexing: 'Indicizzazione di {n} file…',
+    searchNoResults: 'Nessun file corrisponde a “{q}”',
+    searchResultCount: '{n} risultati',
+    searchResultCountOne: '{n} risultato',
+    searchClear: 'Cancella ricerca',
     noMatchingFolders: 'Nessuna cartella corrispondente.',
     currentFolder: 'Attuale',
     moveCount: 'Sposta {n}',
@@ -4635,6 +4860,12 @@ export const strings = {
     setAnalytics: 'Invia statistiche di utilizzo anonime',
     setAnalyticsDesc:
       "Attivo per impostazione predefinita e disattivabile in Impostazioni → Generali. Utilizza Google Analytics 4; Google riceve l'IP pubblico e i metadati di trasporto, ma mai contenuti o nomi dei file.",
+    setSearchRerank: 'Riordino con Jev',
+    setSearchRerankDesc:
+      'Invia gli estratti dei 20 migliori risultati locali al modello Jev di TypeSafe e li riordina per pertinenza. Disattivato per impostazione predefinita; se attivo, gli estratti lasciano questo dispositivo.',
+    setSearchRerankEndpoint: 'Endpoint Jev',
+    searchRerankedBy: 'Riordinato per pertinenza con Jev',
+    searchJevSettings: 'Riordino semantico con Jev',
     setAiPanelSide: 'Posizione della barra laterale IA',
     aiPanelSideLeft: 'Sinistra',
     aiPanelSideRight: 'Destra',
@@ -4799,10 +5030,13 @@ export const strings = {
     setAiSearchSerperHint: 'Serper offre ricerca web e di immagini con la tua chiave.',
     setAiSearchTavilyHint:
       'Tavily offre la ricerca web con la tua chiave; la ricerca di immagini ricorre a fonti gratuite.',
+    setAiSearchParallelHint:
+      'Lascia la chiave vuota per la ricerca Parallel gratuita (uso limitato). Aggiungi una chiave per usare il tuo account Parallel. Le immagini vengono cercate in altre fonti.',
     setAiCapImage: 'Generazione di immagini',
     setAiCapAnalysis: 'Analisi di immagini',
     setAiCapVideo: 'Analisi video',
     setAiCapSearch: 'Ricerca web',
+    setAiCapFileSearch: 'Ricerca file locali',
     setAiSharedKeyHint:
       "La chiave e l'URL base di un provider sono condivisi tra le capacità; inseriscili una volta sola.",
     setAiGskTools: 'Strumenti cloud Genspark',
@@ -4850,6 +5084,9 @@ export const strings = {
     onbBack: 'Indietro',
   },
   pl: {
+    addFolderRoot: 'Dodaj folder…',
+    removeFolderRoot: 'Usuń z listy',
+    rootUnavailable: 'Niedostępny',
     navRecent: 'Ostatnie',
     navStarred: 'Ulubione',
     navCloud: 'Genspark Projects',
@@ -4936,6 +5173,12 @@ export const strings = {
     moveToFolder: 'Przenieś do folderu…',
     moveToFolderTitle: 'Przenieś do folderu',
     searchFolders: 'Szukaj folderów',
+    searchFilesPlaceholder: 'Szukaj w nazwach i treści…',
+    searchIndexing: 'Indeksowanie {n} plików…',
+    searchNoResults: 'Brak plików pasujących do „{q}”',
+    searchResultCount: '{n} wyników',
+    searchResultCountOne: '{n} wynik',
+    searchClear: 'Wyczyść wyszukiwanie',
     noMatchingFolders: 'Brak pasujących folderów.',
     currentFolder: 'Bieżący',
     moveCount: 'Przenieś {n}',
@@ -5005,6 +5248,12 @@ export const strings = {
     setAnalytics: 'Wysyłaj anonimowe statystyki użytkowania',
     setAnalyticsDesc:
       'Domyślnie włączone; można wyłączyć w Ustawienia → Ogólne. Korzysta z Google Analytics 4; Google otrzymuje publiczny adres IP i metadane transportowe, ale nigdy treść dokumentów ani nazwy plików.',
+    setSearchRerank: 'Ponowne sortowanie Jev',
+    setSearchRerankDesc:
+      'Wysyła fragmenty 20 najlepszych lokalnych wyników do modelu Jev firmy TypeSafe i sortuje je według trafności. Domyślnie wyłączone; po włączeniu fragmenty opuszczają to urządzenie.',
+    setSearchRerankEndpoint: 'Punkt końcowy Jev',
+    searchRerankedBy: 'Posortowano według trafności przez Jev',
+    searchJevSettings: 'Semantyczne sortowanie Jev',
     setAiPanelSide: 'Położenie panelu bocznego AI',
     aiPanelSideLeft: 'Lewa',
     aiPanelSideRight: 'Prawa',
@@ -5165,10 +5414,13 @@ export const strings = {
     setAiSearchSerperHint: 'Serper zapewnia wyszukiwanie w sieci i obrazów z Twoim kluczem.',
     setAiSearchTavilyHint:
       'Tavily zapewnia wyszukiwanie w sieci z Twoim kluczem; wyszukiwanie obrazów używa darmowych źródeł.',
+    setAiSearchParallelHint:
+      'Pozostaw klucz pusty, aby bezpłatnie korzystać z wyszukiwania Parallel (z limitami). Dodaj klucz, aby używać swojego konta Parallel. Obrazy są wyszukiwane w innych źródłach.',
     setAiCapImage: 'Generowanie obrazów',
     setAiCapAnalysis: 'Analiza obrazów',
     setAiCapVideo: 'Analiza wideo',
     setAiCapSearch: 'Wyszukiwanie w sieci',
+    setAiCapFileSearch: 'Wyszukiwanie plików lokalnych',
     setAiSharedKeyHint:
       'Klucz i bazowy URL dostawcy są wspólne dla wszystkich funkcji; wpisz je raz.',
     setAiGskTools: 'Narzędzia chmurowe Genspark',
@@ -5216,6 +5468,9 @@ export const strings = {
     onbBack: 'Wstecz',
   },
   cs: {
+    addFolderRoot: 'Přidat složku…',
+    removeFolderRoot: 'Odebrat ze seznamu',
+    rootUnavailable: 'Nedostupné',
     navRecent: 'Nedávné',
     navStarred: 'Oblíbené',
     navCloud: 'Genspark Projects',
@@ -5303,6 +5558,12 @@ export const strings = {
     moveToFolder: 'Přesunout do složky…',
     moveToFolderTitle: 'Přesunout do složky',
     searchFolders: 'Hledat složky',
+    searchFilesPlaceholder: 'Hledat v názvech a obsahu…',
+    searchIndexing: 'Indexuje se {n} souborů…',
+    searchNoResults: 'Žádné soubory neodpovídají „{q}“',
+    searchResultCount: '{n} výsledků',
+    searchResultCountOne: '{n} výsledek',
+    searchClear: 'Vymazat hledání',
     noMatchingFolders: 'Žádné odpovídající složky.',
     currentFolder: 'Aktuální',
     moveCount: 'Přesunout {n}',
@@ -5518,10 +5779,13 @@ export const strings = {
     setAiSearchSerperHint: 'Serper zajišťuje webové i obrázkové vyhledávání s vaším klíčem.',
     setAiSearchTavilyHint:
       'Tavily zajišťuje webové vyhledávání s vaším klíčem; obrázkové vyhledávání použije bezplatné zdroje.',
+    setAiSearchParallelHint:
+      'Nechte klíč prázdný pro bezplatné vyhledávání Parallel (omezené použití). Zadejte klíč pro použití svého účtu Parallel. Obrázky se vyhledávají v jiných zdrojích.',
     setAiCapImage: 'Generování obrázků',
     setAiCapAnalysis: 'Analýza obrázků',
     setAiCapVideo: 'Analýza videí',
     setAiCapSearch: 'Webové vyhledávání',
+    setAiCapFileSearch: 'Hledání místních souborů',
     setAiSharedKeyHint:
       'Klíč a základní URL jednoho poskytovatele se sdílejí mezi funkcemi; zadejte je jen jednou.',
     setAiGskTools: 'Cloudové nástroje Genspark',
@@ -5570,6 +5834,12 @@ export const strings = {
     setAutoSave: 'Automaticky ukládat všechny dokumenty',
     setAutoSaveDesc:
       'Zapne automatické ukládání ve všech editorech jako výchozí. Pro jednotlivé okno ho lze stále vypnout.',
+    setSearchRerank: 'Přeřazení Jev',
+    setSearchRerankDesc:
+      'Odešle výňatky 20 nejlepších místních výsledků modelu Jev od TypeSafe a seřadí je podle relevance. Ve výchozím stavu vypnuto; po zapnutí výňatky opouštějí toto zařízení.',
+    setSearchRerankEndpoint: 'Koncový bod Jev',
+    searchRerankedBy: 'Seřazeno podle relevance pomocí Jev',
+    searchJevSettings: 'Sémantické řazení Jev',
     setAiPanelSide: 'Pozice postranního panelu AI',
     aiPanelSideLeft: 'Vlevo',
     aiPanelSideRight: 'Vpravo',
@@ -5582,6 +5852,9 @@ export const strings = {
     setAiSpellcheckDesc: 'Podtrhávat překlepy při psaní do vstupního pole chatu AI.',
   },
   nl: {
+    addFolderRoot: 'Map toevoegen…',
+    removeFolderRoot: 'Uit lijst verwijderen',
+    rootUnavailable: 'Niet beschikbaar',
     navRecent: 'Recent',
     navStarred: 'Favorieten',
     navCloud: 'Genspark Projects',
@@ -5670,6 +5943,12 @@ export const strings = {
     moveToFolder: 'Verplaatsen naar map…',
     moveToFolderTitle: 'Verplaatsen naar map',
     searchFolders: 'Mappen zoeken',
+    searchFilesPlaceholder: 'Zoek in bestandsnamen en inhoud…',
+    searchIndexing: '{n} bestanden indexeren…',
+    searchNoResults: 'Geen bestanden komen overeen met “{q}”',
+    searchResultCount: '{n} resultaten',
+    searchResultCountOne: '{n} resultaat',
+    searchClear: 'Zoekopdracht wissen',
     noMatchingFolders: 'Geen overeenkomende mappen.',
     currentFolder: 'Huidige',
     moveCount: '{n} verplaatsen',
@@ -5737,6 +6016,12 @@ export const strings = {
     setAnalytics: 'Anonieme gebruiksstatistieken verzenden',
     setAnalyticsDesc:
       'Standaard ingeschakeld en uit te schakelen via Instellingen → Algemeen. Gebruikt Google Analytics 4; Google ontvangt uw openbare IP en transportmetadata, maar nooit documentinhoud of bestandsnamen.',
+    setSearchRerank: 'Jev-herordening',
+    setSearchRerankDesc:
+      'Stuurt de fragmenten van de 20 beste lokale resultaten naar het Jev-model van TypeSafe en sorteert ze op relevantie. Standaard uit; indien aan verlaten fragmenten dit apparaat.',
+    setSearchRerankEndpoint: 'Jev-eindpunt',
+    searchRerankedBy: 'Op relevantie geordend met Jev',
+    searchJevSettings: 'Semantisch herordenen met Jev',
     setAiPanelSide: 'Positie AI-zijbalk',
     aiPanelSideLeft: 'Links',
     aiPanelSideRight: 'Rechts',
@@ -5900,10 +6185,13 @@ export const strings = {
     setAiSearchSerperHint: 'Serper levert web- en afbeeldingszoeken met je sleutel.',
     setAiSearchTavilyHint:
       'Tavily levert webzoeken met je sleutel; afbeeldingszoeken valt terug op gratis bronnen.',
+    setAiSearchParallelHint:
+      'Laat de sleutel leeg voor gratis zoeken met Parallel (beperkt gebruik). Voeg een sleutel toe om je Parallel-account te gebruiken. Afbeeldingen komen uit andere bronnen.',
     setAiCapImage: 'Afbeeldingen genereren',
     setAiCapAnalysis: 'Afbeeldingsanalyse',
     setAiCapVideo: 'Video-analyse',
     setAiCapSearch: 'Zoeken op het web',
+    setAiCapFileSearch: 'Lokale bestanden zoeken',
     setAiSharedKeyHint:
       'De sleutel en basis-URL van een provider gelden voor alle functies; één keer invoeren volstaat.',
     setAiGskTools: 'Genspark-cloudtools',
@@ -5951,6 +6239,9 @@ export const strings = {
     onbBack: 'Terug',
   },
   ms: {
+    addFolderRoot: 'Tambah folder…',
+    removeFolderRoot: 'Buang daripada senarai',
+    rootUnavailable: 'Tidak tersedia',
     navRecent: 'Terkini',
     navStarred: 'Berbintang',
     navCloud: 'Genspark Projects',
@@ -6038,6 +6329,12 @@ export const strings = {
     moveToFolder: 'Pindah ke folder…',
     moveToFolderTitle: 'Pindah ke folder',
     searchFolders: 'Cari folder',
+    searchFilesPlaceholder: 'Cari nama dan kandungan fail…',
+    searchIndexing: 'Mengindeks {n} fail…',
+    searchNoResults: 'Tiada fail sepadan dengan “{q}”',
+    searchResultCount: '{n} hasil',
+    searchResultCountOne: '{n} hasil',
+    searchClear: 'Kosongkan carian',
     noMatchingFolders: 'Tiada folder yang sepadan.',
     currentFolder: 'Semasa',
     moveCount: 'Pindah {n}',
@@ -6106,6 +6403,12 @@ export const strings = {
     setAnalytics: 'Hantar statistik penggunaan tanpa nama',
     setAnalyticsDesc:
       'Diaktifkan secara lalai dan boleh dimatikan di Tetapan → Umum. Menggunakan Google Analytics 4; Google menerima IP awam dan metadata pengangkutan, tetapi tidak pernah kandungan dokumen atau nama fail.',
+    setSearchRerank: 'Susunan semula Jev',
+    setSearchRerankDesc:
+      'Menghantar petikan 20 hasil tempatan teratas ke model Jev TypeSafe dan menyusunnya semula mengikut kaitan. Dimatikan secara lalai; apabila dihidupkan, petikan keluar dari peranti ini.',
+    setSearchRerankEndpoint: 'Titik akhir Jev',
+    searchRerankedBy: 'Disusun semula mengikut kaitan oleh Jev',
+    searchJevSettings: 'Susunan semantik Jev',
     setAiPanelSide: 'Kedudukan bar sisi AI',
     aiPanelSideLeft: 'Kiri',
     aiPanelSideRight: 'Kanan',
@@ -6272,10 +6575,13 @@ export const strings = {
     setAiSearchSerperHint: 'Serper menyediakan carian web dan imej dengan kunci anda.',
     setAiSearchTavilyHint:
       'Tavily menyediakan carian web dengan kunci anda; carian imej menggunakan sumber percuma.',
+    setAiSearchParallelHint:
+      'Biarkan kunci kosong untuk carian Parallel percuma (penggunaan terhad). Tambah kunci untuk menggunakan akaun Parallel anda. Carian imej menggunakan sumber lain.',
     setAiCapImage: 'Penjanaan imej',
     setAiCapAnalysis: 'Analisis imej',
     setAiCapVideo: 'Analisis video',
     setAiCapSearch: 'Carian web',
+    setAiCapFileSearch: 'Carian fail tempatan',
     setAiSharedKeyHint:
       'Kunci dan Base URL pembekal dikongsi oleh semua keupayaan; isi sekali sahaja.',
     setAiGskTools: 'Alat awan Genspark',
@@ -6323,6 +6629,9 @@ export const strings = {
     onbBack: 'Kembali',
   },
   he: {
+    addFolderRoot: 'הוספת תיקייה…',
+    removeFolderRoot: 'הסרה מהרשימה',
+    rootUnavailable: 'לא זמין',
     navRecent: 'אחרונים',
     navStarred: 'מועדפים',
     navCloud: 'Genspark Projects',
@@ -6409,6 +6718,12 @@ export const strings = {
     moveToFolder: 'העברה לתיקייה…',
     moveToFolderTitle: 'העברה לתיקייה',
     searchFolders: 'חיפוש תיקיות',
+    searchFilesPlaceholder: 'חיפוש בשמות קבצים ובתוכן…',
+    searchIndexing: 'מוסיף לאינדקס {n} קבצים…',
+    searchNoResults: 'אין קבצים התואמים ל־"{q}"',
+    searchResultCount: '{n} תוצאות',
+    searchResultCountOne: 'תוצאה אחת ({n})',
+    searchClear: 'ניקוי החיפוש',
     noMatchingFolders: 'אין תיקיות מתאימות.',
     currentFolder: 'נוכחית',
     moveCount: 'העברת {n}',
@@ -6474,6 +6789,12 @@ export const strings = {
     setAnalytics: 'שליחת נתוני שימוש אנונימיים',
     setAnalyticsDesc:
       'מופעל כברירת מחדל וניתן לכיבוי בהגדרות ← כללי. משתמש ב-Google Analytics 4; Google מקבלת IP ציבורי ומטא-נתוני תעבורה, אך לא תוכן מסמכים או שמות קבצים.',
+    setSearchRerank: 'סידור מחדש עם Jev',
+    setSearchRerankDesc:
+      'שולח את הקטעים של 20 התוצאות המקומיות המובילות למודל Jev של TypeSafe ומסדר אותן מחדש לפי רלוונטיות. כבוי כברירת מחדל; כשמופעל, הקטעים יוצאים מהמכשיר הזה.',
+    setSearchRerankEndpoint: 'נקודת קצה של Jev',
+    searchRerankedBy: 'סודר מחדש לפי רלוונטיות על ידי Jev',
+    searchJevSettings: 'סידור סמנטי עם Jev',
     setAiPanelSide: 'מיקום סרגל הצד של הבינה המלאכותית',
     aiPanelSideLeft: 'שמאל',
     aiPanelSideRight: 'ימין',
@@ -6628,10 +6949,13 @@ export const strings = {
     setAiSearchSerperHint: 'Serper מספק חיפוש באינטרנט ובתמונות עם המפתח שלך.',
     setAiSearchTavilyHint:
       'Tavily מספק חיפוש באינטרנט עם המפתח שלך; חיפוש תמונות חוזר למקורות חינמיים.',
+    setAiSearchParallelHint:
+      'השאירו את המפתח ריק לחיפוש Parallel בחינם (שימוש מוגבל). הוסיפו מפתח כדי להשתמש בחשבון Parallel שלכם. חיפוש תמונות משתמש במקורות אחרים.',
     setAiCapImage: 'יצירת תמונות',
     setAiCapAnalysis: 'ניתוח תמונות',
     setAiCapVideo: 'ניתוח וידאו',
     setAiCapSearch: 'חיפוש באינטרנט',
+    setAiCapFileSearch: 'חיפוש קבצים מקומיים',
     setAiSharedKeyHint:
       'המפתח וכתובת ה-Base URL של ספק משותפים לכל היכולות; יש להזין אותם פעם אחת בלבד.',
     setAiGskTools: 'כלי הענן של Genspark',
@@ -6677,6 +7001,9 @@ export const strings = {
     onbBack: 'חזרה',
   },
   hi: {
+    addFolderRoot: 'फ़ोल्डर जोड़ें…',
+    removeFolderRoot: 'सूची से हटाएँ',
+    rootUnavailable: 'उपलब्ध नहीं',
     navRecent: 'हाल के',
     navStarred: 'तारांकित',
     navCloud: 'Genspark Projects',
@@ -6764,6 +7091,12 @@ export const strings = {
     moveToFolder: 'फ़ोल्डर में ले जाएँ…',
     moveToFolderTitle: 'फ़ोल्डर में ले जाएँ',
     searchFolders: 'फ़ोल्डर खोजें',
+    searchFilesPlaceholder: 'फ़ाइल नाम और सामग्री खोजें…',
+    searchIndexing: '{n} फ़ाइलें इंडेक्स हो रही हैं…',
+    searchNoResults: '“{q}” से मेल खाती कोई फ़ाइल नहीं',
+    searchResultCount: '{n} परिणाम',
+    searchResultCountOne: '{n} परिणाम',
+    searchClear: 'खोज साफ़ करें',
     noMatchingFolders: 'कोई मेल खाता फ़ोल्डर नहीं।',
     currentFolder: 'वर्तमान',
     moveCount: '{n} ले जाएँ',
@@ -6832,6 +7165,12 @@ export const strings = {
     setAnalytics: 'गुमनाम उपयोग आँकड़े भेजें',
     setAnalyticsDesc:
       'डिफ़ॉल्ट रूप से चालू; सेटिंग्स → सामान्य में बंद किया जा सकता है। Google Analytics 4 का उपयोग होता है; Google को सार्वजनिक IP और ट्रांसपोर्ट मेटाडेटा मिलता है, लेकिन दस्तावेज़ सामग्री या फ़ाइल नाम नहीं।',
+    setSearchRerank: 'Jev खोज पुनर्क्रमण',
+    setSearchRerankDesc:
+      'स्थानीय खोज के शीर्ष 20 परिणामों के अंश TypeSafe के Jev मॉडल को भेजता है और उन्हें प्रासंगिकता के अनुसार पुनः क्रमित करता है। डिफ़ॉल्ट रूप से बंद; चालू होने पर अंश इस डिवाइस से बाहर जाते हैं।',
+    setSearchRerankEndpoint: 'Jev एंडपॉइंट',
+    searchRerankedBy: 'Jev द्वारा प्रासंगिकता के अनुसार पुनः क्रमित',
+    searchJevSettings: 'Jev सिमैंटिक पुनर्क्रमण',
     setAiPanelSide: 'AI साइडबार की स्थिति',
     aiPanelSideLeft: 'बाईं ओर',
     aiPanelSideRight: 'दाईं ओर',
@@ -6992,10 +7331,13 @@ export const strings = {
     setAiSearchSerperHint: 'Serper आपकी कुंजी से वेब और इमेज खोज दोनों देता है।',
     setAiSearchTavilyHint:
       'Tavily आपकी कुंजी से वेब खोज देता है; इमेज खोज मुफ़्त स्रोतों पर लौट जाती है।',
+    setAiSearchParallelHint:
+      'मुफ़्त Parallel खोज के लिए कुंजी खाली छोड़ें (सीमित उपयोग)। अपने Parallel खाते का उपयोग करने के लिए कुंजी जोड़ें। इमेज खोज अन्य स्रोतों का उपयोग करती है।',
     setAiCapImage: 'इमेज जनरेशन',
     setAiCapAnalysis: 'इमेज विश्लेषण',
     setAiCapVideo: 'वीडियो विश्लेषण',
     setAiCapSearch: 'वेब खोज',
+    setAiCapFileSearch: 'स्थानीय फ़ाइल खोज',
     setAiSharedKeyHint:
       'एक प्रदाता की कुंजी और Base URL सभी क्षमताओं में साझा होते हैं; एक बार ही दर्ज करें।',
     setAiGskTools: 'Genspark क्लाउड टूल',
@@ -7043,6 +7385,9 @@ export const strings = {
     onbBack: 'वापस',
   },
   'zh-TW': {
+    addFolderRoot: '加入資料夾…',
+    removeFolderRoot: '從清單移除',
+    rootUnavailable: '無法使用',
     navRecent: '最近',
     navStarred: '收藏',
     navCloud: 'Genspark Projects',
@@ -7128,6 +7473,12 @@ export const strings = {
     moveToFolder: '移至資料夾…',
     moveToFolderTitle: '移至資料夾',
     searchFolders: '搜尋資料夾',
+    searchFilesPlaceholder: '搜尋檔案名稱與內容…',
+    searchIndexing: '正在索引 {n} 個檔案…',
+    searchNoResults: '沒有符合「{q}」的檔案',
+    searchResultCount: '{n} 個結果',
+    searchResultCountOne: '{n} 個結果',
+    searchClear: '清除搜尋',
     noMatchingFolders: '沒有符合的資料夾。',
     currentFolder: '目前',
     moveCount: '移動 {n} 項',
@@ -7193,6 +7544,12 @@ export const strings = {
     setAnalytics: '傳送匿名使用統計',
     setAnalyticsDesc:
       '此功能預設開啟，可隨時在「設定 → 一般」中關閉。使用 Google Analytics 4；Google 會接收您的公開 IP 位址和傳輸中繼資料，但絕不收集文件內容或檔案名稱。',
+    setSearchRerank: 'Jev 搜尋重排',
+    setSearchRerankDesc:
+      '將本機搜尋前 20 筆命中片段傳給 TypeSafe 的 Jev 模型，依相關性重新排序。預設關閉；開啟後命中片段會離開本機。',
+    setSearchRerankEndpoint: 'Jev 端點',
+    searchRerankedBy: '已由 Jev 依相關性重排',
+    searchJevSettings: 'Jev 語意排序',
     setAiPanelSide: 'AI 側邊欄位置',
     aiPanelSideLeft: '左側',
     aiPanelSideRight: '右側',
@@ -7344,10 +7701,13 @@ export const strings = {
       '網頁與圖片搜尋使用 Genspark 帳號登入；未登入或關閉雲端工具時改用免費來源。',
     setAiSearchSerperHint: 'Serper 用你的 key 同時提供網頁與圖片搜尋。',
     setAiSearchTavilyHint: 'Tavily 用你的 key 提供網頁搜尋；圖片搜尋改用免費來源。',
+    setAiSearchParallelHint:
+      '留空 API key 即可免費使用 Parallel 搜尋（用量有限）。填寫 key 可使用你的 Parallel 帳戶。圖片搜尋使用其他來源。',
     setAiCapImage: '生圖',
     setAiCapAnalysis: '圖片解析',
     setAiCapVideo: '影片解析',
     setAiCapSearch: '網路搜尋',
+    setAiCapFileSearch: '本機檔案搜尋',
     setAiSharedKeyHint: '同一服務商的 key 與 Base URL 在各項能力間共用，只需填一次。',
     setAiGskTools: 'Genspark 雲端工具',
     setAiGskToolsDesc:

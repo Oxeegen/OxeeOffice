@@ -135,6 +135,7 @@ export const ru = {
   aiClarifyOther: 'Другое (впишите свой вариант)',
   aiClarifySkip: 'Пропустить опрос',
   aiClarifyNext: 'Далее',
+  aiClarifyPrev: 'Назад',
   aiClarifySubmit: 'Сгенерировать',
   aiSumReadAttachment: 'Чтение вложения',
   aiSumReadAttachmentName: 'Чтение вложения {name}',

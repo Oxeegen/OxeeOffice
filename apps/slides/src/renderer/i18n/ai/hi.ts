@@ -134,6 +134,7 @@ export const hi = {
   aiClarifyOther: 'अन्य (स्वयं लिखें)',
   aiClarifySkip: 'सर्वेक्षण छोड़ें',
   aiClarifyNext: 'अगला',
+  aiClarifyPrev: 'पिछला',
   aiClarifySubmit: 'जनरेट करें',
   aiSumReadAttachment: 'अटैचमेंट पढ़ा गया',
   aiSumReadAttachmentName: 'अटैचमेंट {name} पढ़ा गया',

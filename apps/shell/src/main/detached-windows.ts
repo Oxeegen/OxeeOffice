@@ -144,6 +144,8 @@ export async function detachedOpenDocuments(): Promise<OpenDocumentTab[]> {
         : rec.kind === 'docs'
           ? await docsQueryDirty(wc)
           : false
+    // the dirty query yielded: the window may have closed meanwhile
+    if (rec.window.isDestroyed()) continue
     out.push({
       id: ID_PREFIX + wcId,
       kind: rec.kind as OpenDocumentTab['kind'],

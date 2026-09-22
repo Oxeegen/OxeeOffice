@@ -67,6 +67,16 @@ function printCjkFonts(lang: Lang): string {
 
 const MAX_PRINT_CELLS = 50_000
 
+/**
+ * Univer dimension boundary: a corrupt workbook can report NaN/negative
+ * widths/heights, which previously flowed into colgroup styles, left/top
+ * accumulators, and scale math as NaNpt. Clamp to a finite positive value.
+ */
+function finitePt(value: number, fallback: number): number {
+  if (!Number.isFinite(value) || value < 0) return fallback
+  return Math.min(value, 100000)
+}
+
 /// The slice of the Univer facade the layout needs (structural, so the
 /// caller passes the FWorksheet through a cast).
 export interface PrintWorksheet {
@@ -198,7 +208,7 @@ export function buildSheetPrintPayload(
     const merges = mergeMaps(worksheet, area)
     const columnWidthsPt = Array.from(
       { length: columns },
-      (_, offset) => worksheet.getColumnWidth(area.startColumn + offset) * 0.75,
+      (_, offset) => finitePt(worksheet.getColumnWidth(area.startColumn + offset), 64) * 0.75,
     )
     maxContentWidthPt = Math.max(
       maxContentWidthPt,
@@ -249,7 +259,7 @@ export function buildSheetPrintPayload(
           `<td${span} style="${cellCss(style, rawValue, gridlines)}">${escapeHtml(text)}</td>`,
         )
       }
-      const heightPt = Math.max(worksheet.getRowHeight(row) * 0.75, 10)
+      const heightPt = Math.max(finitePt(worksheet.getRowHeight(row), 20) * 0.75, 10)
       printedRowHeightPt = Math.max(heightPt, textHeightPt)
       return `<tr style="height:${round(heightPt)}pt">${cells.join('')}</tr>`
     }
@@ -575,10 +585,13 @@ function visualOverlayHtml(
   columnLeftPt: readonly number[],
   rowTopPt: ReadonlyMap<number, number>,
 ): string {
-  const left = (columnLeftPt[visual.fromColumn - startColumn] ?? 0) + visual.offsetXPx * 0.75
-  const top = (rowTopPt.get(visual.fromRow) ?? 0) + visual.offsetYPx * 0.75
-  const style = `left:${round(left)}pt;top:${round(top)}pt;width:${round(visual.widthPx * 0.75)}pt;height:${round(visual.heightPx * 0.75)}pt`
-  const inner = `width:${round(visual.widthPx)}px;height:${round(visual.heightPx)}px`
+  const left =
+    (columnLeftPt[visual.fromColumn - startColumn] ?? 0) + finitePt(visual.offsetXPx, 0) * 0.75
+  const top = (rowTopPt.get(visual.fromRow) ?? 0) + finitePt(visual.offsetYPx, 0) * 0.75
+  const widthPx = finitePt(visual.widthPx, 1)
+  const heightPx = finitePt(visual.heightPx, 1)
+  const style = `left:${round(left)}pt;top:${round(top)}pt;width:${round(widthPx * 0.75)}pt;height:${round(heightPx * 0.75)}pt`
+  const inner = `width:${round(widthPx)}px;height:${round(heightPx)}px`
   return `<div class="pv" style="${style}"><div style="${inner}">${visual.html}</div></div>`
 }
 

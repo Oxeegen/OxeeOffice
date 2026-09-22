@@ -132,6 +132,7 @@ export const th = {
   aiClarifyOther: 'อื่น ๆ (พิมพ์เอง)',
   aiClarifySkip: 'ข้ามแบบสอบถาม',
   aiClarifyNext: 'ถัดไป',
+  aiClarifyPrev: 'ก่อนหน้า',
   aiClarifySubmit: 'สร้าง',
   aiSumReadAttachment: 'อ่านสิ่งที่แนบ',
   aiSumReadAttachmentName: 'อ่านสิ่งที่แนบ {name}',

@@ -65,6 +65,7 @@ export const it = {
   aiClarifyDecideAnswer: '(decidi tu per me)',
   aiClarifyMulti: 'Scelta multipla',
   aiClarifyNext: 'Avanti',
+  aiClarifyPrev: 'Indietro',
   aiClarifyOther: 'Altro (da digitare)',
   aiClarifySelected: '{n} selezionati',
   aiClarifySkip: 'Salta sondaggio',

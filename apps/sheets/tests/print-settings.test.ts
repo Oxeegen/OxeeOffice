@@ -670,4 +670,16 @@ describe('buildSheetPrintPayload', () => {
     expect(fixed.headerTemplate).toContain('width:590px;height:58px')
     expect(fixed.footerTemplate).toContain('font-size:9pt')
   })
+
+  it('sanitizes non-finite workbook dimensions instead of emitting NaNpt', () => {
+    const hostile: PrintWorksheet = {
+      ...fakeWorksheet(),
+      getRowHeight: () => NaN,
+      getColumnWidth: () => Infinity,
+    }
+    const payload = buildSheetPrintPayload(hostile, payloadSetup({}), 'Book.pdf', 'S1')
+    expect(payload.html).toContain('<table>')
+    expect(payload.html).not.toContain('NaN')
+    expect(payload.html).not.toContain('Infinity')
+  })
 })

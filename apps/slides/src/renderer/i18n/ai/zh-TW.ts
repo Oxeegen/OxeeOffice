@@ -127,6 +127,7 @@ export const zhTW = {
   aiClarifyOther: '其他(可填寫)',
   aiClarifySkip: '略過問卷',
   aiClarifyNext: '下一題',
+  aiClarifyPrev: '上一題',
   aiClarifySubmit: '開始產生',
   aiSumReadAttachment: '讀取附件',
   aiSumReadAttachmentName: '讀取附件 {name}',

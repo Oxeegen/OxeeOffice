@@ -133,6 +133,7 @@ export const ja = {
   aiClarifyOther: 'その他（自由記入）',
   aiClarifySkip: 'アンケートをスキップ',
   aiClarifyNext: '次へ',
+  aiClarifyPrev: '前へ',
   aiClarifySubmit: '生成する',
   aiSumReadAttachment: '添付ファイルを読み取り',
   aiSumReadAttachmentName: '添付ファイル {name} を読み取り',

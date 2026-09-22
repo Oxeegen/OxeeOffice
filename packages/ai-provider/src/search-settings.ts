@@ -17,13 +17,14 @@ export const AI_SEARCH_PROVIDERS: AiSearchProviderMeta[] = withOxeegenSearch([
   },
   { id: 'serper', label: 'Serper', keyPlaceholder: 'Serper API key', imageSearch: true },
   { id: 'tavily', label: 'Tavily', keyPlaceholder: 'tvly-...', imageSearch: false },
+  { id: 'parallel', label: 'Parallel', keyPlaceholder: 'Parallel API key', imageSearch: false },
 ])
 
 export function defaultAiSearchSettings(): AiSearchSettings {
   // OxeeOffice brand hook: Oxeegen is the default search provider
   return withOxeegenSearchDefaults({
     provider: 'genspark',
-    providers: { serper: { apiKey: '' }, tavily: { apiKey: '' } },
+    providers: { serper: { apiKey: '' }, tavily: { apiKey: '' }, parallel: { apiKey: '' } },
   })
 }
 
@@ -34,18 +35,19 @@ export function resolveAiSearchSettings(
   if (!stored) return defaults
   const providers = { ...defaults.providers }
   // OxeeOffice brand hook: keep the Oxeegen (Brave) key too
-  for (const id of ['serper', 'tavily', 'oxeegen'] as const) {
+  for (const id of ['serper', 'tavily', 'parallel', 'oxeegen'] as const) {
     const key = stored.providers?.[id]?.apiKey
     if (typeof key === 'string') providers[id] = { apiKey: key.trim() }
   }
   return { provider: stored.provider ?? defaults.provider, providers }
 }
 
-/** the stored search provider, honored only with a key; otherwise genspark (gsk + free chain) */
+/** Parallel can run keylessly; other custom providers require a key or fall back to Genspark. */
 export function activeSearchProvider(settings: Pick<AiSettings, 'search'>): AiSearchProviderId {
   const search = settings.search
   if (!search || search.provider === 'genspark') return 'genspark'
   if (!AI_SEARCH_PROVIDERS.some((m) => m.id === search.provider)) return 'genspark'
+  if (search.provider === 'parallel') return 'parallel'
   // Trim-aware: a whitespace-only key from in-memory settings falls back
   // instead of sending `Bearer    ` to the search backend.
   return search.providers?.[search.provider]?.apiKey?.trim() ? search.provider : 'genspark'

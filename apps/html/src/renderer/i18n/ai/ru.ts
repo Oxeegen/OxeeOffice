@@ -64,6 +64,7 @@ export const ru = {
   aiClarifyDecideAnswer: '(решите за меня)',
   aiClarifyMulti: 'Несколько вариантов',
   aiClarifyNext: 'Далее',
+  aiClarifyPrev: 'Назад',
   aiClarifyOther: 'Другое (впишите свой вариант)',
   aiClarifySelected: 'выбрано: {n}',
   aiClarifySkip: 'Пропустить опрос',

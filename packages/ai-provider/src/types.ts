@@ -108,8 +108,9 @@ export interface AiMediaSettings {
   provider?: AiMediaProviderId | undefined
 }
 
-/** web/image search backends: Genspark (gsk) or a user key for Serper / Tavily */
-export type AiSearchProviderId = 'oxeegen' | 'genspark' | 'serper' | 'tavily' // OxeeOffice brand hook: oxeegen
+/** web/image search backends; Parallel supports both a user key and free keyless search */
+// OxeeOffice brand hook: oxeegen
+export type AiSearchProviderId = 'oxeegen' | 'genspark' | 'serper' | 'tavily' | 'parallel'
 
 export interface AiSearchProviderMeta {
   id: AiSearchProviderId

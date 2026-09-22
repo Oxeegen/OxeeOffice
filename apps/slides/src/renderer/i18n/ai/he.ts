@@ -129,6 +129,7 @@ export const he = {
   aiClarifyOther: 'אחר (הקלד)',
   aiClarifySkip: 'דלג על השאלון',
   aiClarifyNext: 'הבא',
+  aiClarifyPrev: 'הקודם',
   aiClarifySubmit: 'צור',
   aiSumReadAttachment: 'קריאת קובץ מצורף',
   aiSumReadAttachmentName: 'קריאת הקובץ המצורף {name}',

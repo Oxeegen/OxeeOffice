@@ -64,6 +64,7 @@ export const ko = {
   aiClarifyDecideAnswer: '(알아서 결정)',
   aiClarifyMulti: '복수 선택',
   aiClarifyNext: '다음',
+  aiClarifyPrev: '이전',
   aiClarifyOther: '기타(직접 입력)',
   aiClarifySelected: '{n}개 선택',
   aiClarifySkip: '설문 건너뛰기',

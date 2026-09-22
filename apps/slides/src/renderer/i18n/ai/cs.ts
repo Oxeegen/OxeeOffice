@@ -135,6 +135,7 @@ export const cs = {
   aiClarifyOther: 'Jiné (napsat)',
   aiClarifySkip: 'Přeskočit dotazník',
   aiClarifyNext: 'Další',
+  aiClarifyPrev: 'Předchozí',
   aiClarifySubmit: 'Generovat',
   aiSumReadAttachment: 'Přečtena příloha',
   aiSumReadAttachmentName: 'Přečtena příloha {name}',

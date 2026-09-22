@@ -64,6 +64,7 @@ export const hi = {
   aiClarifyDecideAnswer: '(मेरे लिए तय करें)',
   aiClarifyMulti: 'एकाधिक चयन',
   aiClarifyNext: 'अगला',
+  aiClarifyPrev: 'पिछला',
   aiClarifyOther: 'अन्य (स्वयं लिखें)',
   aiClarifySelected: '{n} चयनित',
   aiClarifySkip: 'सर्वेक्षण छोड़ें',

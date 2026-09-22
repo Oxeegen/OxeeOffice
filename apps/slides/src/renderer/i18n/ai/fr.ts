@@ -136,6 +136,7 @@ export const fr = {
   aiClarifyOther: 'Autre (à saisir)',
   aiClarifySkip: 'Ignorer le questionnaire',
   aiClarifyNext: 'Suivant',
+  aiClarifyPrev: 'Précédent',
   aiClarifySubmit: 'Générer',
   aiSumReadAttachment: 'Lecture de la pièce jointe',
   aiSumReadAttachmentName: 'Lecture de la pièce jointe {name}',

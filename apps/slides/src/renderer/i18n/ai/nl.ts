@@ -136,6 +136,7 @@ export const nl = {
   aiClarifyOther: 'Anders (typ zelf)',
   aiClarifySkip: 'Enquête overslaan',
   aiClarifyNext: 'Volgende',
+  aiClarifyPrev: 'Vorige',
   aiClarifySubmit: 'Genereren',
   aiSumReadAttachment: 'Bijlage gelezen',
   aiSumReadAttachmentName: 'Bijlage {name} gelezen',

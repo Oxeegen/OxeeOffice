@@ -76,7 +76,7 @@ export function MarginDialog({
 
   const field = ([side, labelKey]: [Side, StringKey]) => (
     <label key={side}>
-      {t(labelKey)} (cm)
+      {t(labelKey)} ({t('ribbonCm')})
       <input
         type="number"
         min={0}

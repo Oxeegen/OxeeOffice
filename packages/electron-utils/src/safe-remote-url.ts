@@ -101,8 +101,13 @@ export async function fetchWithSsrfGuard(
   options: FetchWithSsrfGuardOptions = {},
 ): Promise<Response | null> {
   const { maxRedirects = 5, headers, fetchImpl = fetch } = options
+  // maxRedirects arrives from callers (CLI flags, IPC-adjacent config): an
+  // Infinity value would follow redirects forever, so normalize to 0..10.
+  const hopBudget = Number.isFinite(maxRedirects)
+    ? Math.min(Math.max(0, Math.floor(maxRedirects)), 10)
+    : 5
   let current = rawUrl
-  for (let hop = 0; hop <= maxRedirects; hop++) {
+  for (let hop = 0; hop <= hopBudget; hop++) {
     if (!(await isSafeRemoteUrl(current))) return null
     // headers stays absent rather than explicitly undefined (exactOptionalPropertyTypes)
     const resp = await fetchImpl(current, {

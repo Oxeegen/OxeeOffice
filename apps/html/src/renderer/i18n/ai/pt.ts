@@ -65,6 +65,7 @@ export const pt = {
   aiClarifyDecideAnswer: '(decida por mim)',
   aiClarifyMulti: 'Seleção múltipla',
   aiClarifyNext: 'Próxima',
+  aiClarifyPrev: 'Anterior',
   aiClarifyOther: 'Outro (digite)',
   aiClarifySelected: '{n} selecionados',
   aiClarifySkip: 'Pular pesquisa',

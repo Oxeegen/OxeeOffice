@@ -171,6 +171,8 @@ export const de = {
   aiCmdNone: 'Keine passenden Blöcke gefunden; das Dokument wurde nicht geändert.',
   aiCmdNoneSkipped:
     'Keine bearbeitbaren Blöcke; das Dokument wurde nicht geändert ({count} geschützte Blöcke übersprungen — Tabellen/Bilder können nicht per Formatbefehl geändert werden).',
+  aiCmdNoneUnchanged:
+    '{count} passende Blöcke blieben unverändert; das Dokument wurde nicht geändert.',
   aiCmdTextStyle: 'Textformat in {count} Block/Blöcken aktualisiert',
   aiCmdMatchedStyle: 'Stil auf {count} Treffer in {blocks} Block/Blöcken angewendet',
   aiCmdParaStyle: 'Absatzformat in {count} Block/Blöcken aktualisiert',

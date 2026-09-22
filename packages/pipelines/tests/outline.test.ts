@@ -107,4 +107,18 @@ describe('parseOutline', () => {
       error: expect.stringContaining('too many pages'),
     })
   })
+
+  it('rejects oversized raw outlines and caps image queries per page', () => {
+    expect(parseOutline('x'.repeat(600_000))).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('too large'),
+    })
+    const many = { ...page(), image_queries: Array.from({ length: 30 }, (_, i) => `scene ${i}`) }
+    const r = parseOutline(deck([many]))
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.outline.pages[0]!.image_queries).toHaveLength(8)
+      expect(r.issues.some((i) => i.message.includes('capped at 8'))).toBe(true)
+    }
+  })
 })

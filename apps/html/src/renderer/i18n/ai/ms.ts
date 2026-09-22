@@ -64,6 +64,7 @@ export const ms = {
   aiClarifyDecideAnswer: '(putuskan untuk saya)',
   aiClarifyMulti: 'Pilihan berbilang',
   aiClarifyNext: 'Seterusnya',
+  aiClarifyPrev: 'Sebelumnya',
   aiClarifyOther: 'Lain-lain (taip sendiri)',
   aiClarifySelected: '{n} dipilih',
   aiClarifySkip: 'Langkau tinjauan',

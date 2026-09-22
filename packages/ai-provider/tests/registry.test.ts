@@ -236,6 +236,19 @@ describe('provider registry', () => {
     )
   })
 
+  it('rejects non-http and oversized custom base URLs', () => {
+    const resolve = (baseUrl: string) =>
+      AI_PROVIDER_ADAPTERS.custom.resolveEndpoint(config('m', baseUrl))
+    expect(() => resolve('javascript:alert(1)')).toThrow('http or https')
+    expect(() => resolve('file:///etc/passwd')).toThrow('http or https')
+    expect(() => resolve('not a url')).toThrow('valid http')
+    expect(() => resolve(`https://x/${'a'.repeat(3000)}`)).toThrow('2048')
+    // a regional mirror with whitespace still resolves to the trimmed URL
+    expect(
+      AI_PROVIDER_ADAPTERS.custom.resolveEndpoint(config('m', '  https://mirror/v1  ')).baseUrl,
+    ).toBe('https://mirror/v1')
+  })
+
   it('only genspark authenticates through the gsk login', () => {
     for (const [id, adapter] of Object.entries(AI_PROVIDER_ADAPTERS)) {
       expect(adapter.capabilities.auth).toBe(

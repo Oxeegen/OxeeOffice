@@ -135,6 +135,7 @@ export const id = {
   aiClarifyOther: 'Lainnya (isi sendiri)',
   aiClarifySkip: 'Lewati survei',
   aiClarifyNext: 'Berikutnya',
+  aiClarifyPrev: 'Sebelumnya',
   aiClarifySubmit: 'Buat',
   aiSumReadAttachment: 'Baca lampiran',
   aiSumReadAttachmentName: 'Baca lampiran {name}',

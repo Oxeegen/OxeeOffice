@@ -64,6 +64,7 @@ export const cs = {
   aiClarifyDecideAnswer: '(rozhodni za mě)',
   aiClarifyMulti: 'Více možností',
   aiClarifyNext: 'Další',
+  aiClarifyPrev: 'Předchozí',
   aiClarifyOther: 'Jiné (napište)',
   aiClarifySelected: 'Vybráno: {n}',
   aiClarifySkip: 'Přeskočit dotazník',

@@ -84,4 +84,12 @@ describe('resolveContent', () => {
     }
     expect(resolveContent('counter(doc-ol) "."', list.children[2])).toBe('3.')
   })
+
+  it('emits the replacement character instead of throwing on out-of-range escapes', () => {
+    const el = document.createElement('p')
+    expect(resolveContent('"\\FFFFFF "', el)).toBe('�')
+    expect(resolveContent('"\\110000 "', el)).toBe('�')
+    expect(resolveContent('"\\D800 "', el)).toBe('�')
+    expect(resolveContent('"\\41 "', el)).toBe('A')
+  })
 })

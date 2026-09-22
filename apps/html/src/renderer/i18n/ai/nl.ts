@@ -64,6 +64,7 @@ export const nl = {
   aiClarifyDecideAnswer: '(beslis voor mij)',
   aiClarifyMulti: 'Meerdere keuzes',
   aiClarifyNext: 'Volgende',
+  aiClarifyPrev: 'Vorige',
   aiClarifyOther: 'Anders (typ zelf)',
   aiClarifySelected: '{n} geselecteerd',
   aiClarifySkip: 'Enquête overslaan',

@@ -142,6 +142,16 @@ describe('fetchWithSsrfGuard', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(4) // initial + 3 hops
   })
 
+  it('normalizes a non-finite redirect budget instead of looping forever', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(res(302, 'https://8.8.8.8/loop.png'))
+    const out = await fetchWithSsrfGuard('https://8.8.8.8/loop.png', {
+      fetchImpl,
+      maxRedirects: Infinity,
+    })
+    expect(out).toBeNull()
+    expect(fetchImpl.mock.calls.length).toBeLessThanOrEqual(11) // default 5, hard cap 10
+  })
+
   it('returns null when a redirect has no Location header', async () => {
     const fetchImpl = vi.fn().mockResolvedValueOnce(res(302))
     await expect(fetchWithSsrfGuard('https://8.8.8.8/x.png', { fetchImpl })).resolves.toBeNull()

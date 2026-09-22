@@ -135,6 +135,7 @@ export const pt = {
   aiClarifyOther: 'Outro (digite)',
   aiClarifySkip: 'Pular pesquisa',
   aiClarifyNext: 'Próxima',
+  aiClarifyPrev: 'Anterior',
   aiClarifySubmit: 'Gerar',
   aiSumReadAttachment: 'Ler anexo',
   aiSumReadAttachmentName: 'Ler anexo {name}',

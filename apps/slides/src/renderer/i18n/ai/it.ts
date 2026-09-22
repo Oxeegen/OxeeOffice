@@ -136,6 +136,7 @@ export const it = {
   aiClarifyOther: 'Altro (da digitare)',
   aiClarifySkip: 'Salta sondaggio',
   aiClarifyNext: 'Avanti',
+  aiClarifyPrev: 'Indietro',
   aiClarifySubmit: 'Genera',
   aiSumReadAttachment: "Lettura dell'allegato",
   aiSumReadAttachmentName: "Lettura dell'allegato {name}",

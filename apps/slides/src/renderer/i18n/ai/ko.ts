@@ -134,6 +134,7 @@ export const ko = {
   aiClarifyOther: '기타(직접 입력)',
   aiClarifySkip: '설문 건너뛰기',
   aiClarifyNext: '다음',
+  aiClarifyPrev: '이전',
   aiClarifySubmit: '생성하기',
   aiSumReadAttachment: '첨부 파일 읽기',
   aiSumReadAttachmentName: '첨부 파일 {name} 읽기',

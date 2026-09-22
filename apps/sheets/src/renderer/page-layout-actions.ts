@@ -29,7 +29,11 @@ import {
   type HeaderFooterPictureImage,
   type PrintWorksheet,
 } from './print-html'
-import { resolveEffectivePageSetup, type HeaderFooterPictureSlot } from './print-settings'
+import {
+  clampTitleRows,
+  resolveEffectivePageSetup,
+  type HeaderFooterPictureSlot,
+} from './print-settings'
 import { settleVisualNodes, snapshotPrintVisuals } from './print-visuals'
 import { installedVisualFrames, type InstalledVisualFrame } from './WorkbookVisuals'
 import type { LazyWorkbookState, UniverRuntime } from './univer-state'
@@ -315,7 +319,10 @@ export function handlePageLayoutCommand(ctx: PageLayoutContext, rest: string): v
         ctx.setMessage(t('appSelectRepeatRows'))
         return
       }
-      const rows = `${range.getRow() + 1}:${range.getRow() + range.getHeight()}`
+      const start = range.getRow() + 1
+      // Cap at the layout's 21 title rows so a tall selection still repeats
+      // its top rows instead of being dropped downstream as an over-cap span.
+      const rows = clampTitleRows(start, range.getRow() + range.getHeight())
       record({ printTitles: rows }, t('appRowsRepeat', { rows }))
       return
     }

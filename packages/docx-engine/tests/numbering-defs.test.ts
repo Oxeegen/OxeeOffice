@@ -786,3 +786,26 @@ describe('markerTabAdvance with custom tab stops', () => {
     expect(markerTabAdvance(0, 1500, 0, 720, [])).toBe(2160)
   })
 })
+
+describe('hostile numbering values', () => {
+  it('bounds huge and non-finite values instead of hanging', () => {
+    const start = Date.now()
+    for (const fmt of [
+      'upperRoman',
+      'lowerRoman',
+      'upperLetter',
+      'lowerLetter',
+      'upperGreek',
+      'decimal',
+    ]) {
+      for (const v of [1e9, Infinity, -Infinity, NaN]) {
+        const out = formatNumber(v, fmt)
+        expect(typeof out).toBe('string')
+        expect(out.length).toBeLessThan(100_000)
+      }
+    }
+    expect(Date.now() - start).toBeLessThan(10000)
+    expect(formatNumber(4, 'upperRoman')).toBe('IV')
+    expect(formatNumber(27, 'upperLetter')).toBe('AA')
+  })
+})

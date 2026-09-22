@@ -271,6 +271,20 @@ export function printTitleRowsFromFormula(formula: string | undefined): string |
   return null
 }
 
+/// Print-title rows repeat atop every page: the layout caps the span at 21 rows.
+export const MAX_PRINT_TITLE_ROWS = 21
+
+/**
+ * Clamp a 1-based title-row span to the layout cap, anchoring at the start
+ * so a tall selection still repeats its top rows instead of being dropped
+ * downstream as an over-cap span.
+ */
+export function clampTitleRows(start: number, end: number): string {
+  const safeStart = Number.isFinite(start) ? Math.max(1, Math.floor(start)) : 1
+  const safeEnd = Number.isFinite(end) ? Math.floor(end) : safeStart
+  return `${safeStart}:${Math.min(Math.max(safeEnd, safeStart), safeStart + MAX_PRINT_TITLE_ROWS - 1)}`
+}
+
 /// Excel's encoded header/footer → left/center/right parts. Field codes the
 /// layout resolves (&P &N &D &T &F &A &G picture, && literal) stay verbatim;
 /// formatting codes (font/size/color/bold/…) and unsupported codes (&Z

@@ -166,6 +166,13 @@ function hasClass(el: Element, set: Set<string> | string[]): boolean {
   return false
 }
 
+/** fromCodePoint throws on values > 0x10FFFF and lone surrogates: fall back to U+FFFD. */
+function codePointOrReplacement(code: number): string {
+  if (!Number.isInteger(code) || code < 0 || code > 0x10ffff) return '�'
+  if (code >= 0xd800 && code <= 0xdfff) return '�'
+  return String.fromCodePoint(code)
+}
+
 export function resolveContent(content: string, el: Element): string {
   if (!content || content === 'none' || content === 'normal') return ''
   let out = ''
@@ -175,7 +182,10 @@ export function resolveContent(content: string, el: Element): string {
   while ((m = re.exec(content))) {
     if (m[1] !== undefined || m[2] !== undefined) {
       out += (m[1] ?? m[2]).replace(/\\([0-9a-fA-F]{1,6})\s?/g, (_, hex: string) =>
-        String.fromCodePoint(parseInt(hex, 16)),
+        // CSS escapes allow 6 hex digits but Unicode stops at 0x10FFFF:
+        // out-of-range values (and lone surrogates) would throw RangeError
+        // and abort the whole export, so emit the replacement character.
+        codePointOrReplacement(parseInt(hex, 16)),
       )
     } else if (m[3]) {
       out += el.getAttribute(m[3]) ?? ''
