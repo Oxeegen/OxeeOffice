@@ -5,6 +5,38 @@ What changed in each OxeeOffice release. Installers are on the
 
 ---
 
+## OxeeOffice 0.10.915 — 2026-09-22
+
+Windows x64, Linux x64
+
+### New in the editors
+
+- **Slides:** keyboard shortcuts, mouse modifiers, context menus and insert sizes match
+  PowerPoint; Edit Points, Section and Summary Zoom, Save as Picture, and media
+  animations during the show; PDF export writes sharp vector pages with searchable text.
+- **Docs:** long documents open in stages and stay editable while the rest loads, with
+  typing and page switching several times faster; separate East Asian and Latin fonts;
+  the AI can see the pictures in the document and edit footnotes in place; the outline
+  picks up headings numbered by style.
+- **Sheets:** statistics in the status bar for streamed workbooks; the Format Cells
+  dialog fits long labels.
+- **Markdown:** tables, code fences and lists are written back exactly as they were;
+  PNG export can span several pages.
+- **PDF:** editing text no longer covers the page; areas can be redacted permanently.
+- **App:** a tab can be detached into its own window; Ctrl + mouse wheel zooms in steps;
+  the Windows Explorer New menu offers Office documents; update prompts appear again in
+  the background.
+- **Under the hood:** dozens of input-validation and bounds fixes across file parsing,
+  the internal message channels and AI streams.
+
+### Oxeegen AI
+
+Unchanged from 0.10.639: Oxee models with the picker in every editor, reasoning off for
+slides, layout checks and long writing, Brave search, and OpenAI `gpt-image-2.5-flare`
+images.
+
+---
+
 ## OxeeOffice 0.10.639 — 2026-09-17
 
 Windows x64, Linux x64
