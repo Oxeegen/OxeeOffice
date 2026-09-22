@@ -5,6 +5,46 @@ What changed in each OxeeOffice release. Installers are on the
 
 ---
 
+## OxeeOffice 0.10.1038 — 2026-09-22
+
+Windows x64, Linux x64
+
+### Windows of your own
+
+- **Drag a tab down out of the strip** to give that document its own window. Pull it
+  back up and it stays where it was. The tab's right-click menu still offers
+  **Open in New Window**.
+- **Every editor can be detached** — documents, spreadsheets, presentations, PDFs,
+  Markdown and HTML — not just documents and spreadsheets. Running a slideshow from a
+  detached window fills the screen from that window and leaves the main one alone.
+
+### New in the editors
+
+- **Search from Home:** names, folders and the full text of your Word, Excel,
+  PowerPoint, PDF, Markdown and HTML files, from a local index, Chinese, Japanese and
+  Korean included.
+- **Slides:** charts much closer to PowerPoint — pie of pie, logarithmic and date axes,
+  per-point labels, axis titles, legend order, chart fonts; 3D bevel lighting; Korean
+  line breaking; tight text boxes stay draggable; curved arrows fit their box.
+- **Docs:** large documents open and type faster; EMF pictures render correctly; the
+  cursor lands in the document when it opens; saving a new document into a Home folder
+  works on the second save.
+- **Sheets:** cross-sheet references imported without quotes are repaired; print titles
+  are clamped to a sane range.
+- **App:** add any folder to the Home tree as an extra root; custom OpenAI-compatible
+  endpoints list their own models; Test connection and Save stay in view in AI settings;
+  large remote media downloads stop at the size cap while streaming.
+- **Under the hood:** another round of input-validation and bounds fixes across file
+  parsing, the internal message channels and AI paths.
+
+### Oxeegen AI
+
+Unchanged: Oxee models with the picker in every editor, reasoning off for slides, layout
+checks and long writing, Brave search, and OpenAI `gpt-image-2.5-flare` images. Web
+search gains a Parallel option for anyone using their own key instead of Oxeegen's.
+
+---
+
 ## OxeeOffice 0.10.915 — 2026-09-22
 
 Windows x64, Linux x64
