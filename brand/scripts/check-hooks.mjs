@@ -84,6 +84,11 @@ const HOOKS = [
     must: ["if (tab && tab.kind !== 'home') detachTabToWindow(id)"],
   },
   {
+    file: 'apps/shell/src/main/default-app.ts',
+    why: 'the Linux default-app check and claim use our desktop entry',
+    must: [`oxeegenLayerEnabled() ? '${brand.linux.desktopName}' : 'genoffice.desktop'`],
+  },
+  {
     file: 'apps/shell/src/main/detached-windows.ts',
     why: 'detached-window sizes for the editors upstream did not detach',
     must: ['slides: { width: 1440, height: 900 }', 'pdf: { width: 1200, height: 940 }'],

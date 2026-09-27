@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { DefaultAppStatus } from '../shared/home-api'
+// OxeeOffice brand hook: Oxeegen layer switch
+import { oxeegenLayerEnabled } from '@genoffice/ai-provider'
 
 // macOS writes the LaunchServices user choice via osascript (no helper binary to
 // ship), Linux via xdg-mime; Windows apps cannot set defaults, only open the page.
@@ -48,7 +50,9 @@ export const OFFICE_TYPES: readonly OfficeType[] = [
   },
 ]
 
-const LINUX_DESKTOP_ID = 'genoffice.desktop'
+// OxeeOffice brand hook: our Linux packages install oxeeoffice.desktop
+// (brand/config/brand.config.json → linux.desktopName)
+const LINUX_DESKTOP_ID = oxeegenLayerEnabled() ? 'oxeeoffice.desktop' : 'genoffice.desktop'
 const WINDOWS_DEFAULT_APPS_URL = 'ms-settings:defaultapps'
 
 export type RunCommand = (cmd: string, args: string[]) => Promise<string>
