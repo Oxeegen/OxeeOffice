@@ -313,46 +313,60 @@ type StoredSettings = Partial<AiSettings> & LegacyAiSettings
  *   is never blank in Settings.
  * - A saved OpenAI image model of gpt-image-2 becomes gpt-image-2.5-flare.
  */
+/** A plain object (not null, not an array): the only shape the migration edits. */
+function isPlainObject(value: unknown): value is Record<string, any> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+/** A trimmed string, or '' for anything else a hand-edited or corrupted file may hold. */
+function text(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
 export function migrateToOxeegen<T extends StoredSettings>(stored: T): T {
-  if (!oxeegenLayerEnabled() || !stored || typeof stored !== 'object') return stored
-  const out: StoredSettings = { ...stored }
+  if (!oxeegenLayerEnabled() || !isPlainObject(stored)) return stored
+  const out: Record<string, any> = { ...stored }
 
   if (!out.provider || out.provider === 'genspark') out.provider = 'oxeegen'
 
-  if (out.providers) {
-    const providers = { ...out.providers }
-    const legacy = providers.genspark
-    const current = providers.oxeegen
-    if (legacy?.apiKey?.trim() && !current?.apiKey?.trim()) {
+  if (isPlainObject(out.providers)) {
+    const providers: Record<string, any> = { ...out.providers }
+    const legacy = isPlainObject(providers.genspark) ? providers.genspark : undefined
+    const current = isPlainObject(providers.oxeegen) ? providers.oxeegen : undefined
+    if (legacy && text(legacy.apiKey) && !text(current?.apiKey)) {
       providers.oxeegen = {
-        apiKey: legacy.apiKey.trim(),
-        model: /^oxee-/i.test(legacy.model ?? '') ? legacy.model : OXEEGEN_DEFAULT_MODEL,
-        baseUrl: legacy.baseUrl?.trim() || OXEEGEN_DEFAULT_BASE_URL,
+        apiKey: text(legacy.apiKey),
+        model: /^oxee-/i.test(text(legacy.model)) ? text(legacy.model) : OXEEGEN_DEFAULT_MODEL,
+        baseUrl: text(legacy.baseUrl) || OXEEGEN_DEFAULT_BASE_URL,
       }
     }
-    if (providers.oxeegen && !providers.oxeegen.baseUrl?.trim()) {
+    if (isPlainObject(providers.oxeegen) && !text(providers.oxeegen.baseUrl)) {
       providers.oxeegen = { ...providers.oxeegen, baseUrl: OXEEGEN_DEFAULT_BASE_URL }
     }
     out.providers = providers
   }
 
-  if (out.media) {
-    const media = { ...out.media }
+  if (isPlainObject(out.media)) {
+    const media: Record<string, any> = { ...out.media }
     if (media.imageProvider === 'genspark') media.imageProvider = 'openai'
     if (media.analysisProvider === 'genspark') media.analysisProvider = 'oxeegen'
     if (media.videoAnalysisProvider === 'genspark') media.videoAnalysisProvider = 'oxeegen'
-    const oxee = media.providers?.oxeegen
-    if (oxee && !oxee.baseUrl?.trim()) {
-      media.providers = { ...media.providers, oxeegen: { ...oxee, baseUrl: OXEEGEN_DEFAULT_BASE_URL } }
-    }
-    const openai = media.providers?.openai
-    if (openai?.imageModel?.trim() === REPLACED_OPENAI_IMAGE_MODEL) {
-      media.providers = { ...media.providers, openai: { ...openai, imageModel: OXEEGEN_OPENAI_IMAGE_MODEL } }
+    if (isPlainObject(media.providers)) {
+      const mediaProviders: Record<string, any> = { ...media.providers }
+      const oxee = mediaProviders.oxeegen
+      if (isPlainObject(oxee) && !text(oxee.baseUrl)) {
+        mediaProviders.oxeegen = { ...oxee, baseUrl: OXEEGEN_DEFAULT_BASE_URL }
+      }
+      const openai = mediaProviders.openai
+      if (isPlainObject(openai) && text(openai.imageModel) === REPLACED_OPENAI_IMAGE_MODEL) {
+        mediaProviders.openai = { ...openai, imageModel: OXEEGEN_OPENAI_IMAGE_MODEL }
+      }
+      media.providers = mediaProviders
     }
     out.media = media
   }
 
-  if (out.search && out.search.provider === 'genspark') {
+  if (isPlainObject(out.search) && out.search.provider === 'genspark') {
     out.search = { ...out.search, provider: 'oxeegen' }
   }
 

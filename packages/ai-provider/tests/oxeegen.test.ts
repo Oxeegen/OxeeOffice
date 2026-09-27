@@ -419,3 +419,32 @@ describe('images on OpenAI gpt-image-2.5-flare', () => {
     expect(JSON.parse(String(calls[2]!.body))).not.toHaveProperty('quality')
   })
 })
+
+describe('a corrupted settings file', () => {
+  it('never throws in the Oxeegen migration and still lands on Oxeegen defaults', () => {
+    const junk = [
+      null,
+      42,
+      'text',
+      [],
+      { providers: 'x', media: 7, search: [] },
+      { provider: 'genspark', providers: { genspark: { apiKey: 42, model: {}, baseUrl: 5 }, oxeegen: 'x' } },
+      { providers: { genspark: 'key', oxeegen: { apiKey: null, baseUrl: [] } } },
+      { media: { imageProvider: 'genspark', providers: { openai: 5, oxeegen: { baseUrl: 9 } } } },
+      { media: { providers: [] }, search: { provider: 'genspark' } },
+    ]
+    for (const stored of junk) {
+      const s = api.resolveAiSettings(stored as never, api.defaultAiSettings())
+      expect(s.provider).toBe('oxeegen')
+      expect(s.providers.oxeegen?.baseUrl).toBe(US)
+    }
+  })
+
+  it('still carries a well-formed 0.9.431 key over', () => {
+    const s = api.resolveAiSettings(
+      { provider: 'genspark', providers: { genspark: { apiKey: ' k ', model: 'Oxee-pro', baseUrl: EU } } } as never,
+      api.defaultAiSettings(),
+    )
+    expect(s.providers.oxeegen).toMatchObject({ apiKey: 'k', model: 'Oxee-pro', baseUrl: EU })
+  })
+})
