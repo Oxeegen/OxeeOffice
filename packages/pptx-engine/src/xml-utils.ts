@@ -19,6 +19,16 @@ export function xmlArray(v: unknown): XmlNode[] {
   return v ? [asXmlNode(v)] : []
 }
 
+/** Decode numeric references only when they name a Unicode scalar value. */
+export function decodeNumericCharRefs(text: string): string {
+  return text.replace(/&#(?:x([0-9a-fA-F]+)|(\d+));/g, (reference, hex, decimal) => {
+    const code = hex === undefined ? Number(decimal) : Number.parseInt(hex, 16)
+    return code <= 0x10ffff && (code < 0xd800 || code > 0xdfff)
+      ? String.fromCodePoint(code)
+      : reference
+  })
+}
+
 /** XML 1.0 forbids C0 controls (minus tab/LF/CR), U+FFFE/FFFF and lone
     surrogates even when escaped — one such byte makes the whole part
     unparseable and PowerPoint offers repair. VT/FF (common in PDF-extracted

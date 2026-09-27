@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import { Editor } from '@tiptap/core'
 import { buildExtensions } from '../src/renderer/editor/extensions'
 import { buildSourceMap, spliceMarkdown } from '../src/renderer/markdown/sourceSplice'
@@ -195,6 +195,53 @@ describe('source splice', () => {
       const out = spliceMarkdown(editor, editor.state.doc, map)
       expect(out).toBe(source.replace('Para.', 'Para. EDITED'))
     }
+  })
+
+  it('uses Marked-normalized tags for reference definitions', () => {
+    const editor = createEditor()
+    const source = '[A  B]: https://example.com\n\nSee [a b][A  B].\n'
+    editor.commands.setContent(source, { contentType: 'markdown' })
+    const parse = vi.spyOn(editor.markdown!, 'parse')
+
+    const map = buildSourceMap(editor, editor.state.doc, source)
+
+    expect(map).not.toBeNull()
+    expect(parse.mock.calls.some(([input]) => input.includes('[A  B]: https://example.com'))).toBe(
+      true,
+    )
+  })
+
+  it('parses reference blocks with only their definitions', () => {
+    const editor = createEditor()
+    const count = 200
+    const references = Array.from({ length: count }, (_, i) => `[link ${i}][ref${i}]`)
+    const definitions = Array.from(
+      { length: count },
+      (_, i) => `[ref${i}]: https://example.com/${i}`,
+    )
+    const source = [...references, ...definitions].join('\n\n')
+    editor.commands.setContent(source, { contentType: 'markdown' })
+    const parse = vi.spyOn(editor.markdown!, 'parse')
+
+    const map = buildSourceMap(editor, editor.state.doc, source)
+
+    expect(map).not.toBeNull()
+    const parsedChars = parse.mock.calls.reduce((total, [input]) => total + input.length, 0)
+    expect(parsedChars).toBeLessThan(source.length * 3)
+    expect(
+      parse.mock.calls.some(
+        ([input]) => input.includes('[ref0]') && input.includes(`[ref${count - 1}]`),
+      ),
+    ).toBe(false)
+  })
+
+  it('falls back when definition parsing exceeds linear work', () => {
+    const editor = createEditor()
+    const definitions = Array.from({ length: 2_000 }, (_, i) => `[a]: https://example.com/${i}`)
+    const source = [...Array.from({ length: 20 }, () => 'a'), ...definitions].join('\n\n')
+    editor.commands.setContent(source, { contentType: 'markdown' })
+
+    expect(buildSourceMap(editor, editor.state.doc, source)).toBeNull()
   })
 
   it('declines a CRLF source rather than guessing', () => {

@@ -5,6 +5,7 @@
  * then reads like any other document. A .docx chunk is parsed directly.
  */
 import type JSZip from 'jszip'
+import { resolveRelationshipTargetPath } from './parse-package'
 import type { RelInfo } from './parse-xml-text'
 
 export type AltChunkHtmlConverter = (html: string) => Promise<Uint8Array | null>
@@ -233,11 +234,14 @@ export function decodeMhtToHtml(bytes: Uint8Array): string | null {
   )
 }
 
-export function altChunkPartPath(rels: Map<string, RelInfo>, rId: string): string | null {
+export function altChunkPartPath(
+  rels: Map<string, RelInfo>,
+  rId: string,
+  sourcePath = 'word/document.xml',
+): string | null {
   const rel = rels.get(rId)
   if (!rel || rel.targetMode === 'External' || !ALT_CHUNK_REL.test(rel.type)) return null
-  const path = rel.target.startsWith('/') ? rel.target.slice(1) : `word/${rel.target}`
-  return path.replace(/^word\/\.\.\//, '')
+  return resolveRelationshipTargetPath(sourcePath, rel.target)
 }
 
 /**
@@ -249,8 +253,9 @@ export async function altChunkToDocx(
   rels: Map<string, RelInfo>,
   rId: string,
   contentTypeOf: (path: string) => Promise<string | undefined>,
+  sourcePath = 'word/document.xml',
 ): Promise<Uint8Array | null> {
-  const path = altChunkPartPath(rels, rId)
+  const path = altChunkPartPath(rels, rId, sourcePath)
   const file = path ? zip.file(path) : null
   if (!path || !file) return null
   const bytes = await file.async('uint8array')

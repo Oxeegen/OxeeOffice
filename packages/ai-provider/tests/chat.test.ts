@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { chatForProvider } from '../src/chat'
+import { MAX_RESPONSE_BODY_BYTES } from '../src/protocols/shared'
 import { errorResponse, jsonResponse } from './test-utils'
 
 afterEach(() => {
@@ -197,6 +198,34 @@ describe('chatForProvider', () => {
       'hi',
     )
     expect(result).toEqual({ ok: false, error: 'AI returned an empty response' })
+  })
+
+  it('returns a capped error for an oversized one-shot body', async () => {
+    let cancelled = false
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(MAX_RESPONSE_BODY_BYTES + 1))
+      },
+      cancel() {
+        cancelled = true
+      },
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(new Response(body, { headers: { 'content-type': 'application/json' } })),
+    )
+
+    const result = await chatForProvider(
+      'openai',
+      { apiKey: 'k', model: 'gpt-4.1-mini' },
+      'sys',
+      'hi',
+    )
+
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/Response body exceeded/) })
+    expect(cancelled).toBe(true)
   })
 
   it('anthropic: a 200 with an HTML body is an error, not a thrown SyntaxError', async () => {

@@ -516,6 +516,7 @@ export const nl = {
   appBridgeUnavailable:
     'De bestandsbridge van de desktop is niet beschikbaar. Start de Electron-app opnieuw.',
   appOpenCanceled: 'Werkmapselectie geannuleerd.',
+  appOpeningWorkbook: 'Werkmap openen…',
   appOpened: '{name} geopend — celbewerkingen slaat u terug op met ⌘S.',
   appOpenFailed: 'Kan de werkmap niet openen.',
   appPageSetupNeedsFile:
@@ -694,7 +695,7 @@ export const nl = {
   appTabData: 'Gegevens',
   appTabReview: 'Controleren',
   appRibbonCollapse: 'Het lint samenvouwen',
-  appRibbonPin: 'Het lint vastmaken',
+  appRibbonExpand: 'Het lint uitvouwen',
   appTabView: 'Beeld',
   appTabAi: 'AI',
   appTabChartDesign: 'Grafiekontwerp',

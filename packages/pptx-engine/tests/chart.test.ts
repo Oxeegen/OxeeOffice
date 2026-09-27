@@ -223,6 +223,34 @@ describe('parseChartXml', () => {
     expect(m.series[0]!.values).toEqual([3, 4, 5, 2])
   })
 
+  it('caps hostile ptCount and ignores sparse out-of-range idx', () => {
+    const HOSTILE = `<c:chartSpace xmlns:c="c" xmlns:a="a"><c:chart><c:plotArea>
+<c:barChart><c:barDir val="col"/>
+<c:ser><c:idx val="0"/>
+  <c:cat><c:strRef><c:f>x</c:f><c:strCache><c:ptCount val="1000000000"/><c:pt idx="0"><c:v>A</c:v></c:pt><c:pt idx="999999999"><c:v>Z</c:v></c:pt></c:strCache></c:strRef></c:cat>
+  <c:val><c:numRef><c:f>y</c:f><c:numCache><c:ptCount val="2"/><c:pt idx="0"><c:v>1</c:v></c:pt><c:pt idx="1"><c:v>2</c:v></c:pt></c:numCache></c:numRef></c:val>
+</c:ser></c:barChart>
+</c:plotArea></c:chart></c:chartSpace>`
+    const start = Date.now()
+    const m = parseChartXml(HOSTILE)!
+    expect(Date.now() - start).toBeLessThan(10000)
+    expect(m.categories?.length).toBeLessThanOrEqual(1_048_576)
+    expect(m.categories?.[0]).toBe('A')
+    expect(m.series[0]!.values).toEqual([1, 2])
+  })
+
+  it('ignores per-point overrides outside the series point count', () => {
+    const xml = `<c:chartSpace xmlns:c="c" xmlns:a="a"><c:chart><c:plotArea>
+<c:pieChart><c:ser><c:idx val="0"/>
+  <c:dPt><c:idx val="0"/><c:spPr><a:solidFill><a:srgbClr val="AA0000"/></a:solidFill></c:spPr></c:dPt>
+  <c:dPt><c:idx val="20000000"/><c:spPr><a:solidFill><a:srgbClr val="0000AA"/></a:solidFill></c:spPr><c:explosion val="10"/></c:dPt>
+  <c:val><c:numRef><c:numCache><c:ptCount val="1"/><c:pt idx="0"><c:v>1</c:v></c:pt></c:numCache></c:numRef></c:val>
+</c:ser></c:pieChart></c:plotArea></c:chart></c:chartSpace>`
+    const s = parseChartXml(xml)!.series[0]!
+    expect(s.pointColors).toEqual(['#AA0000'])
+    expect(s.pointExplosionPct).toBeUndefined()
+  })
+
   it('parses bar+line combo: both plots kept, series tagged with plotKind', () => {
     const COMBO = `<c:chartSpace xmlns:c="c" xmlns:a="a"><c:chart><c:plotArea><c:layout/>
 <c:barChart><c:barDir val="col"/><c:grouping val="clustered"/>
@@ -340,6 +368,21 @@ describe('buildChartSpaceXml comboBarLine (generate → parse round-trip)', () =
     const m = parseChartXml(xml)!
     expect(m.kind).toBe('bar')
     expect(m.series[0]!.plotKind).toBeUndefined()
+  })
+})
+
+describe('buildChartSpaceXml spreadsheet column references', () => {
+  it('uses base-26 columns after Z', () => {
+    const xml = buildChartSpaceXml({
+      kind: 'line',
+      categories: ['x'],
+      series: Array.from({ length: 27 }, (_, i) => ({ name: `S${i}`, values: [i] })),
+      offset: { x: 0, y: 0, cx: 100, cy: 100 },
+    })
+    expect(xml).toContain('Sheet1!$AA$1')
+    expect(xml).toContain('Sheet1!$AA$2:$AA$2')
+    expect(xml).toContain('Sheet1!$AB$1')
+    expect(xml).not.toMatch(/Sheet1!\$[[\\]/)
   })
 })
 
@@ -1276,6 +1319,21 @@ it('reads a logarithmic value axis base from c:scaling', () => {
   expect(m.valAxis?.max).toBe(10000)
 })
 
+it('drops logarithmic bases outside the OOXML range', () => {
+  const withBase = (base: string) =>
+    parseChartXml(
+      LINE_CHART.replace(
+        '<c:scaling><c:orientation val="minMax"/></c:scaling>',
+        `<c:scaling><c:logBase val="${base}"/><c:orientation val="minMax"/></c:scaling>`,
+      ),
+    )!
+  expect(withBase('1.999').valAxis?.logBase).toBeUndefined()
+  expect(withBase('2').valAxis?.logBase).toBe(2)
+  expect(withBase('1000').valAxis?.logBase).toBe(1000)
+  expect(withBase('1001').valAxis?.logBase).toBeUndefined()
+  expect(withBase('1000000000').valAxis?.logBase).toBeUndefined()
+})
+
 describe('date axis chronological order', () => {
   const chartXml = (orientation: string, serials: number[]) => {
     const pts = (vals: Array<number | string>) =>
@@ -1298,6 +1356,16 @@ describe('date axis chronological order', () => {
     expect(m.series[0]!.pointColors?.[2]).toBe('#FF0000')
     expect(m.series[0]!.pointColors?.[0]).toBeUndefined()
     expect(m.catAxis?.reversed).toBe(true)
+  })
+
+  it('keeps date-axis sorting bounded when a point override has a huge index', () => {
+    const xml = chartXml('maxMin', [46174, 46143, 46113]).replace(
+      '</c:dPt>',
+      '</c:dPt><c:dPt><c:idx val="20000000"/><c:spPr><a:solidFill><a:srgbClr val="0000FF"/></a:solidFill></c:spPr></c:dPt>',
+    )
+    const m = parseChartXml(xml)!
+    expect(m.series[0]!.pointColors).toHaveLength(3)
+    expect(m.series[0]!.pointColors?.[2]).toBe('#FF0000')
   })
 
   it('reorders a series shorter than the categories by point index', () => {

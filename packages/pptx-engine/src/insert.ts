@@ -270,6 +270,15 @@ export interface NewTableOptions {
 /** PowerPoint's default style for new tables (Medium Style 2 - Accent 1, built-in fallback in the render layer) */
 const DEFAULT_TABLE_STYLE_ID = '{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}'
 
+/** Largest row/column count an inserted table may have (PowerPoint's Insert Table limit). */
+export const MAX_INSERT_TABLE_DIM = 75
+
+/** Finite integer clamp with a safe fallback (NaN/Infinity land on `fallback`). */
+function clampInt(v: number, min: number, max: number, fallback = min): number {
+  if (!Number.isFinite(v)) return fallback
+  return Math.min(Math.max(min, Math.floor(v)), max)
+}
+
 /**
  * Build the table graphicFrame fragment (equal-width columns / equal-height rows,
  * default built-in style, empty cells). Insertion goes through appendRawElements
@@ -277,8 +286,11 @@ const DEFAULT_TABLE_STYLE_ID = '{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}'
  */
 export function buildTableXml(slide: Slide, opts: NewTableOptions): string {
   const id = nextCNvPrId(slide)
-  const rows = Math.max(1, Math.floor(opts.rows))
-  const cols = Math.max(1, Math.floor(opts.cols))
+  // Hostile op JSON can carry NaN/Infinity rows/cols (Math.max passes them
+  // through, Array.from({length: Infinity}) throws) and Infinity spans
+  // (w="Infinity" is Word-unopenable): clamp everything up front.
+  const rows = clampInt(opts.rows, 1, MAX_INSERT_TABLE_DIM)
+  const cols = clampInt(opts.cols, 1, MAX_INSERT_TABLE_DIM)
   const colW = Math.max(1, Math.floor(opts.offset.cx / cols))
   const rowH = Math.max(1, Math.floor(opts.offset.cy / rows))
   const colWs =
@@ -293,8 +305,10 @@ export function buildTableXml(slide: Slide, opts: NewTableOptions): string {
   const cellXml = (r: number, c: number): string => {
     const p = opts.cellProps?.[r]?.[c]
     const attrs: string[] = []
-    if (p?.gridSpan && p.gridSpan > 1) attrs.push(`gridSpan="${Math.floor(p.gridSpan)}"`)
-    if (p?.rowSpan && p.rowSpan > 1) attrs.push(`rowSpan="${Math.floor(p.rowSpan)}"`)
+    const gridSpan = p?.gridSpan !== undefined ? clampInt(p.gridSpan, 1, cols - c) : 1
+    const rowSpan = p?.rowSpan !== undefined ? clampInt(p.rowSpan, 1, rows - r) : 1
+    if (gridSpan > 1) attrs.push(`gridSpan="${gridSpan}"`)
+    if (rowSpan > 1) attrs.push(`rowSpan="${rowSpan}"`)
     if (p?.hMerge) attrs.push('hMerge="1"')
     if (p?.vMerge) attrs.push('vMerge="1"')
     const tcPr = p?.anchor && p.anchor !== 't' ? `<a:tcPr anchor="${p.anchor}"/>` : '<a:tcPr/>'

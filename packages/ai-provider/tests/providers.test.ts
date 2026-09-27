@@ -89,6 +89,32 @@ describe('resolveAiSettings', () => {
     expect(resolveAiSettings({}, defaults)).toEqual(defaults)
   })
 
+  it('falls back to defaults for null and non-object settings roots', () => {
+    for (const stored of [null, 'settings', 7, true, []]) {
+      const defaults = defaultAiSettings()
+      expect(resolveAiSettings(stored, defaults)).toEqual(defaults)
+    }
+  })
+
+  it('falls back to defaults for null and non-object provider maps', () => {
+    for (const providers of [null, 'providers', 7, true, []]) {
+      const defaults = defaultAiSettings()
+      expect(resolveAiSettings({ providers } as never, defaults)).toEqual(defaults)
+    }
+  })
+
+  it('ignores null and non-object provider entries', () => {
+    for (const entry of [null, 'provider', 7, true, []]) {
+      const defaults = defaultAiSettings()
+      const resolved = resolveAiSettings(
+        { provider: 'anthropic', providers: { anthropic: entry } } as never,
+        defaults,
+      )
+      expect(resolved.providers.anthropic).toEqual(defaults.providers.anthropic)
+      expect(activeProvider(resolved)).toBe('genspark')
+    }
+  })
+
   it('migrates the pre-provider single-endpoint shape into the custom provider', () => {
     const defaults = defaultAiSettings()
     const resolved = resolveAiSettings(

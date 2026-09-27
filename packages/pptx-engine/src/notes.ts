@@ -11,7 +11,7 @@
  */
 import type { OpenedPptx } from './index'
 import { relsPathFor, resolveTarget, type PackageArchive } from './zip'
-import { escapeXmlText } from './xml-utils'
+import { decodeNumericCharRefs, escapeXmlText } from './xml-utils'
 
 const XMLDECL = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n'
 const NS_A = 'http://schemas.openxmlformats.org/drawingml/2006/main'
@@ -34,9 +34,7 @@ function setEntry(archive: PackageArchive, path: string, xml: string): void {
 
 /** Unescape XML text (for reading <a:t>). */
 export function unescapeXml(s: string): string {
-  return s
-    .replace(/&#x([0-9a-fA-F]+);/g, (_m, h: string) => String.fromCodePoint(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_m, d: string) => String.fromCodePoint(Number(d)))
+  return decodeNumericCharRefs(s)
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
@@ -73,7 +71,9 @@ export function getSlideNotes(archive: PackageArchive, slidePath: string): strin
   const tx = /<p:txBody>([\s\S]*?)<\/p:txBody>/.exec(body.xml)?.[1]
   if (!tx) return ''
   const paras = [...tx.matchAll(/<a:p>([\s\S]*?)<\/a:p>/g)].map((p) =>
-    [...p[1]!.matchAll(/<a:t>([\s\S]*?)<\/a:t>/g)].map((t) => unescapeXml(t[1]!)).join(''),
+    [...p[1]!.matchAll(/<a:t(?:\s[^>]*[^/>])?>([\s\S]*?)<\/a:t>/g)]
+      .map((t) => unescapeXml(t[1]!))
+      .join(''),
   )
   // Drop trailing empty paragraphs (PowerPoint templates often carry an empty placeholder paragraph)
   while (paras.length && paras[paras.length - 1] === '') paras.pop()
@@ -193,18 +193,25 @@ function ensureNotesMaster(archive: PackageArchive): string | null {
   // Register notesMasterIdLst in presentation.xml
   const presPath = 'ppt/presentation.xml'
   const pres = archive.readText(presPath)
-  if (pres && !pres.includes('<p:notesMasterIdLst>')) {
-    const rid = appendRelationship(
-      archive,
-      presPath,
-      NOTES_MASTER_REL,
-      'notesMasters/notesMaster1.xml',
-    )
-    const lst = `<p:notesMasterIdLst><p:notesMasterId r:id="${rid}"/></p:notesMasterIdLst>`
-    const next = pres.includes('</p:sldMasterIdLst>')
-      ? pres.replace('</p:sldMasterIdLst>', () => `</p:sldMasterIdLst>${lst}`)
-      : pres.replace('<p:sldIdLst>', () => `${lst}<p:sldIdLst>`)
-    setEntry(archive, presPath, next)
+  if (pres) {
+    const existingList = /<p:notesMasterIdLst\b[^>]*(?:\/>|>[\s\S]*?<\/p:notesMasterIdLst>)/.exec(
+      pres,
+    )?.[0]
+    if (!existingList || existingList.endsWith('/>')) {
+      const rid = appendRelationship(
+        archive,
+        presPath,
+        NOTES_MASTER_REL,
+        'notesMasters/notesMaster1.xml',
+      )
+      const list = `<p:notesMasterIdLst><p:notesMasterId r:id="${rid}"/></p:notesMasterIdLst>`
+      const next = existingList
+        ? pres.replace(existingList, () => list)
+        : pres.includes('</p:sldMasterIdLst>')
+          ? pres.replace('</p:sldMasterIdLst>', () => `</p:sldMasterIdLst>${list}`)
+          : pres.replace('<p:sldIdLst>', () => `${list}<p:sldIdLst>`)
+      setEntry(archive, presPath, next)
+    }
   }
   return path
 }

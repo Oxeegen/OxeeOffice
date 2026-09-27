@@ -1,3 +1,4 @@
+import { decompressionStream, streamBytes } from './byte-stream'
 import { convertEmfToDataUrl, convertWmfToDataUrl } from './vendor/emf-converter/index.mjs'
 
 const EMF_MIMES = new Set(['image/emf', 'image/x-emf'])
@@ -32,11 +33,10 @@ function isGzip(bytes: Uint8Array): boolean {
 export const MAX_METAFILE_GUNZIP_BYTES = 64 * 1024 * 1024
 
 async function gunzip(bytes: Uint8Array): Promise<Uint8Array> {
-  // copy to a fresh ArrayBuffer-backed view (BlobPart rejects ArrayBufferLike)
-  const reader = new Blob([new Uint8Array(bytes)])
-    .stream()
-    .pipeThrough(new DecompressionStream('gzip'))
-    .getReader()
+  // Not `new Blob([bytes]).stream()`: jsdom, which the app tests run in, ships a
+  // Blob with no stream() (#798), and the try/catch in metafileToDataUrl turned
+  // that into a silent empty frame instead of a decoded metafile.
+  const reader = streamBytes(bytes).pipeThrough(decompressionStream('gzip')).getReader()
   const chunks: Uint8Array[] = []
   let total = 0
   for (;;) {
@@ -82,9 +82,15 @@ function looksLikeWmf(bytes: Uint8Array): boolean {
  * (non-renderer environments), so callers keep their existing empty-frame
  * degrade. Failures are logged instead of silently swallowed.
  */
+export interface MetafileRasterOptions {
+  /** Longest raster side in device px; the converter scales down preserving the aspect ratio */
+  maxSidePx?: number
+}
+
 export async function metafileToDataUrl(
   bytes: ArrayBuffer | Uint8Array,
   mime: string,
+  raster: MetafileRasterOptions = {},
 ): Promise<string | null> {
   try {
     let u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
@@ -97,7 +103,11 @@ export async function metafileToDataUrl(
     if (looksLikeEmf(u8)) isEmf = true
     else if (looksLikeWmf(u8)) isEmf = false
     else isEmf = EMF_MIMES.has(mime) || EMZ_MIMES.has(mime)
-    const opts = { dpiScale: 2, fontFamilyMap: FONT_FAMILY_MAP }
+    const opts = {
+      dpiScale: 2,
+      fontFamilyMap: FONT_FAMILY_MAP,
+      ...(raster.maxSidePx ? { maxWidth: raster.maxSidePx, maxHeight: raster.maxSidePx } : {}),
+    }
     const result = isEmf
       ? await convertEmfToDataUrl(buffer, opts)
       : await convertWmfToDataUrl(buffer, opts)

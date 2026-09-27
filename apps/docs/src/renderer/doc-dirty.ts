@@ -5,7 +5,39 @@
  */
 import type { DefaultFonts, HeaderFooter, SectionInfo, StyleUpsert } from '@genoffice/docx-engine'
 
+import { EMPTY_PENDING_NUMBERING } from './doc-state'
 import type { PendingNumbering } from './doc-state'
+
+export async function runGuardedDocumentAction(
+  confirm: () => Promise<boolean>,
+  action: () => void | Promise<unknown>,
+): Promise<boolean> {
+  if (!(await confirm())) return false
+  await action()
+  return true
+}
+
+/**
+ * Replace the open document with a candidate the user still has to pick (file
+ * picker, recent entry). The guard runs only once a candidate exists: confirming
+ * may save the current document or drop its recovery copy, so a cancelled picker
+ * must never trigger it. `needsGuard` lets a caller defer the guard for a
+ * candidate that is not a document yet (an encrypted file waiting for its
+ * password); that caller guards itself once the real document is in hand.
+ */
+export async function runGuardedCandidate<T>(
+  confirm: () => Promise<boolean>,
+  choose: () => Promise<T | null | undefined>,
+  commit: (candidate: T) => void | Promise<unknown>,
+  needsGuard: (candidate: T) => boolean = () => true,
+): Promise<boolean> {
+  const candidate = await choose()
+  if (candidate == null) return false
+  if (needsGuard(candidate) && !(await confirm())) return false
+  await commit(candidate)
+  return true
+}
+
 export interface DocDirtyState {
   dirtyRef: { current: boolean }
   sectionDirty: boolean
@@ -16,6 +48,7 @@ export interface DocDirtyState {
   footerDirty: boolean
   hfVariantsDirty: readonly unknown[]
   sectionHfEdits: Record<string, unknown>
+  hfLinks: Record<string, unknown>
   pgNumEdit: unknown
   pgNumDirtySections: readonly number[]
   numberingDirty: boolean
@@ -23,6 +56,7 @@ export interface DocDirtyState {
   styleUpserts: Record<string, unknown>
   titlePgDirty: boolean
   evenOddHfDirty: boolean
+  mirrorMarginsDirty: boolean
   watermarkDirty: boolean
   inksDirty: boolean
   notesDirty: boolean
@@ -47,6 +81,7 @@ export function isDocDirty(s: DocDirtyState): boolean {
     s.footerDirty ||
     s.hfVariantsDirty.length > 0 ||
     Object.keys(s.sectionHfEdits).length > 0 ||
+    Object.keys(s.hfLinks).length > 0 ||
     s.pgNumEdit !== null ||
     s.pgNumDirtySections.length > 0 ||
     s.numberingDirty ||
@@ -54,6 +89,7 @@ export function isDocDirty(s: DocDirtyState): boolean {
     s.defaultFonts !== undefined ||
     s.titlePgDirty ||
     s.evenOddHfDirty ||
+    s.mirrorMarginsDirty ||
     s.watermarkDirty ||
     s.inksDirty ||
     s.notesDirty ||
@@ -74,6 +110,7 @@ export interface CrossDocEditStateSink {
   setSectionsDirty: (value: number[]) => void
   setTrailingStartType: (value: SectionInfo['startType'] | null) => void
   setSectionHfEdits: (value: Record<string, HeaderFooter>) => void
+  setHfLinks: (value: Record<string, true>) => void
   setPgNumEdit: (value: { fmt?: string; start?: number } | null) => void
   setPgNumDirtySections: (value: number[]) => void
   setPendingNumbering: (value: PendingNumbering) => void
@@ -92,9 +129,10 @@ export function resetCrossDocEditState(sink: CrossDocEditStateSink): void {
   sink.setSectionsDirty([])
   sink.setTrailingStartType(null)
   sink.setSectionHfEdits({})
+  sink.setHfLinks({})
   sink.setPgNumEdit(null)
   sink.setPgNumDirtySections([])
-  sink.setPendingNumbering({ newDefs: [], restartNums: [] })
+  sink.setPendingNumbering(EMPTY_PENDING_NUMBERING)
   sink.setStyleUpserts({})
   sink.setDefaultFonts?.(undefined)
 }

@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import JSZip from 'jszip'
 import { describe, expect, it } from 'vitest'
 import { PackageArchive, PPTX_ZIP_LIMITS, assertZipWithinLimits } from '../src/index'
+import { resolveTarget } from '../src/zip'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
@@ -19,6 +20,18 @@ describe('pptx zip limits', () => {
     const bytes = readFileSync(join(here, 'fixtures/01_standard_business.pptx'))
     const pkg = await PackageArchive.open(new Uint8Array(bytes))
     expect(pkg.has('ppt/presentation.xml')).toBe(true)
+  })
+
+  it('normalizes encoded and backslash relationship targets', () => {
+    expect(resolveTarget('ppt/presentation.xml', 'slides/slide%201.xml')).toBe(
+      'ppt/slides/slide 1.xml',
+    )
+    expect(resolveTarget('ppt/slides/slide1.xml', '..\\media\\image%201.png')).toBe(
+      'ppt/media/image 1.png',
+    )
+    expect(resolveTarget('ppt/presentation.xml', '/ppt/slides/slide1.xml')).toBe(
+      'ppt/slides/slide1.xml',
+    )
   })
 
   it('rejects too many parts before inflating', async () => {

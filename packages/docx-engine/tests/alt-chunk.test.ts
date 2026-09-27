@@ -2,7 +2,12 @@ import JSZip from 'jszip'
 import { afterEach, describe, expect, it } from 'vitest'
 import { parseDocx } from '../src/parse'
 import { saveDocx } from '../src/patch'
-import { decodeMhtToHtml, decodeQuotedPrintable, setAltChunkHtmlConverter } from '../src/alt-chunk'
+import {
+  altChunkPartPath,
+  decodeMhtToHtml,
+  decodeQuotedPrintable,
+  setAltChunkHtmlConverter,
+} from '../src/alt-chunk'
 import { buildDocx } from './helpers/build-docx'
 
 const CHUNK_REL =
@@ -39,6 +44,29 @@ function installStubConverter(): void {
 afterEach(() => {
   setAltChunkHtmlConverter(null)
   received.length = 0
+})
+
+describe('relationship target paths', () => {
+  it('decodes absolute and relative percent-encoded targets', () => {
+    const rels = new Map([
+      [
+        'absolute',
+        {
+          target: '/word/afchunk%20one.htm',
+          type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk',
+        },
+      ],
+      [
+        'relative',
+        {
+          target: '../shared/chunk%20two.htm',
+          type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk',
+        },
+      ],
+    ])
+    expect(altChunkPartPath(rels, 'absolute')).toBe('word/afchunk one.htm')
+    expect(altChunkPartPath(rels, 'relative')).toBe('shared/chunk two.htm')
+  })
 })
 
 describe('w:altChunk expansion', () => {

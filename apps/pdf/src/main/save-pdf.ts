@@ -556,8 +556,14 @@ export async function mergePagesBytes(
   const total = src.getPageCount()
   const first = src.getPage(0)
   const { cols, rows } = mergeGrid(perSheet)
-  const sheetW = perSheet === 2 ? first.getHeight() : first.getWidth()
-  const sheetH = perSheet === 2 ? first.getWidth() : first.getHeight()
+  const normalizeRotation = (angle: number): number =>
+    (((Math.round(angle / 90) * 90) % 360) + 360) % 360
+  const firstRotation = normalizeRotation(first.getRotation().angle)
+  const firstTurns = firstRotation === 90 || firstRotation === 270
+  const firstDisplayW = firstTurns ? first.getHeight() : first.getWidth()
+  const firstDisplayH = firstTurns ? first.getWidth() : first.getHeight()
+  const sheetW = perSheet === 2 ? firstDisplayH : firstDisplayW
+  const sheetH = perSheet === 2 ? firstDisplayW : firstDisplayH
   // embedPages throws on pages without a content stream (e.g. our own inserted
   // blank pages) — give those an empty stream so they embed as empty cells
   for (const p of src.getPages()) {
@@ -572,17 +578,40 @@ export async function mergePagesBytes(
     const sheet = out.addPage([sheetW, sheetH])
     for (let i = 0; i < perSheet && start + i < total; i++) {
       const ep = embedded[start + i]!
-      const scale = Math.min(cellW / ep.width, cellH / ep.height)
+      const sourcePage = src.getPage(start + i)
+      const rotation = normalizeRotation(sourcePage.getRotation().angle)
+      const turns = rotation === 90 || rotation === 270
+      const displayW = turns ? ep.height : ep.width
+      const displayH = turns ? ep.width : ep.height
+      const scale = Math.min(cellW / displayW, cellH / displayH)
       const w = ep.width * scale
       const h = ep.height * scale
       const col = options.direction === 'vertical' ? Math.floor(i / rows) : i % cols
       const row = options.direction === 'vertical' ? i % rows : Math.floor(i / cols)
+      const cellX = col * cellW
+      const cellY = sheetH - (row + 1) * cellH
+      const x =
+        rotation === 90
+          ? cellX + (cellW - h) / 2
+          : rotation === 180
+            ? cellX + (cellW + w) / 2
+            : rotation === 270
+              ? cellX + (cellW + h) / 2
+              : cellX + (cellW - w) / 2
+      const y =
+        rotation === 90
+          ? cellY + (cellH + w) / 2
+          : rotation === 180
+            ? cellY + (cellH + h) / 2
+            : rotation === 270
+              ? cellY + (cellH - w) / 2
+              : cellY + (cellH - h) / 2
       sheet.drawPage(ep, {
-        x: col * cellW + (cellW - w) / 2,
-        // PDF y goes up: row 0 must land at the top of the sheet
-        y: sheetH - (row + 1) * cellH + (cellH - h) / 2,
-        width: w,
-        height: h,
+        x,
+        y,
+        xScale: scale,
+        yScale: scale,
+        rotate: degrees((360 - rotation) % 360),
       })
     }
     if (options.separator) {

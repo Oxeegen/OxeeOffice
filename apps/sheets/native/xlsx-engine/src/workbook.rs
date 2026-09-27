@@ -103,31 +103,13 @@ pub(crate) fn read_workbook_relationships(
     Ok(relationships)
 }
 
-// Pure string handling: zip entry names always use '/', while PathBuf joins
-// with '\' on Windows, which made by_name miss every worksheet there.
 pub(crate) fn normalize_worksheet_path(target: &str) -> Result<String, SidecarError> {
-    let candidate = if let Some(absolute) = target.strip_prefix('/') {
-        absolute.to_owned()
-    } else if target.starts_with("xl/") {
-        target.to_owned()
-    } else {
-        format!("xl/{}", target.trim_start_matches("./"))
-    };
-    let mut normalized: Vec<&str> = Vec::new();
-    for component in candidate.split('/') {
-        match component {
-            "" | "." => {}
-            ".." => {
-                if normalized.pop().is_none() {
-                    return Err(SidecarError::Workbook(
-                        "Worksheet relationship escapes the package.".into(),
-                    ));
-                }
-            }
-            value => normalized.push(value),
-        }
-    }
-    Ok(normalized.join("/"))
+    let target = target.trim();
+    let target = target
+        .strip_prefix("xl/")
+        .or_else(|| target.strip_prefix("xl\\"))
+        .unwrap_or(target);
+    crate::archive::resolve_relationship_target("xl/workbook.xml", target)
 }
 
 pub(crate) struct SheetDimensions {

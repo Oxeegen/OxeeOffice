@@ -82,13 +82,14 @@ export function parseLayoutPlaceholders(xml: string): LayoutPlaceholder[] {
     const xfrmM = /<a:xfrm\b[^>]*>([\s\S]*?)<\/a:xfrm>/.exec(sp)
     if (!xfrmM) continue
     const xfrmContent = xfrmM[1]!
-    const offM = /<a:off\s[^>]*x="([^"]*)"[^>]*y="([^"]*)"/.exec(xfrmContent)
-    const extM = /<a:ext\s[^>]*cx="([^"]*)"[^>]*cy="([^"]*)"/.exec(xfrmContent)
-    if (!offM || !extM) continue
-    const x = parseInt(offM[1]!, 10)
-    const y = parseInt(offM[2]!, 10)
-    const cx = parseInt(extM[1]!, 10)
-    const cy = parseInt(extM[2]!, 10)
+    const offM = /<a:off\b([^>]*)\/?/.exec(xfrmContent)
+    const extM = /<a:ext\b([^>]*)\/?/.exec(xfrmContent)
+    const off = offM?.[1] ?? ''
+    const ext = extM?.[1] ?? ''
+    const x = parseInt(/\bx="([^"]*)"/.exec(off)?.[1] ?? '', 10)
+    const y = parseInt(/\by="([^"]*)"/.exec(off)?.[1] ?? '', 10)
+    const cx = parseInt(/\bcx="([^"]*)"/.exec(ext)?.[1] ?? '', 10)
+    const cy = parseInt(/\bcy="([^"]*)"/.exec(ext)?.[1] ?? '', 10)
     if (isNaN(x) || isNaN(y) || isNaN(cx) || isNaN(cy)) continue
     results.push({ type, idx, x, y, cx, cy, hint: PH_HINT_MAP[type] ?? 'Click to add text' })
   }

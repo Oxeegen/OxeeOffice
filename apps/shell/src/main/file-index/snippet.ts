@@ -1,4 +1,4 @@
-import { findRanges, foldText, type TextMark } from '../../shared/text-marks'
+import { findRanges, findTextRanges, foldText, type TextMark } from '../../shared/text-marks'
 
 export type SnippetPart = TextMark
 
@@ -10,12 +10,9 @@ const LEAD = 40
  * occurrence inside it flagged. Returns null when no needle occurs.
  */
 export function buildSnippet(text: string, needles: readonly string[]): SnippetPart[] | null {
-  const folded = needles.map(foldText).filter(Boolean)
-  if (folded.length === 0 || !text) return null
+  if (needles.every((n) => !n) || !text) return null
   const compact = text.replace(/\s+/g, ' ')
-  const hayFolded = foldText(compact)
-  const haystack = hayFolded.length === compact.length ? hayFolded : compact.toLowerCase()
-  const ranges = findRanges(haystack, folded)
+  const ranges = findTextRanges(compact, needles)
   if (ranges.length === 0) return null
   const start = Math.max(0, ranges[0]![0] - LEAD)
   const end = Math.min(compact.length, start + WINDOW)
@@ -37,9 +34,7 @@ export function buildSnippet(text: string, needles: readonly string[]): SnippetP
 /** up to `chars` of text starting a little before the first needle hit, or the head of the text */
 export function excerpt(text: string, needles: readonly string[], chars: number): string {
   const compact = text.replace(/\s+/g, ' ').trim()
-  const folded = foldText(compact)
-  const haystack = folded.length === compact.length ? folded : compact.toLowerCase()
-  const ranges = findRanges(haystack, needles.map(foldText).filter(Boolean))
+  const ranges = findTextRanges(compact, needles)
   const start = ranges.length ? Math.max(0, ranges[0]![0] - Math.floor(chars / 4)) : 0
   return compact.slice(start, start + chars)
 }

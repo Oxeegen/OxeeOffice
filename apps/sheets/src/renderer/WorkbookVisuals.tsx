@@ -452,7 +452,9 @@ export function installCellImages(
         <CellImage sessionId={sessionId} imageId={image.id} />
       )),
     )
-    const range = worksheet.getRange(image.row, image.column, 1, 1)
+    const range =
+      worksheet.getCellMergeData(image.row, image.column) ??
+      worksheet.getRange(image.row, image.column, 1, 1)
     const floating = worksheet.addFloatDomToRange(
       range,
       { componentKey, allowTransform: false, eventPassThrough: true },

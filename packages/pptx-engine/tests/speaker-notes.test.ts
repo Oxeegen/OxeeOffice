@@ -30,7 +30,47 @@ describe('speaker notes', () => {
   it('getSlideNotes reads back immediately after setSlideNotes', async () => {
     const opened = await openPptx(await createBlankPptx())
     expect(setSlideNotes(opened, 0, 'first line\nsecond line')).toBe(true)
-    expect(getSlideNotes(opened.archive, opened.deck.slides[0]!.path)).toBe('first line\nsecond line')
+    expect(getSlideNotes(opened.archive, opened.deck.slides[0]!.path)).toBe(
+      'first line\nsecond line',
+    )
+  })
+
+  it('skips self-closing text runs when reading attributed text', async () => {
+    const opened = await openPptx(await createBlankPptx())
+    setSlideNotes(opened, 0, 'placeholder')
+    const slidePath = opened.deck.slides[0]!.path
+    const notesRel = [...opened.archive.readRels(slidePath).values()].find((rel) =>
+      rel.type.endsWith('/notesSlide'),
+    )!
+    const notesPath = `ppt/${notesRel.target.replace(/^\.\.\//, '')}`
+    const xml = opened.archive.readText(notesPath)!
+    opened.archive.entries.set(
+      notesPath,
+      Buffer.from(
+        xml.replace(
+          /<a:p>[\s\S]*?<\/a:p>/,
+          '<a:p><a:r><a:rPr/><a:t/></a:r><a:r><a:rPr/><a:t xml:space="preserve">Hello world </a:t></a:r></a:p>',
+        ),
+      ),
+    )
+    expect(getSlideNotes(opened.archive, slidePath)).toBe('Hello world ')
+  })
+  it('replaces an empty notes-master list instead of duplicating it', async () => {
+    const opened = await openPptx(await createBlankPptx())
+    const presentationPath = 'ppt/presentation.xml'
+    const presentation = opened.archive.readText(presentationPath)!
+    opened.archive.entries.set(
+      presentationPath,
+      Buffer.from(
+        presentation.replace('</p:sldMasterIdLst>', '</p:sldMasterIdLst><p:notesMasterIdLst/>'),
+      ),
+    )
+    setSlideNotes(opened, 0, 'note')
+    const updated = opened.archive.readText(presentationPath)!
+    expect(updated.match(/<p:notesMasterIdLst\b/g)).toHaveLength(1)
+    expect(updated).toMatch(
+      /<p:notesMasterIdLst><p:notesMasterId r:id="rId\d+"\/><\/p:notesMasterIdLst>/,
+    )
   })
 
   it('save → reopen persists notes (notesSlide part auto-created)', async () => {
@@ -112,7 +152,9 @@ describe('speaker notes', () => {
     }
 
     // Slide 0 notes were written correctly
-    expect(getSlideNotes(reopened.archive, reopened.deck.slides[0]!.path)).toBe('only slide 0 changed')
+    expect(getSlideNotes(reopened.archive, reopened.deck.slides[0]!.path)).toBe(
+      'only slide 0 changed',
+    )
   })
 
   it('multiple slides: per-slide notes do not interfere', async () => {

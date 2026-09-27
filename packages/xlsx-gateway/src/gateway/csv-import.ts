@@ -7,6 +7,7 @@ import JSZip from 'jszip'
 import { encodeXlsxEscapes } from './xlsx-escapes'
 import { DEFAULT_THEME_XML } from './xlsx-default-theme'
 import { MINIMAL_STYLESHEET_XML } from './xlsx-default-styles'
+import { validateSheetName } from './xlsx-sheets'
 
 const DELIMITERS = [',', ';', '\t'] as const
 
@@ -214,11 +215,13 @@ export function parseCsv(input: string, delimiter = sniffDelimiter(input)): stri
   return rows
 }
 
-/// Plain decimal numbers only; leading zeros ("007") stay text so codes and
-/// phone numbers survive the import. Integers past Excel's 15-digit precision
-/// stay text too, so long IDs are not corrupted on open.
+/// Plain decimal numbers only (".5", "1." and "-.5" count, as in Excel); leading
+/// zeros ("007") and a "+" sign ("+86") stay text so codes and phone numbers
+/// survive the import. Integers past Excel's 15-digit precision stay text too,
+/// so long IDs are not corrupted on open.
 export function isNumericCell(value: string): boolean {
-  if (!/^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$/.test(value)) return false
+  if (!/^-?(?:(?:0|[1-9][0-9]*)(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$/.test(value))
+    return false
   if (!/[.eE]/.test(value) && value.replace(/^-/, '').length > 15) return false
   return Number.isFinite(Number(value))
 }
@@ -253,7 +256,7 @@ export function buildWorksheetXml(rows: readonly (readonly string[])[]): string 
       const reference = `${columnLabel(columnIndex)}${rowIndex + 1}`
       cells.push(
         isNumericCell(value)
-          ? `<c r="${reference}"><v>${value}</v></c>`
+          ? `<c r="${reference}"><v>${Number(value)}</v></c>`
           : `<c r="${reference}" t="inlineStr"><is><t xml:space="preserve">${escapeXml(encodeXlsxEscapes(value))}</t></is></c>`,
       )
     })
@@ -271,6 +274,21 @@ export async function csvToXlsxBuffer(csvText: string, sheetName = 'Sheet1'): Pr
   const rows = parseCsv(csvText, resolveImportDelimiter(csvText))
   if (rows.length === 0) throw new Error('The CSV file has no data rows.')
   return xlsxBufferFromRows(rows, sheetName)
+}
+
+/**
+ * Open-path conversion. `delimiter` pins the split for callers that already
+ * know the format (a .tsv); leaving it unset lets the sniffer and its
+ * prose-shatter guard decide, which is right for a bare .csv but unreliable
+ * for a tab-delimited file whose fields hold enough commas to out-count tabs.
+ */
+export async function csvToXlsxBufferForOpen(
+  csvText: string,
+  sheetName = 'Sheet1',
+  delimiter?: string,
+): Promise<{ buffer: Buffer; empty: boolean }> {
+  const rows = parseCsv(csvText, delimiter ?? resolveImportDelimiter(csvText))
+  return { buffer: await xlsxBufferFromRows(rows, sheetName), empty: rows.length === 0 }
 }
 
 /**
@@ -328,6 +346,7 @@ async function xlsxBufferFromRows(
   rows: readonly (readonly string[])[],
   sheetName: string,
 ): Promise<Buffer> {
+  validateSheetName(sheetName)
   const zip = new JSZip()
   zip.file(
     '[Content_Types].xml',

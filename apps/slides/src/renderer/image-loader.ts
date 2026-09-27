@@ -11,6 +11,12 @@ export type ApplyImages = (entries: ReadonlyArray<readonly [string, HTMLImageEle
 /** EMF/WMF data URLs: browsers cannot decode metafiles — rasterize to PNG first (keyed by the original url). */
 const METAFILE_RE = /^data:(image\/x-(?:emf|wmf)|image\/(?:emf|wmf));base64,/
 
+/**
+ * EMF headers size the raster from their device bounds, up to the converter's 8192px cap:
+ * a 409-slide deck with 67 metafiles held 2.7 GB of 268 MB canvases. A slide picture never
+ * shows above ~2x slide width, so cap the longest side.
+ */
+export const MAX_METAFILE_RASTER_PX = 2048
 /** Base64 budget for metafile raster input (~40MB of bytes). */
 export const MAX_METAFILE_BASE64_CHARS = 56 * 1024 * 1024
 
@@ -45,7 +51,7 @@ async function rasterizeMetafile(url: string): Promise<string | null> {
   const bytes = new Uint8Array(bin.length)
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
   const mime = m[1]!.includes('emf') ? 'image/x-emf' : 'image/x-wmf'
-  return metafileToDataUrl(bytes, mime)
+  return metafileToDataUrl(bytes, mime, { maxSidePx: MAX_METAFILE_RASTER_PX })
 }
 
 export function createImageLoader(apply: ApplyImages, batchSize = 16, delayMs = 100) {

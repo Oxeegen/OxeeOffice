@@ -5,6 +5,7 @@ import {
   registerContentTypeOverride,
   relativeTarget,
   relsPathFor,
+  resolveRelTarget,
   type MutablePackage,
 } from './xlsx-drawing-add'
 import { ensureRelationshipNamespace } from './xlsx-namespace'
@@ -155,7 +156,7 @@ async function assertNoTableOverlap(pkg: MutablePackage, addition: TableAddition
     if (!tag.includes(`Type="${TABLE_REL_TYPE}"`)) continue
     const target = /\bTarget="([^"]+)"/.exec(tag)?.[1]
     if (!target) continue
-    const tablePath = resolveTarget(addition.worksheetPath, target)
+    const tablePath = resolveRelTarget(addition.worksheetPath, target)
     if (!(await pkg.has(tablePath))) continue
     const ref = /<table\b[^>]*\bref="([^"]+)"/.exec(await pkg.readText(tablePath))?.[1]
     if (ref && areasOverlap(addition.area, parseRef(ref))) {
@@ -180,16 +181,6 @@ function assertNoSheetConflicts(addition: TableAddition, worksheetXml: string): 
       )
     }
   }
-}
-
-/// Resolves a relationship target relative to its source part.
-function resolveTarget(fromPart: string, target: string): string {
-  const base = fromPart.split('/').slice(0, -1)
-  for (const segment of target.split('/')) {
-    if (segment === '..') base.pop()
-    else if (segment !== '.' && segment !== '') base.push(segment)
-  }
-  return base.join('/')
 }
 
 function buildTableXml(id: number, addition: TableAddition): string {

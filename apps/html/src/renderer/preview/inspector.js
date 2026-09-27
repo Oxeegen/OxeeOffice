@@ -5,7 +5,7 @@
  * a temporary contenteditable during text edits (a single click on rendered text
  * starts one with the caret at the click, like PowerPoint). */
 ;(() => {
-  const SID = 'data-sid'
+  const SID = 'data-gx-sid'
   const MARK = 'data-gx-inspector'
   // replaced by instrumentForPreview with the parse-map version this copy was built from
   const VERSION = Number('__GX_VERSION__')
@@ -440,7 +440,7 @@
     // no children, or block children (an <li> with a nested list): its single direct run still edits on its own
     return directTextNodes(el).length === 1 ? 'text' : null
   }
-  /** inner HTML as the source would carry it: the preview's own data-sid markers stripped */
+  /** inner HTML as the source would carry it: the preview's own data-gx-sid markers stripped */
   const innerSource = (el) => {
     const clone = el.cloneNode(true)
     for (const n of clone.querySelectorAll(`[${SID}]`)) n.removeAttribute(SID)

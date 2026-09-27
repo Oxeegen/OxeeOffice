@@ -292,6 +292,77 @@ fn is_safe_entry_name(name: &str) -> bool {
     !name.is_empty() && canonical_entry_name(name).as_deref() == Some(name)
 }
 
+pub(crate) fn resolve_relationship_target(
+    source_path: &str,
+    target: &str,
+) -> Result<String, SidecarError> {
+    let target = target.trim();
+    let target = target
+        .split_once('#')
+        .map(|(path, _)| path)
+        .unwrap_or(target);
+    let decoded = crate::xml_util::decode_uri_path(target)?;
+    if decoded.is_empty()
+        || decoded.contains('\0')
+        || decoded.starts_with("//")
+        || decoded.starts_with('\\')
+        || has_uri_scheme(&decoded)
+    {
+        return Err(SidecarError::Workbook(
+            "OOXML relationship target is malformed or unsafe.".into(),
+        ));
+    }
+    let source = source_path.replace('\\', "/");
+    let mut parts: Vec<String> = if decoded.starts_with('/') {
+        Vec::new()
+    } else {
+        let mut source_parts: Vec<&str> = source
+            .split('/')
+            .filter(|segment| !segment.is_empty() && *segment != ".")
+            .collect();
+        source_parts.pop();
+        source_parts.into_iter().map(str::to_owned).collect()
+    };
+    for segment in decoded.replace('\\', "/").split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                if parts.pop().is_none() {
+                    return Err(SidecarError::Workbook(
+                        "OOXML relationship escapes the package.".into(),
+                    ));
+                }
+            }
+            value => parts.push(value.to_owned()),
+        }
+    }
+    if parts.is_empty() {
+        return Err(SidecarError::Workbook(
+            "OOXML relationship target is malformed or unsafe.".into(),
+        ));
+    }
+    Ok(parts.join("/"))
+}
+
+fn has_uri_scheme(value: &str) -> bool {
+    let mut characters = value.chars();
+    let Some(first) = characters.next() else {
+        return false;
+    };
+    if !first.is_ascii_alphabetic() {
+        return false;
+    }
+    for character in characters {
+        if character == ':' {
+            return true;
+        }
+        if !(character.is_ascii_alphanumeric() || matches!(character, '+' | '-' | '.')) {
+            return false;
+        }
+    }
+    false
+}
+
 /// The package-relative form of a ZIP entry name: '\' separators, a leading
 /// '/', `./` and empty segments are producer quirks Excel tolerates
 /// (genoffice#196 shipped `/xl/workbook.xml`). None only when the name

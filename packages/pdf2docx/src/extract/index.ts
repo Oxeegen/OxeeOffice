@@ -7,7 +7,8 @@ import { detectVectorRegions } from '../analyze/vector'
 import type { Rect } from '../geometry'
 import { coversBox, intersectArea, overlapRatio, printContentBox, rectArea } from '../geometry'
 import type { PdfChar, PageRender, RawPath, RawSubpath } from '../ir'
-import { scriptOf } from '../script'
+import { pageAnchorName } from '../ir'
+import { isEastAsianScript, scriptOf } from '../script'
 import type { PdfiumModule } from './pdfium'
 import {
   BITMAP_FORMAT_BGR,
@@ -17,6 +18,9 @@ import {
   FPDF_ANNOT_WIDGET,
   FPDF_FORMFIELD_CHECKBOX,
   FPDF_FORMFIELD_RADIOBUTTON,
+  FPDF_FORMFIELD_TEXT,
+  FPDF_FORMFLAG_TEXT_MULTILINE,
+  FPDF_FORMFLAG_TEXT_PASSWORD,
   FPDF_PAGEOBJ_FORM,
   FPDF_PAGEOBJ_IMAGE,
   FPDF_PAGEOBJ_PATH,
@@ -24,6 +28,8 @@ import {
   FPDF_PAGEOBJ_TEXT,
   FPDF_SEGMENT_BEZIERTO,
   FPDF_SEGMENT_MOVETO,
+  PDFACTION_GOTO,
+  PDFACTION_URI,
   withAlloc,
 } from './pdfium'
 import { familyFromPsName, italicFromPsName, SUBSET_PREFIX, weightFromPsName } from './fontname'
@@ -1943,22 +1949,37 @@ function readShadingDecor(
   heightPt: number,
   stackSkip: number,
   vectorRegions: readonly Rect[],
+  rotation: number,
+  dx: number,
+  dy: number,
 ): ExtractedImage[] {
   const page = m._FPDF_LoadPage(doc, pageIndex)
   if (!page) return []
   try {
     const total = m._FPDFPage_CountObjects(page)
     const keep = new Map<number, Rect>()
+    const toDisplay =
+      rotation === 1 || rotation === 2 || rotation === 3
+        ? rotateToDisplay(rotation, widthPt, heightPt)
+        : null
     withAlloc(m, 4 * 4, (f4) => {
       for (let i = stackSkip; i < total; i++) {
         const obj = m._FPDFPage_GetObject(page, i)
         if (!obj || m._FPDFPageObj_GetType(obj) !== FPDF_PAGEOBJ_SHADING) continue
         if (!m._FPDFPageObj_GetBounds(obj, f4, f4 + 4, f4 + 8, f4 + 12)) continue
+        const rawBox: Rect = {
+          x0: m.HEAPF32[f4 >> 2]!,
+          y0: m.HEAPF32[(f4 >> 2) + 1]!,
+          x1: m.HEAPF32[(f4 >> 2) + 2]!,
+          y1: m.HEAPF32[(f4 >> 2) + 3]!,
+        }
+        shiftRect(rawBox, dx, dy)
+        toDisplay?.rect(rawBox)
         const box: Rect = {
-          x0: Math.max(0, m.HEAPF32[f4 >> 2]!),
-          y0: Math.max(0, m.HEAPF32[(f4 >> 2) + 1]!),
-          x1: Math.min(widthPt, m.HEAPF32[(f4 >> 2) + 2]!),
-          y1: Math.min(heightPt, m.HEAPF32[(f4 >> 2) + 3]!),
+          x0: Math.max(0, rawBox.x0),
+          y0: Math.max(0, rawBox.y0),
+          x1: Math.min(widthPt, rawBox.x1),
+          y1: Math.min(heightPt, rawBox.y1),
         }
         const w = box.x1 - box.x0
         const h = box.y1 - box.y0
@@ -1996,11 +2017,11 @@ function readShadingDecor(
         const cx0 = Math.max(0, Math.floor(box.x0 * DECOR_RENDER_SCALE))
         const cy0 = Math.max(0, Math.floor((heightPt - box.y1) * DECOR_RENDER_SCALE))
         const cw = Math.min(
-          bw - cx0,
+          px.width - cx0,
           Math.max(1, Math.ceil((box.x1 - box.x0) * DECOR_RENDER_SCALE)),
         )
         const ch = Math.min(
-          bh - cy0,
+          px.height - cy0,
           Math.max(1, Math.ceil((box.y1 - box.y0) * DECOR_RENDER_SCALE)),
         )
         if (cw <= 0 || ch <= 0) continue
@@ -2166,7 +2187,7 @@ export interface DocMetadata {
 }
 
 /** one Info-dictionary text field, decoded from PDFium's UTF-16LE buffer */
-function readMetaText(m: PdfiumModule, doc: number, tag: string): string | undefined {
+export function readMetaText(m: PdfiumModule, doc: number, tag: string): string | undefined {
   return withAlloc(m, tag.length + 1, (tagPtr) => {
     for (let i = 0; i < tag.length; i++) m.HEAPU8[tagPtr + i] = tag.charCodeAt(i)
     m.HEAPU8[tagPtr + tag.length] = 0
@@ -2236,11 +2257,110 @@ const shiftRect = (r: Rect, dx: number, dy: number): void => {
 
 /** widget squares outside this range are decoration or full-field outlines */
 const WIDGET_BOX_MIN_PT = 4
+/** per-page link annotation cap and URI byte cap (hostile files) */
+const MAX_LINK_ANNOTS = 2000
+const MAX_LINK_URI_BYTES = 8192
 const WIDGET_BOX_MAX_PT = 24
 /** snap a glyph beside its label when the gap is under this (pt) */
 const WIDGET_SNAP_MAX_GAP_PT = 24
 
+const WIDGET_TEXT_PAD_PT = 2
+const WIDGET_TEXT_MIN_PT = 5
+const WIDGET_TEXT_MAX_PT = 14
+const WIDGET_TEXT_LEADING = 1.15
+
 /** UTF-16LE annotation string/name value ('' when absent or API missing) */
+interface LinkAnnot {
+  rect: Rect
+  href: string
+}
+
+function readUriPath(m: PdfiumModule, doc: number, action: number): string {
+  const len = m._FPDFAction_GetURIPath!(doc, action, 0, 0)
+  if (len <= 1 || len > MAX_LINK_URI_BYTES) return ''
+  return withAlloc(m, len, (buf) => {
+    m._FPDFAction_GetURIPath!(doc, action, buf, len)
+    return new TextDecoder().decode(m.HEAPU8.subarray(buf, buf + len - 1)).trim()
+  })
+}
+
+/** link annotations in raw page space: URI actions and in-document GoTo destinations */
+function readLinkAnnots(m: PdfiumModule, doc: number, page: number): LinkAnnot[] {
+  if (
+    typeof m._FPDFLink_Enumerate !== 'function' ||
+    typeof m._FPDFLink_GetAnnotRect !== 'function' ||
+    typeof m._FPDFLink_GetAction !== 'function' ||
+    typeof m._FPDFLink_GetDest !== 'function' ||
+    typeof m._FPDFAction_GetType !== 'function' ||
+    typeof m._FPDFAction_GetDest !== 'function' ||
+    typeof m._FPDFAction_GetURIPath !== 'function' ||
+    typeof m._FPDFDest_GetDestPageIndex !== 'function'
+  ) {
+    return []
+  }
+  const out: LinkAnnot[] = []
+  withAlloc(m, 8 + 4 * 4, (scratch) => {
+    const posPtr = scratch
+    const linkPtr = scratch + 4
+    const rectPtr = scratch + 8
+    m.HEAPU32[posPtr >> 2] = 0
+    while (out.length < MAX_LINK_ANNOTS && m._FPDFLink_Enumerate!(page, posPtr, linkPtr)) {
+      const link = m.HEAPU32[linkPtr >> 2]!
+      if (!link || !m._FPDFLink_GetAnnotRect!(link, rectPtr)) continue
+      const v = m.HEAPF32.subarray(rectPtr >> 2, (rectPtr >> 2) + 4)
+      const rect: Rect = {
+        x0: Math.min(v[0]!, v[2]!),
+        x1: Math.max(v[0]!, v[2]!),
+        y0: Math.min(v[1]!, v[3]!),
+        y1: Math.max(v[1]!, v[3]!),
+      }
+      if (!(rect.x1 > rect.x0 && rect.y1 > rect.y0)) continue
+      let href = ''
+      const action = m._FPDFLink_GetAction!(link)
+      let dest = 0
+      if (action) {
+        const type = m._FPDFAction_GetType!(action)
+        if (type === PDFACTION_URI) href = readUriPath(m, doc, action)
+        else if (type === PDFACTION_GOTO) dest = m._FPDFAction_GetDest!(doc, action)
+      } else {
+        dest = m._FPDFLink_GetDest!(doc, link)
+      }
+      if (!href && dest) {
+        const pageIndex = m._FPDFDest_GetDestPageIndex!(doc, dest)
+        if (pageIndex >= 0) href = `#${pageAnchorName(pageIndex)}`
+      }
+      if (href && (href.startsWith('#') || isSafeLinkUri(href))) out.push({ rect, href })
+    }
+  })
+  return out
+}
+
+/** Word rejects control chars and unknown schemes in a relationship target */
+function isSafeLinkUri(uri: string): boolean {
+  for (const ch of uri) {
+    const code = ch.codePointAt(0)!
+    if (code < 0x20 || code === 0x7f || /\s/.test(ch)) return false
+  }
+  return /^(https?|ftp|mailto|tel):/i.test(uri)
+}
+
+/** stamp each real char whose center lies inside a link annotation with its target */
+function tagLinkChars(chars: PdfChar[], links: readonly LinkAnnot[]): void {
+  if (links.length === 0) return
+  for (const c of chars) {
+    if (c.isGenerated) continue
+    const cx = (c.box.x0 + c.box.x1) / 2
+    const cy = (c.box.y0 + c.box.y1) / 2
+    for (const link of links) {
+      const r = link.rect
+      if (cx >= r.x0 && cx <= r.x1 && cy >= r.y0 && cy <= r.y1) {
+        c.href = link.href
+        break
+      }
+    }
+  }
+}
+
 function annotStringValue(m: PdfiumModule, annot: number, key: string): string {
   if (typeof m._FPDFAnnot_GetStringValue !== 'function') return ''
   return withAlloc(m, key.length + 1, (kb) => {
@@ -2255,7 +2375,167 @@ function annotStringValue(m: PdfiumModule, annot: number, key: string): string {
   })
 }
 
-function readWidgetCheckboxChars(m: PdfiumModule, doc: number, page: number): PdfChar[] {
+function widgetTextWeight(code: number): number {
+  if (isEastAsianScript(scriptOf(code))) return 1
+  const ch = String.fromCodePoint(code)
+  if (ch === ' ') return 0.4
+  if (/[0-9A-Z]/.test(ch)) return 0.6
+  if (/[.,:;!'"|()[\]{}]/.test(ch)) return 0.3
+  return 0.5
+}
+
+/** glyph ascent / descent as a share of the font size (Helvetica-ish) */
+const WIDGET_TEXT_ASCENT = 0.72
+const WIDGET_TEXT_DESCENT = 0.21
+
+/**
+ * Break one logical row into visual rows that fit `maxW` (weights are em
+ * fractions, so widths are `weight * fontSize`). Breaks after the last space
+ * that fits, else between glyphs — never mid-glyph.
+ */
+function wrapWidgetRow(glyphs: string[], fontSize: number, maxW: number): string[][] {
+  const rows: string[][] = []
+  let start = 0
+  while (start < glyphs.length) {
+    let w = 0
+    let end = start
+    let lastSpace = -1
+    while (end < glyphs.length) {
+      const gw = widgetTextWeight(glyphs[end]!.codePointAt(0) ?? 0) * fontSize
+      if (w + gw > maxW && end > start) break
+      if (glyphs[end] === ' ') lastSpace = end
+      w += gw
+      end++
+    }
+    if (end < glyphs.length && lastSpace > start) end = lastSpace + 1
+    rows.push(glyphs.slice(start, end))
+    start = end
+  }
+  return rows
+}
+
+interface TextFieldOptions {
+  /** /Ff multiline bit: rows start at the top and long rows wrap */
+  multiline?: boolean
+  /** /DA font size (pt); 0 / absent = auto (fit the box height) */
+  fontSize?: number
+}
+
+/**
+ * Lay out a text field's /V inside its widget box. Coordinates are PDF user
+ * space (y up, like every other PdfChar here): the first row hangs from the
+ * top of the box (multiline) or sits vertically centered (single-line, the
+ * way viewers draw it), and each following row steps DOWN by one leading.
+ * Advances come from the font size — a short value in a wide field keeps
+ * its natural glyph widths; a value wider than the field is shrunk to fit
+ * (auto-size viewers do the same), never stretched.
+ */
+function textFieldChars(box: Rect, value: string, opts: TextFieldOptions = {}): PdfChar[] {
+  const out: PdfChar[] = []
+  const innerH = box.y1 - box.y0 - 2 * WIDGET_TEXT_PAD_PT
+  const innerW = box.x1 - box.x0 - 2 * WIDGET_TEXT_PAD_PT
+  if (innerH <= 0 || innerW <= 0) return out
+  const rawRows = value.split(/\r\n|[\r\n]/).map((r) => [...r])
+  const multiline = opts.multiline === true || rawRows.length > 1
+  let fontSize =
+    opts.fontSize && opts.fontSize > 0
+      ? Math.min(opts.fontSize, Math.max(innerH, WIDGET_TEXT_MIN_PT))
+      : Math.min(Math.max(innerH, WIDGET_TEXT_MIN_PT), WIDGET_TEXT_MAX_PT)
+  const rowWidth = (glyphs: string[], fs: number): number =>
+    glyphs.reduce((a, g) => a + widgetTextWeight(g.codePointAt(0) ?? 0) * fs, 0)
+  let rows: string[][]
+  if (multiline) {
+    rows = rawRows.flatMap((r) => (r.length === 0 ? [r] : wrapWidgetRow(r, fontSize, innerW)))
+  } else {
+    rows = rawRows
+    const natural = rowWidth(rows[0] ?? [], fontSize)
+    if (natural > innerW) fontSize = Math.max(WIDGET_TEXT_MIN_PT, (fontSize * innerW) / natural)
+  }
+  const lineH = fontSize * WIDGET_TEXT_LEADING
+  // y of the first row's top edge; rows step down from here
+  const firstTop = multiline
+    ? box.y1 - WIDGET_TEXT_PAD_PT
+    : (box.y0 + box.y1) / 2 + (fontSize * (WIDGET_TEXT_ASCENT + WIDGET_TEXT_DESCENT)) / 2
+  for (let r = 0; r < rows.length; r++) {
+    const glyphs = rows[r]!
+    if (glyphs.length === 0) continue
+    const baseline = firstTop - r * lineH - fontSize * WIDGET_TEXT_ASCENT
+    if (baseline < box.y0) break // the rest would hang below the box
+    let x = box.x0 + WIDGET_TEXT_PAD_PT
+    const limit = box.x1 - WIDGET_TEXT_PAD_PT
+    for (const g of glyphs) {
+      const code = g.codePointAt(0) ?? 0
+      const w = widgetTextWeight(code) * fontSize
+      if (x + w > limit + 0.01) break // clip, never squeeze
+      out.push({
+        code,
+        text: g.trim() === '' ? ' ' : g,
+        box: {
+          x0: x,
+          x1: x + w,
+          y0: baseline - fontSize * WIDGET_TEXT_DESCENT,
+          y1: baseline + fontSize * WIDGET_TEXT_ASCENT,
+        },
+        looseBox: {
+          x0: x,
+          x1: x + w,
+          y0: baseline - fontSize * 0.25,
+          y1: baseline + fontSize * 0.95,
+        },
+        originX: x,
+        originY: baseline,
+        angle: 0,
+        fontSize,
+        fontWeight: 400,
+        fontFamily: 'Helvetica',
+        italic: false,
+        color: '000000',
+        isGenerated: true,
+        isHyphen: false,
+        script: scriptOf(code),
+      })
+      x += w
+    }
+  }
+  return out
+}
+
+/**
+ * Text field /V through the form-fill layer: pdfium resolves it along the
+ * /Parent chain (the standard layout keeps /V, /FT, /Ff, /DA on a parent
+ * field whose /Kids are the widgets), same as IsChecked does for checkboxes.
+ * Falls back to the widget dict's own /V when the field API is missing.
+ */
+function formFieldValue(m: PdfiumModule, form: number, annot: number): string {
+  if (typeof m._FPDFAnnot_GetFormFieldValue === 'function') {
+    const len = m._FPDFAnnot_GetFormFieldValue(form, annot, 0, 0)
+    if (len > 2) {
+      const v = withAlloc(m, len, (buf) => {
+        m._FPDFAnnot_GetFormFieldValue!(form, annot, buf, len)
+        return new TextDecoder('utf-16le').decode(m.HEAPU8.subarray(buf, buf + len - 2))
+      })
+      if (v !== '') return v
+    }
+  }
+  return annotStringValue(m, annot, 'V')
+}
+
+function formFieldFontSize(m: PdfiumModule, form: number, annot: number): number {
+  if (typeof m._FPDFAnnot_GetFontSize !== 'function') return 0
+  return withAlloc(m, 4, (f) => {
+    m.HEAPF32[f >> 2] = 0
+    if (!m._FPDFAnnot_GetFontSize!(form, annot, f)) return 0
+    const v = m.HEAPF32[f >> 2]!
+    return Number.isFinite(v) && v > 0 ? v : 0
+  })
+}
+
+interface WidgetChars {
+  glyphs: PdfChar[]
+  text: PdfChar[]
+}
+
+function readWidgetChars(m: PdfiumModule, doc: number, page: number): WidgetChars {
   if (
     typeof m._FPDFPage_GetAnnotCount !== 'function' ||
     typeof m._FPDFPage_GetAnnot !== 'function' ||
@@ -2269,17 +2549,21 @@ function readWidgetCheckboxChars(m: PdfiumModule, doc: number, page: number): Pd
     typeof m._PDFiumExt_ExitFormFillEnvironment !== 'function' ||
     typeof m._PDFiumExt_CloseFormFillInfo !== 'function'
   ) {
-    return []
+    return { glyphs: [], text: [] }
   }
   const total = m._FPDFPage_GetAnnotCount(page)
-  if (total <= 0) return []
-  const out: PdfChar[] = []
+  if (total <= 0) return { glyphs: [], text: [] }
+  const glyphs: PdfChar[] = []
+  const text: PdfChar[] = []
   const formInfo = m._PDFiumExt_OpenFormFillInfo()
-  if (!formInfo) return []
+  if (!formInfo) return { glyphs: [], text: [] }
   let form = 0
   try {
     form = m._PDFiumExt_InitFormFillEnvironment(doc, formInfo)
-    if (!form) return []
+    if (!form) return { glyphs: [], text: [] }
+    // widget-level queries (font size from /DA) need the page bound to the
+    // form environment; without it FPDFAnnot_GetFontSize reports failure
+    if (typeof m._FORM_OnAfterLoadPage === 'function') m._FORM_OnAfterLoadPage(page, form)
     withAlloc(m, 4 * 4, (f4) => {
       for (let i = 0; i < total; i++) {
         const annot = m._FPDFPage_GetAnnot!(page, i)
@@ -2288,7 +2572,8 @@ function readWidgetCheckboxChars(m: PdfiumModule, doc: number, page: number): Pd
           if (m._FPDFAnnot_GetSubtype!(annot) !== FPDF_ANNOT_WIDGET) continue
           const fieldType = m._FPDFAnnot_GetFormFieldType!(form, annot)
           const radio = fieldType === FPDF_FORMFIELD_RADIOBUTTON
-          if (fieldType !== FPDF_FORMFIELD_CHECKBOX && !radio) continue
+          const isText = fieldType === FPDF_FORMFIELD_TEXT
+          if (fieldType !== FPDF_FORMFIELD_CHECKBOX && !radio && !isText) continue
           if (!m._FPDFAnnot_GetRect!(annot, f4)) continue
           const v = m.HEAPF32.subarray(f4 >> 2, (f4 >> 2) + 4) // left top right bottom
           const box: Rect = {
@@ -2296,6 +2581,22 @@ function readWidgetCheckboxChars(m: PdfiumModule, doc: number, page: number): Pd
             x1: Math.max(v[0]!, v[2]!),
             y0: Math.min(v[1]!, v[3]!),
             y1: Math.max(v[1]!, v[3]!),
+          }
+          if (isText) {
+            // /Ff resolves along the /Parent chain like /V does
+            const flags =
+              typeof m._FPDFAnnot_GetFormFieldFlags === 'function'
+                ? m._FPDFAnnot_GetFormFieldFlags(form, annot)
+                : 0
+            // a password field's value must never surface as plaintext
+            if (flags & FPDF_FORMFLAG_TEXT_PASSWORD) continue
+            text.push(
+              ...textFieldChars(box, formFieldValue(m, form, annot), {
+                multiline: (flags & FPDF_FORMFLAG_TEXT_MULTILINE) !== 0,
+                fontSize: formFieldFontSize(m, form, annot),
+              }),
+            )
+            continue
           }
           const side = Math.max(box.x1 - box.x0, box.y1 - box.y0)
           if (side < WIDGET_BOX_MIN_PT || side > WIDGET_BOX_MAX_PT) continue
@@ -2307,7 +2608,7 @@ function readWidgetCheckboxChars(m: PdfiumModule, doc: number, page: number): Pd
             m._FPDFAnnot_IsChecked!(form, annot) === 1 ||
             (appearanceState !== '' && appearanceState !== 'Off')
           const code = radio ? (checked ? 0x25c9 : 0x25cb) : checked ? 0x2612 : 0x2610
-          out.push({
+          glyphs.push({
             code,
             text: String.fromCodePoint(code),
             box,
@@ -2330,10 +2631,13 @@ function readWidgetCheckboxChars(m: PdfiumModule, doc: number, page: number): Pd
       }
     })
   } finally {
+    if (form && typeof m._FORM_OnBeforeClosePage === 'function') {
+      m._FORM_OnBeforeClosePage(page, form)
+    }
     if (form) m._PDFiumExt_ExitFormFillEnvironment(form)
     m._PDFiumExt_CloseFormFillInfo(formInfo)
   }
-  return out
+  return { glyphs, text }
 }
 
 function rotateToDisplay(
@@ -2392,6 +2696,8 @@ export function extractPage(
     try {
       if (textPage) {
         chars = readChars(m, textPage)
+        // link rects are raw page space like the char boxes: tag before any shift/rotation
+        tagLinkChars(chars, readLinkAnnots(m, doc, page))
         // crop-origin shift BEFORE the ink check: it renders in crop space
         if (shifted) {
           for (const c of chars) {
@@ -2426,10 +2732,12 @@ export function extractPage(
     }
 
     // interactive checkbox/radio widgets → synthesized glyph chars (P29),
-    // through the same crop-shift / rotation normalization as real chars
-    const widgetChars = readWidgetCheckboxChars(m, doc, page)
-    if (widgetChars.length > 0) {
-      for (const c of widgetChars) {
+    // text field values → laid-out runs, through the same crop-shift /
+    // rotation normalization as real chars
+    const widgetChars = readWidgetChars(m, doc, page)
+    const allWidgetChars = [...widgetChars.text, ...widgetChars.glyphs]
+    if (allWidgetChars.length > 0) {
+      for (const c of allWidgetChars) {
         if (shifted) {
           shiftRect(c.box, dx, dy)
           shiftRect(c.looseBox, dx, dy)
@@ -2444,6 +2752,9 @@ export function extractPage(
           c.originX = ox
           c.originY = oy
         }
+      }
+      chars.push(...widgetChars.text)
+      for (const c of widgetChars.glyphs) {
         // ride the neighboring label's line: a widget box is taller than the
         // text beside it, and an unaligned baseline mints a lone line that
         // adds flow height per field (a 261-field form grew 24 → 36 pages).
@@ -2815,8 +3126,10 @@ export function extractPage(
           heightPt,
           bgActive ? bgStack.count : 0,
           vectorRegions,
+          rotation,
+          dx,
+          dy,
         )
-    if (shifted) for (const img of decorImages) shiftRect(img.box, dx, dy)
 
     return {
       index: pageIndex,

@@ -1,4 +1,5 @@
 import JSZip from 'jszip'
+import { assertZipWithinLimits } from '@genoffice/docx-engine'
 import { resolveTarget } from './opc'
 import { XMLParser } from 'fast-xml-parser'
 import {
@@ -8,6 +9,11 @@ import {
   type DateFormatParts,
 } from './xlsx-dates'
 
+function stripNamespacePrefix(name: string): string {
+  const separator = name.indexOf(':')
+  return separator < 0 ? name : name.slice(separator + 1)
+}
+
 // Text fidelity: no trim (xml:space="preserve" runs carry the spaces between words),
 // no numeric coercion of tag values (otherwise <t>02139</t> becomes a number and loses characters)
 const parser = new XMLParser({
@@ -15,6 +21,8 @@ const parser = new XMLParser({
   attributeNamePrefix: '@_',
   trimValues: false,
   parseTagValue: false,
+  removeNSPrefix: false,
+  transformTagName: stripNamespacePrefix,
   // trimValues also governs attributes; nothing read here (r:id, Target, cell ref, sheet
   // name) carries meaningful edge whitespace, and an untrimmed Target builds the wrong zip
   // path, which silently drops the whole sheet
@@ -24,6 +32,11 @@ const parser = new XMLParser({
 function asArray<T>(value: T | T[] | undefined): T[] {
   if (value === undefined || value === null) return []
   return Array.isArray(value) ? value : [value]
+}
+
+function relationshipId(node: Record<string, unknown>): string {
+  const qualified = Object.entries(node).find(([key]) => /^@_[^:]+:id$/.test(key))
+  return String(qualified?.[1] ?? node['@_id'] ?? '')
 }
 
 /** unwrap a fast-xml-parser text node (plain value, or { '#text': ... } when it carried attributes) */
@@ -37,10 +50,18 @@ function textOf(node: unknown): string {
 
 /** shared string entry: <si><t>…</t></si> or rich-text runs <si><r><t>…</t></r>…</si> */
 function sharedStringText(si: Record<string, unknown>): string {
-  if (si['t'] !== undefined) return textOf(si['t'])
-  return asArray(si['r'] as unknown)
-    .map((run) => textOf((run as Record<string, unknown>)['t']))
-    .join('')
+  let out = ''
+  for (const key of Object.keys(si)) {
+    if (key === 't') {
+      for (const node of asArray(si[key] as unknown)) out += textOf(node)
+    } else if (key === 'r') {
+      for (const run of asArray(si[key] as unknown)) {
+        const r = run as Record<string, unknown>
+        for (const node of asArray(r['t'] as unknown)) out += textOf(node)
+      }
+    }
+  }
+  return out
 }
 
 /** "BC12" → zero-based column index 54 (cell refs are case-insensitive per ECMA-376) */
@@ -61,7 +82,32 @@ interface Cell {
   '@_t'?: string
   '@_s'?: string
   v?: unknown
+  f?: unknown
   is?: Record<string, unknown>
+}
+
+type SharedFormulas = Map<string, string>
+
+function sharedIndex(cell: Cell): string | undefined {
+  const si =
+    typeof cell.f === 'object' && cell.f !== null
+      ? (cell.f as Record<string, unknown>)['@_si']
+      : undefined
+  return si === undefined ? undefined : String(si)
+}
+
+/** the master cell may well carry a cached value, so register it before the value check */
+function recordSharedFormula(cell: Cell, sharedFormulas: SharedFormulas): void {
+  const si = sharedIndex(cell)
+  const own = textOf(cell.f).trim()
+  if (si !== undefined && own) sharedFormulas.set(si, own)
+}
+
+/** openpyxl/ExcelJS write formulas with no cached <v>; the formula text is all there is until Excel recalculates */
+function formulaText(cell: Cell, sharedFormulas: SharedFormulas): string {
+  const si = sharedIndex(cell)
+  const text = textOf(cell.f).trim() || (si !== undefined ? (sharedFormulas.get(si) ?? '') : '')
+  return text ? `=${text}` : ''
 }
 
 /** cellXfs index → date/time parts, for the xf entries whose numFmt renders a calendar value */
@@ -97,9 +143,19 @@ function isDate1904(workbook: Record<string, any>): boolean {
   return flag === '1' || flag === 'true'
 }
 
-function cellText(cell: Cell, shared: string[], dates: DateStyles, date1904: boolean): string {
+function cellText(
+  cell: Cell,
+  shared: string[],
+  dates: DateStyles,
+  date1904: boolean,
+  sharedFormulas: SharedFormulas,
+): string {
   const type = cell['@_t'] ?? ''
   if (type === 'inlineStr') return cell.is ? sharedStringText(cell.is) : ''
+  if (cell.f !== undefined) {
+    recordSharedFormula(cell, sharedFormulas)
+    if (textOf(cell.v).trim() === '') return formulaText(cell, sharedFormulas)
+  }
   // <v> is ST_Xstring so it reaches the caller verbatim; the two reads that need it as a
   // scalar handle their own whitespace (Number tolerates it, the boolean compare strips it)
   const value = textOf(cell.v)
@@ -136,6 +192,7 @@ export const MAX_XLSX_COLS = 16_384
 /** extract sheet text from an xlsx: one "# SheetName" section per sheet, cells joined with " | " */
 export async function xlsxToText(bytes: Uint8Array): Promise<string> {
   const zip = await JSZip.loadAsync(bytes)
+  assertZipWithinLimits(zip)
   const workbookXml = await zipText(zip, 'xl/workbook.xml')
   if (!workbookXml) throw new Error('Invalid xlsx: missing xl/workbook.xml')
 
@@ -168,17 +225,18 @@ export async function xlsxToText(bytes: Uint8Array): Promise<string> {
   let sheetsWithData = 0
   let imageOnlySheets = 0
   for (const sheet of sheets) {
-    const path = relTargets.get(String(sheet['@_r:id'] ?? ''))
+    const path = relTargets.get(relationshipId(sheet))
     const sheetXml = path ? await zipText(zip, path) : undefined
     if (!sheetXml) continue
     const worksheet = parser.parse(sheetXml) as Record<string, any>
     const lines: string[] = [`# ${String(sheet['@_name'] ?? '')}`]
     const rows = asArray(worksheet.worksheet?.sheetData?.row) as Array<Record<string, unknown>>
     let hasData = false
+    const sharedFormulas: SharedFormulas = new Map()
     for (const row of rows) {
       const cells: string[] = []
       for (const cell of asArray(row.c as Cell | Cell[])) {
-        const text = cellText(cell, shared, dateStyles, date1904)
+        const text = cellText(cell, shared, dateStyles, date1904, sharedFormulas)
         const ref = cell['@_r']
         // A malformed ref (no leading column letters) yields -1; append in
         // document order instead of writing cells[-1] which would drop text.
@@ -210,6 +268,15 @@ export async function xlsxToText(bytes: Uint8Array): Promise<string> {
   return `[No extractable text: none of the ${n} sheet${n === 1 ? '' : 's'} holds cell data; the content is in embedded images, which this extraction does not read.]\n\n${body}`
 }
 
+function countElements(value: unknown, name: string): number {
+  if (Array.isArray(value)) return value.reduce((n, item) => n + countElements(item, name), 0)
+  if (value === null || typeof value !== 'object') return 0
+  return Object.entries(value).reduce((n, [key, child]) => {
+    const matches = key === name ? (Array.isArray(child) ? child.length : 1) : 0
+    return n + matches + countElements(child, name)
+  }, 0)
+}
+
 /** follow the sheet's <drawing r:id> to its drawing part and count the pictures anchored there */
 async function countDrawingPictures(
   zip: JSZip,
@@ -220,11 +287,11 @@ async function countDrawingPictures(
   const relsXml = await zipText(zip, relsPath)
   if (!relsXml) return 0
   const rels = parser.parse(relsXml) as Record<string, any>
-  const wanted = String(drawing['@_r:id'] ?? '')
+  const wanted = relationshipId(drawing)
   for (const rel of asArray(rels.Relationships?.Relationship) as Array<Record<string, unknown>>) {
     if (String(rel['@_Id'] ?? '') !== wanted) continue
     const drawingXml = await zipText(zip, resolveTarget(sheetPath, String(rel['@_Target'] ?? '')))
-    return drawingXml ? (drawingXml.match(/<(?:\w+:)?pic[\s>/]/g) ?? []).length : 0
+    return drawingXml ? countElements(parser.parse(drawingXml), 'pic') : 0
   }
   return 0
 }

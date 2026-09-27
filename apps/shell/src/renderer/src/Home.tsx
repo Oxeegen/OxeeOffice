@@ -24,12 +24,13 @@ import type {
 import type { IntegrationsApi } from '../../shared/integrations-api'
 import { markText } from '../../shared/text-marks'
 import { useDismissablePopover } from '@genoffice/ui'
-import { fileCountKey, visiblePageCount } from './counts'
+import { fileCountLabel, visiblePageCount } from './counts'
 import { useI18n } from './locale'
 import type { I18n, StringKey } from './locale'
 import { SettingsModal } from './SettingsModal'
 import type { SettingsTarget } from './SettingsModal'
 import { skillUpdateDue } from './IntegrationsPane'
+import { onFilesChanged } from './file-events'
 // OxeeOffice brand hook: the account button is a plain Settings button
 import { oxeegenLayerEnabled, SettingsGlyph } from './oxeegen-settings'
 
@@ -68,7 +69,8 @@ const FILE_ICONS: Record<string, string> = {
 /* Formats the open-local card advertises. Too long for the card at any window
    width, so it ellipsizes and a hover ScreenTip carries the full list. Keep in
    sync with the main-process open-dialog filter (OPEN_DIALOG_EXTENSIONS). */
-const OPEN_LOCAL_EXTENSIONS = '.docx / .xlsx / .xlsm / .xls / .csv / .pptx / .pdf / .md / .html'
+const OPEN_LOCAL_EXTENSIONS =
+  '.docx / .xlsx / .xlsm / .xls / .csv / .tsv / .pptx / .pdf / .md / .html'
 
 /** drag payload of home file/folder rows (JSON array of absolute paths) */
 const DRAG_PATHS_MIME = 'application/x-genoffice-paths'
@@ -242,7 +244,7 @@ const FILTERS: { key: string; label: StringKey }[] = [
 /** sidebar filter keys that stand for a family of extensions (mirrors recent-files.ts) */
 const FILTER_FAMILY: Record<string, readonly string[]> = {
   docx: ['docx', 'doc'],
-  xlsx: ['xlsx', 'xlsm', 'xls', 'csv'],
+  xlsx: ['xlsx', 'xlsm', 'xls', 'csv', 'tsv'],
   pptx: ['pptx', 'ppt'],
   md: ['md', 'markdown'],
   html: ['html', 'htm'],
@@ -1676,6 +1678,9 @@ export function Home() {
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [])
+
+  // a rename from the tab strip happens while this renderer already has focus
+  useEffect(() => onFilesChanged(() => refreshRef.current()), [])
 
   const hasMore = entries.length < listTotal
 
@@ -3167,7 +3172,7 @@ export function Home() {
                 <span className="section-label">
                   {view === 'recent' ? t('secRecent') : t('secStarred')}
                 </span>
-                <span className="file-count">{t(fileCountKey(listTotal), { n: listTotal })}</span>
+                <span className="file-count">{fileCountLabel(listTotal, lang, t)}</span>
               </div>
             )}
           </div>

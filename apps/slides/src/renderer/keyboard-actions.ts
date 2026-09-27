@@ -16,7 +16,7 @@ import * as slideActions from './slide-actions'
 import * as showActions from './show-actions'
 import * as styleActions from './style-actions'
 import { flushActiveEdit } from './file-actions'
-import { shouldRouteUndoToDeck } from './undo-routing'
+import { shouldRouteHistoryToDeck } from './undo-routing'
 import { rangeSelection } from '../shared/slide-selection'
 import { nextPreset, prevPreset } from './zoom-steps'
 
@@ -134,13 +134,13 @@ export function handleGlobalKeydown(
   }
   // Undo/redo (menu accelerators normally intercept; fallback for shell/menuless scenarios)
   if (mod && !e.altKey && (e.key === 'z' || e.key === 'Z')) {
-    if (editing || (inField && !shouldRouteUndoToDeck(e.target as HTMLElement))) return
+    if (editing || (inField && !shouldRouteHistoryToDeck(e.target as HTMLElement))) return
     e.preventDefault()
     void (e.shiftKey ? ctx.redo() : ctx.undo())
     return
   }
   if (mod && !e.altKey && (e.key === 'y' || e.key === 'Y')) {
-    if (editing || inField) return
+    if (editing || (inField && !shouldRouteHistoryToDeck(e.target as HTMLElement))) return
     e.preventDefault()
     void ctx.redo()
     return

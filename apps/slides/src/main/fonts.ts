@@ -206,6 +206,7 @@ const ALIASES: Record<string, string[]> = {
   仿宋: ['FangSong', 'STFangsong'],
   helvetica: ['Arial'],
   'helvetica neue': ['Arial'],
+  'arial rounded mt bold': ['Arial Rounded Bold'],
   calibri: ['Carlito', 'Arial'],
   'calibri light': ['Carlito', 'Arial'],
   // PowerPoint for Mac substitutes the Windows-only Lucida Sans family with Lucida Grande

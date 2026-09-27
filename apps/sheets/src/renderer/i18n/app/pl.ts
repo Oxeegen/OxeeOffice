@@ -511,6 +511,7 @@ export const pl = {
   appBridgeUnavailable:
     'Most plików aplikacji desktopowej jest niedostępny. Uruchom ponownie aplikację Electron.',
   appOpenCanceled: 'Anulowano wybór skoroszytu.',
+  appOpeningWorkbook: 'Otwieranie skoroszytu…',
   appOpened: 'Otwarto {name} — zmiany w komórkach zapisujesz z powrotem za pomocą ⌘S.',
   appOpenFailed: 'Nie można otworzyć skoroszytu.',
   appPageSetupNeedsFile: 'Najpierw otwórz plik XLSX — ustawienia strony są zapisywane w pliku.',
@@ -685,7 +686,7 @@ export const pl = {
   appTabData: 'Dane',
   appTabReview: 'Recenzja',
   appRibbonCollapse: 'Zwiń Wstążkę',
-  appRibbonPin: 'Przypnij Wstążkę',
+  appRibbonExpand: 'Rozwiń Wstążkę',
   appTabView: 'Widok',
   appTabAi: 'AI',
   appTabChartDesign: 'Projekt wykresu',

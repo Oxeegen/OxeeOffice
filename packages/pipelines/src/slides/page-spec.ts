@@ -171,6 +171,13 @@ export function parsePageSpecObject(
 
   const warnings: string[] = []
   const elements: SpecElement[] = []
+  /** Index each retained element had in the model's own array, so duplicate
+      advice still names the element numbers the model wrote. */
+  const keptRawIdx: number[] = []
+  const keep = (el: SpecElement, rawIdx: number): void => {
+    elements.push(el)
+    keptRawIdx.push(rawIdx)
+  }
   let images = 0
 
   const parseParagraphs = (v: unknown): SpecParagraph[] => {
@@ -249,7 +256,10 @@ export function parsePageSpecObject(
     const type = el.type
 
     if (type === 'image') {
-      const url = typeof el.url === 'string' ? el.url.trim() : ''
+      const url =
+        typeof el.url === 'string'
+          ? el.url.trim().replace(/^https?:\/\//i, (scheme) => scheme.toLowerCase())
+          : ''
       if (!/^https?:\/\//.test(url) && !(opts.localImages && url)) {
         warnings.push(`element ${i}: image url must be http(s), dropped`)
         continue
@@ -259,7 +269,7 @@ export function parsePageSpecObject(
         continue
       }
       images += 1
-      elements.push({ type: 'image', url, ...base })
+      keep({ type: 'image', url, ...base }, i)
       continue
     }
 
@@ -270,12 +280,15 @@ export function parsePageSpecObject(
         continue
       }
       const valign = el.valign
-      elements.push({
-        type: 'text',
-        ...base,
-        paragraphs,
-        ...(valign === 'top' || valign === 'middle' || valign === 'bottom' ? { valign } : {}),
-      })
+      keep(
+        {
+          type: 'text',
+          ...base,
+          paragraphs,
+          ...(valign === 'top' || valign === 'middle' || valign === 'bottom' ? { valign } : {}),
+        },
+        i,
+      )
       continue
     }
 
@@ -299,15 +312,18 @@ export function parsePageSpecObject(
       }
       const paragraphs = parseParagraphs(el.paragraphs)
       const valign = el.valign
-      elements.push({
-        type: 'shape',
-        shape,
-        ...base,
-        ...(fill ? { fill } : {}),
-        ...(stroke ? { stroke } : {}),
-        ...(paragraphs.some((p) => p.runs.some((r) => r.text.trim())) ? { paragraphs } : {}),
-        ...(valign === 'top' || valign === 'middle' || valign === 'bottom' ? { valign } : {}),
-      })
+      keep(
+        {
+          type: 'shape',
+          shape,
+          ...base,
+          ...(fill ? { fill } : {}),
+          ...(stroke ? { stroke } : {}),
+          ...(paragraphs.some((p) => p.runs.some((r) => r.text.trim())) ? { paragraphs } : {}),
+          ...(valign === 'top' || valign === 'middle' || valign === 'bottom' ? { valign } : {}),
+        },
+        i,
+      )
       continue
     }
 
@@ -320,7 +336,7 @@ export function parsePageSpecObject(
       error: `no valid elements (${warnings.join('; ') || 'all dropped'})`,
     }
   }
-  warnings.push(...nearDuplicateTextWarnings(rawEls))
+  warnings.push(...duplicateTextWarnings(elements, keptRawIdx))
   return {
     ok: true,
     spec: {
@@ -331,7 +347,7 @@ export function parsePageSpecObject(
   }
 }
 
-/** Text of a raw spec element for the duplicate check, or null when it has none. */
+/** Text of a spec element for the duplicate check, or null when it has none. */
 function rawElementText(el: unknown): string | null {
   const rec = asRecord(el)
   if (rec.type !== 'text' && rec.type !== 'shape') return null
@@ -357,14 +373,26 @@ const DUP_PREFIX_SHARE = 0.6
  * always an authoring slip — a subtitle restating the chart caption, a
  * heading pasted twice. Compared on normalized text: identical, or sharing a
  * long common prefix that covers most of the shorter one. Advice only.
+ *
+ * The pairwise pass is quadratic in the elements handed in, so feed it the
+ * retained set only. `rawIdx[k]` is the element number to name for position k,
+ * letting a caller that already dropped elements still cite the numbering the
+ * model itself wrote.
  */
 export function nearDuplicateTextWarnings(rawEls: unknown[]): string[] {
+  return duplicateTextWarnings(
+    rawEls,
+    rawEls.map((_el, i) => i),
+  )
+}
+
+function duplicateTextWarnings(els: readonly unknown[], rawIdx: readonly number[]): string[] {
   const texts: { i: number; text: string; norm: string }[] = []
-  for (const [i, el] of rawEls.entries()) {
-    const text = rawElementText(el)
+  for (let k = 0; k < els.length; k++) {
+    const text = rawElementText(els[k])
     if (text === null) continue
     const norm = normalizeText(text)
-    if (norm.length >= DUP_MIN_CHARS) texts.push({ i, text, norm })
+    if (norm.length >= DUP_MIN_CHARS) texts.push({ i: rawIdx[k]!, text, norm })
   }
   const out: string[] = []
   for (let a = 0; a < texts.length; a++) {

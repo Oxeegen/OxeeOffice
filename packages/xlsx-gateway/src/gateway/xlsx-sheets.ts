@@ -307,6 +307,33 @@ export function maxRelationshipId(relationshipsXml: string): number {
   return max
 }
 
+function relationshipIds(relationshipsXml: string): Set<string> {
+  return new Set(
+    [...relationshipsXml.matchAll(/\bId="rId([0-9]+)"/g)].map((match) => `rId${match[1]}`),
+  )
+}
+
+function firstFreeRelationshipId(used: ReadonlySet<string>): string {
+  let index = 1
+  while (used.has(`rId${index}`)) index += 1
+  return `rId${index}`
+}
+
+export function nextFreeRelationshipId(relationshipsXml: string): string {
+  return firstFreeRelationshipId(relationshipIds(relationshipsXml))
+}
+
+export function nextFreeRelationshipIds(relationshipsXml: string, count: number): string[] {
+  const used = relationshipIds(relationshipsXml)
+  const ids: string[] = []
+  for (let index = 0; index < count; index += 1) {
+    const id = firstFreeRelationshipId(used)
+    used.add(id)
+    ids.push(id)
+  }
+  return ids
+}
+
 /// Rebuilds workbook.xml for the plan: sheet elements renamed / added /
 /// removed and re-assembled in the final order, definedName localSheetId
 /// scopes renumbered (or dropped with their sheet), and the active tab

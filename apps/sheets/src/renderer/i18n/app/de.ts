@@ -527,6 +527,7 @@ export const de = {
   appBridgeUnavailable:
     'Die Desktop-Dateibrücke ist nicht verfügbar. Starten Sie die Electron-App neu.',
   appOpenCanceled: 'Arbeitsmappenauswahl abgebrochen.',
+  appOpeningWorkbook: 'Arbeitsmappe wird geöffnet…',
   appOpened: '{name} geöffnet — Zellbearbeitungen werden mit ⌘S zurückgespeichert.',
   appOpenFailed: 'Die Arbeitsmappe kann nicht geöffnet werden.',
   appPageSetupNeedsFile:
@@ -707,7 +708,7 @@ export const de = {
   appTabData: 'Daten',
   appTabReview: 'Überprüfen',
   appRibbonCollapse: 'Menüband reduzieren',
-  appRibbonPin: 'Menüband anheften',
+  appRibbonExpand: 'Menüband erweitern',
   appTabView: 'Ansicht',
   appTabAi: 'KI',
   appTabChartDesign: 'Diagrammentwurf',

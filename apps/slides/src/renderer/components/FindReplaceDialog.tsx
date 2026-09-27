@@ -147,6 +147,7 @@ export function FindReplaceDialog({
         <input
           ref={findRef}
           placeholder={t('paneFrFind')}
+          aria-label={t('paneFrFind')}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value)
@@ -159,6 +160,7 @@ export function FindReplaceDialog({
       <div className="find-panel-row">
         <input
           placeholder={t('paneFrReplaceWith')}
+          aria-label={t('paneFrReplaceWith')}
           value={replaceText}
           onChange={(e) => setReplaceText(e.target.value)}
         />

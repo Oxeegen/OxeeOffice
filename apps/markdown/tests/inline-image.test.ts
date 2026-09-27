@@ -161,6 +161,24 @@ describe('sized HTML images', () => {
     )
   })
 
+  it('escapes image metadata when serializing an edited image', () => {
+    const { editor } = open('![a](x.png)\n')
+    let image: { pos: number; node: any } | undefined
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'image') image = { pos, node }
+    })
+    expect(image).toBeDefined()
+    editor.view.dispatch(
+      editor.state.tr.setNodeMarkup(image!.pos, undefined, {
+        ...image!.node.attrs,
+        src: 'assets/a(1).png',
+        alt: 'one] two',
+        title: 'say "hi"',
+      }),
+    )
+    expect(editor.getMarkdown()).toBe('![one\\] two](<assets/a(1).png> "say \\"hi\\"")')
+  })
+
   it('a plain picture still serializes as markdown', () => {
     const { editor } = open('Text ![logo](x.png) more.\n')
     expect(editor.getMarkdown()).toContain('![logo](x.png)')

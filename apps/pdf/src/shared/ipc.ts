@@ -704,7 +704,7 @@ export interface PdfApi {
   readFile(path: string): Promise<ArrayBuffer>
   /** Write markups/form values/page ops back to the original file (pdf-lib, content streams untouched); path grants same as readFile. With targetPath set (Save As), the original is only read and the result goes to targetPath */
   save(request: SavePdfRequest): Promise<SavePdfResult>
-  /** Opens a Save As dialog and grants a single target for the confirmed redaction copy. */
+  /** Creates a redacted working copy on first apply; subsequent applies save that copy in place. */
   requestRedactionCopy(path: string): Promise<boolean>
   /** Content-derived naming (docs/sheets analog): propose a file base name after a save.
       The main process renames only while the file still carries the shell's auto-created

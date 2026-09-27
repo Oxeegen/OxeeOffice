@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { openPptx, savePptx, listSlideLayouts, insertSlideWithLayout } from '../src/index'
 import { resolveTarget, relsPathFor } from '../src/zip'
+import { parseLayoutPlaceholders } from '../src/layout'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const fx = (name: string) => readFileSync(join(here, 'fixtures', name))
@@ -25,6 +26,25 @@ describe('listSlideLayouts', () => {
       expect(typeof lay.layoutType).toBe('string')
       expect(Array.isArray(lay.placeholders)).toBe(true)
     }
+  })
+
+  it('parses placeholder geometry regardless of attribute order', () => {
+    const xml =
+      '<p:sldLayout xmlns:p="p" xmlns:a="a"><p:cSld><p:spTree><p:sp>' +
+      '<p:nvSpPr><p:cNvPr id="1" name="Body"/><p:cNvSpPr/><p:nvPr><p:ph type="body" idx="1"/></p:nvPr></p:nvSpPr>' +
+      '<p:spPr><a:xfrm><a:off y="100" x="200"/><a:ext cy="900000" cx="1200000"/></a:xfrm></p:spPr>' +
+      '</p:sp></p:spTree></p:cSld></p:sldLayout>'
+    expect(parseLayoutPlaceholders(xml)).toEqual([
+      {
+        type: 'body',
+        idx: '1',
+        x: 200,
+        y: 100,
+        cx: 1200000,
+        cy: 900000,
+        hint: 'Click to add text',
+      },
+    ])
   })
 
   it('layout paths sorted by number ascending', async () => {

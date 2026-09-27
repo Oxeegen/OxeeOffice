@@ -38,12 +38,13 @@ interface Props {
   initialText: string
   onChange: (text: string) => void
   onCursor: (cursor: CursorInfo) => void
+  onBeforeReplace?: () => void
   /** only the editor's own transactions report changes; External-annotated ones are already known to the caller */
   className?: string
 }
 
 export const SourceEditor = forwardRef<SourceEditorHandle, Props>(function SourceEditor(
-  { initialText, onChange, onCursor, className },
+  { initialText, onChange, onCursor, onBeforeReplace, className },
   ref,
 ) {
   const hostRef = useRef<HTMLDivElement>(null)
@@ -77,10 +78,14 @@ export const SourceEditor = forwardRef<SourceEditorHandle, Props>(function Sourc
       },
     })
     viewRef.current = view
-    findTargetRef.current = cmFindTarget(view, (listener) => {
-      docListeners.current.add(listener)
-      return () => docListeners.current.delete(listener)
-    })
+    findTargetRef.current = cmFindTarget(
+      view,
+      (listener) => {
+        docListeners.current.add(listener)
+        return () => docListeners.current.delete(listener)
+      },
+      onBeforeReplace,
+    )
     return () => {
       view.destroy()
       viewRef.current = null

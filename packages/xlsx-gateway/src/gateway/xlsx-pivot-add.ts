@@ -358,7 +358,7 @@ function extractCellValue(
   sharedStrings: readonly string[],
 ): SourceValue {
   const cellPattern = new RegExp(
-    `<c\\b([^>]*)\\br="${address.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"([^>]*)(?:/>|>([\\s\\S]*?)</c>)`,
+    `<c\\b([^>]*)\\br="${address.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"([^>]*?)(?:/>|>([\\s\\S]*?)</c>)`,
   )
   const match = cellPattern.exec(worksheetXml)
   if (!match) return null

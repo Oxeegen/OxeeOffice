@@ -43,7 +43,6 @@ export {
   useRibbonCollapse,
   RibbonCollapseButton,
   RibbonExpandButton,
-  installRibbonPeekDismiss,
   isRibbonToggleShortcut,
   readRibbonCollapsed,
   RIBBON_TOGGLE_SHORTCUT,
@@ -73,12 +72,21 @@ export {
 export {
   CropDialog,
   CutoutDialog,
+  cropEdgeArrowDelta,
+  cropEdgeValue,
   cropImagePng,
   DEFAULT_CUTOUT_TOLERANCE,
+  nudgeCropEdge,
+  CROP_EDGES,
+  CROP_EDGE_STEP,
+  CROP_EDGE_STEP_COARSE,
+  type CropEdge,
   type CropFractions,
   type ImageDialogLabels,
 } from './image-dialogs'
+export { CROP_EDGE_LABELS } from './strings-crop-edges'
 export { ImageViewer, type ImageViewerLabels } from './image-viewer'
+export { trapTab, useModalKeys } from './modal-keys'
 export {
   removeBackground,
   sampleBackgroundColors,

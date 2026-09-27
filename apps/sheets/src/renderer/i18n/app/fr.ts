@@ -540,6 +540,7 @@ export const fr = {
   appBridgeUnavailable:
     "Le pont de fichiers du bureau est indisponible. Redémarrez l'application Electron.",
   appOpenCanceled: 'Sélection du classeur annulée.',
+  appOpeningWorkbook: 'Ouverture du classeur…',
   appOpened: '{name} ouvert — les modifications de cellules se réenregistrent avec ⌘S.',
   appOpenFailed: "Impossible d'ouvrir le classeur.",
   appPageSetupNeedsFile:
@@ -719,7 +720,7 @@ export const fr = {
   appTabData: 'Données',
   appTabReview: 'Révision',
   appRibbonCollapse: 'Réduire le ruban',
-  appRibbonPin: 'Épingler le ruban',
+  appRibbonExpand: 'Développer le ruban',
   appTabView: 'Affichage',
   appTabAi: 'IA',
   appTabChartDesign: 'Création de graphique',

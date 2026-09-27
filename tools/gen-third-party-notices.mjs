@@ -16,6 +16,7 @@ import { join, dirname, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync } from 'node:child_process'
 import { builtinModules, createRequire } from 'node:module'
+import { licenseText } from './license-text.mjs'
 
 const require = createRequire(import.meta.url)
 
@@ -62,9 +63,6 @@ function extraResourceSeeds() {
   }
   return names
 }
-
-/** license file lives somewhere non-obvious */
-const LICENSE_PATH = { electron: 'dist/LICENSE' }
 
 /** license text is not published to npm; supply the notice by hand */
 const NOTE = {
@@ -180,19 +178,6 @@ function closure(seed) {
     }
   }
   return { resolved: [...seen].filter(([, v]) => v !== null), missing }
-}
-
-const LICENSE_FILE = /^(LICENSE|LICENCE|COPYING)(\.|$)/i
-
-function licenseText(name, dir) {
-  const override = LICENSE_PATH[name]
-  if (override && existsSync(join(dir, override))) {
-    return readFileSync(join(dir, override), 'utf8').trim()
-  }
-  const files = readdirSync(dir).filter((f) => LICENSE_FILE.test(f))
-  files.sort((a, b) => a.length - b.length)
-  if (files.length > 0) return readFileSync(join(dir, files[0]), 'utf8').trim()
-  return null
 }
 
 function noticeText(dir) {
@@ -323,6 +308,11 @@ const FONTS = [
     '© Adobe / Google. This bundle ships a subset of the original fonts (reduced glyph coverage for size);\nno other modifications were made.',
   ],
   [
+    'GenOffice UI Kana JP (Noto Sans JP derivative)',
+    'SIL OFL 1.1',
+    'Source: Noto Sans JP from https://github.com/notofonts/noto-cjk. Copyright 2014-2021 Adobe\n(http://www.adobe.com/), with Reserved Font Name "Source". This bundle ships Regular and Bold\ninstances subset to U+3000-30FF, with modified advances and horizontally condensed outlines to\nmatch Meiryo UI metrics and vertical metrics set to the Hiragino class. Renamed to GenOffice UI\nKana JP per OFL 1.1; the upstream Reserved Font Name is not used.',
+  ],
+  [
     'GenOffice Sans KR (Noto Sans CJK KR derivative)',
     'SIL OFL 1.1',
     'Copyright 2014-2021 Adobe (http://www.adobe.com/), Google LLC, Reserved Font Name "Source".\nSubset with modified advance widths and horizontally transformed Noto CJK outlines to match measured\nKorean Office-family metrics; renamed per OFL 1.1. No Microsoft font outlines are included.',
@@ -383,6 +373,12 @@ https://www.unicode.org/Public/17.0.0/ucd/EquivalentUnifiedIdeograph.txt
 
 `
 out += readFileSync(join(ROOT, 'LICENSE-UNICODE.txt'), 'utf8').trim() + '\n'
+
+for (const term of ['@embedpdf/pdfium', 'Copyright 2014 PDFium Authors', 'Apache License']) {
+  if (!out.includes(term)) {
+    throw new Error(`generated third-party notice is missing PDFium term: ${term}`)
+  }
+}
 
 const dest = join(ROOT, 'apps/shell/build/THIRD-PARTY-NOTICES.txt')
 mkdirSync(dirname(dest), { recursive: true })

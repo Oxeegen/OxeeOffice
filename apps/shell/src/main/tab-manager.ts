@@ -104,20 +104,19 @@ export class TabManager {
       this.layout()
       setImmediate(() => this.layout())
     })
-    shellWindow.webContents.once('did-finish-load', () => this.scheduleSpareSheetsView(1500))
   }
 
   private scheduleSpareSheetsView(delayMs: number): void {
-    if (process.env.GENOFFICE_NO_SPARE_VIEW || this.spareSheetsTimer) return
+    if (process.env.GENOFFICE_NO_SPARE_VIEW || this.spareSheetsTimer || this.spareSheetsView) return
+    if (this.tabs.find((t) => t.id === this.activeId)?.kind !== 'sheets') return
     this.spareSheetsTimer = setTimeout(() => {
       this.spareSheetsTimer = null
       if (this.spareSheetsView || this.shellWindow.isDestroyed()) return
+      const active = this.tabs.find((t) => t.id === this.activeId)
+      if (active?.kind !== 'sheets') return
       const view = createSheetsView({ includeAiHandlers: false })
       // registering the session made the spare the menu-action target
-      const active = this.tabs.find((t) => t.id === this.activeId)
-      setActiveSheetsWebContents(
-        active?.kind === 'sheets' && active.view ? active.view.webContents : null,
-      )
+      setActiveSheetsWebContents(active.view?.webContents ?? null)
       this.shellWindow.contentView.addChildView(view)
       view.setVisible(false)
       view.setBounds(this.contentBounds())
@@ -134,6 +133,16 @@ export class TabManager {
     const view = this.spareSheetsView
     this.spareSheetsView = null
     return view && !view.webContents.isDestroyed() ? view : null
+  }
+
+  private discardSpareSheetsView(): void {
+    if (this.spareSheetsTimer) clearTimeout(this.spareSheetsTimer)
+    this.spareSheetsTimer = null
+    const spare = this.spareSheetsView
+    this.spareSheetsView = null
+    if (!spare) return
+    this.shellWindow.contentView.removeChildView(spare)
+    spare.webContents.close()
   }
 
   private untitled(kind: TabKind, fallback: string): string {
@@ -273,7 +282,8 @@ export class TabManager {
   openSheetsTab(openPath?: string, options?: { newBlank?: boolean }): string {
     if (options?.newBlank) setSheetsNewBlank()
     const spare = this.takeSpareSheetsView()
-    const view = spare ?? createSheetsView({ includeAiHandlers: false })
+    const view =
+      spare ?? createSheetsView({ includeAiHandlers: false, openingWorkbook: Boolean(openPath) })
     // bind the path to this tab's webContents: a multi-select Open creates
     // several sheets tabs in one loop, so a single global path would be
     // overwritten before the earlier tabs consume it
@@ -287,7 +297,6 @@ export class TabManager {
       view.setVisible(false)
     }
     this.trackHtmlFullScreen(id, view)
-    this.scheduleSpareSheetsView(3000)
     this.tabs.push({
       id,
       kind: 'sheets',
@@ -394,6 +403,8 @@ export class TabManager {
     for (const t of this.tabs) t.view?.setVisible(t.id === id)
     if (target.view) target.view.setBounds(this.contentBounds())
     this.activeId = id
+    if (target.kind === 'sheets') this.scheduleSpareSheetsView(3000)
+    else this.discardSpareSheetsView()
     this.refreshActiveTargets()
     this.focusActiveView()
     this.onChanged()

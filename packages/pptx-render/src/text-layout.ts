@@ -26,6 +26,7 @@ import { graphemes, isWideChar, type FontMetricsProvider, type RunStyle } from '
 import { emuToPx, ptToPx, type Viewport } from './coords'
 import type { MediaResolver } from './fill'
 import { formatAutoNum } from './auto-num'
+import { cacheKeyFor } from './image-dpi'
 
 export { formatAutoNum }
 
@@ -479,7 +480,7 @@ class AutoNumCounter {
   /** Number of a numbered text paragraph; undefined for anything else (state still advances). */
   next(p: Paragraph, hasText: boolean): number | undefined {
     if (!hasText) return undefined
-    const lvl = p.level ?? 0
+    const lvl = Number.isFinite(p.level) ? Math.max(0, Math.min(8, Math.trunc(p.level!))) : 0
     const b = p.bullet
     const from = b?.type === 'number' ? lvl + 1 : lvl
     for (let l = from; l < this.counts.length; l++) this.counts[l] = 0
@@ -513,15 +514,35 @@ function bulletRunStyle(
 const isBulletKind = (t: string | undefined): boolean =>
   t === 'char' || t === 'number' || t === 'blip'
 
+const imageAspectCache = new Map<string, number>()
+
+export const IMAGE_ASPECT_CACHE_MAX = 256
+
+export function imageAspectCacheSize(): number {
+  return imageAspectCache.size
+}
+
+export function imageAspectCacheKeys(): string[] {
+  return [...imageAspectCache.keys()]
+}
+
+export function clearImageAspectCache(): void {
+  imageAspectCache.clear()
+}
+
 /**
  * Width/height ratio of a picture bullet from the image header (PNG/GIF/JPEG); 1 when the
  * format is not recognized. PowerPoint scales the picture to the text height and keeps its
  * aspect, so the reserved advance depends on it.
  */
-const imageAspectCache = new Map<string, number>()
-function imageAspect(dataUrl: string): number {
-  const cached = imageAspectCache.get(dataUrl)
-  if (cached != null) return cached
+export function imageAspect(dataUrl: string): number {
+  const key = cacheKeyFor(dataUrl)
+  const cached = imageAspectCache.get(key)
+  if (cached != null) {
+    imageAspectCache.delete(key)
+    imageAspectCache.set(key, cached)
+    return cached
+  }
   let ratio = 1
   const comma = dataUrl.indexOf(',')
   if (comma > 0 && /;base64$/i.test(dataUrl.slice(0, comma))) {
@@ -553,7 +574,11 @@ function imageAspect(dataUrl: string): number {
     }
   }
   if (!Number.isFinite(ratio) || ratio <= 0) ratio = 1
-  imageAspectCache.set(dataUrl, ratio)
+  if (imageAspectCache.size >= IMAGE_ASPECT_CACHE_MAX) {
+    const oldest = imageAspectCache.keys().next()
+    if (!oldest.done) imageAspectCache.delete(oldest.value)
+  }
+  imageAspectCache.set(key, ratio)
   return ratio
 }
 
@@ -884,15 +909,23 @@ function layoutParagraph(
 
 function hardBreak(tok: Token, availWidth: number, metrics: FontMetricsProvider): Token[] {
   const out: Token[] = []
+  const clusterW = new Map<string, number>()
   let buf = ''
+  let bufW = 0
   // Hard-cut per grapheme cluster: cut points never land inside combining-mark/ZWJ sequences
   for (const ch of graphemes(tok.text)) {
-    const test = buf + ch
-    if (buf && tokenWidth({ ...tok, text: test }, metrics) > availWidth) {
+    let cw = clusterW.get(ch)
+    if (cw === undefined) {
+      cw = tokenWidth({ ...tok, text: ch }, metrics)
+      clusterW.set(ch, cw)
+    }
+    if (buf && bufW + cw > availWidth) {
       out.push({ ...tok, text: buf })
       buf = ch
+      bufW = cw
     } else {
-      buf = test
+      buf += ch
+      bufW += cw
     }
   }
   if (buf) out.push({ ...tok, text: buf })

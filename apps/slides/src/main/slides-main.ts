@@ -27,6 +27,7 @@ import { userInfo } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { cleanupExpiredGeneratedPages } from './generated-page-temp'
 import { exportSlidesPdf } from './pdf-export'
+import { printSlidesHtml } from './print-window'
 import { gskApiKey, gskSlideGenerate, setGskProxyUrl } from '@genoffice/ai-search'
 import {
   appMenuLabels,
@@ -233,6 +234,7 @@ import type {
   ShapeKey,
   SetEffectsPatch,
 } from '../shared/ipc'
+import { DECK_LINK_PROTOCOLS } from '../shared/run-link'
 import { planSlideDuplicates, planSlideMoves } from '../shared/slide-selection'
 import { buildPrintDocumentHtml } from '../shared/print-html'
 
@@ -250,6 +252,7 @@ import {
   resetFontMetrics,
   journalOps,
   makeMediaResolver,
+  markMetaDirty,
   pushHistory,
   rebuildSlide,
   rebuildSlideWithReparse,
@@ -469,6 +472,7 @@ export async function saveSessionDeckTo(session: Session, filePath: string): Pro
   // the caller supplies an arbitrary absolute path, so its parent may not exist
   // yet (the dialog-driven paths always land in an existing folder)
   await mkdir(dirname(filePath), { recursive: true })
+  const metaRevAtSave = session.metaRev ?? 0
   await savePptxToFile(session.opened, filePath)
   session.path = filePath
   autosaveBackoff.delete(filePath)
@@ -477,7 +481,7 @@ export async function saveSessionDeckTo(session: Session, filePath: string): Pro
   await pushRecent(filePath)
   syncAttachedPaths(session, filePath)
   commitSaved(session.opened)
-  session.metaDirty = false
+  if ((session.metaRev ?? 0) === metaRevAtSave) session.metaDirty = false
 }
 
 const RECENT_PATH = () => join(app.getPath('userData'), 'slides-recent.json')
@@ -1022,7 +1026,7 @@ export function applySessionTxn(session: Session, req: ApplyTxnOp): ApplyTxnResu
   // element dirty, so without this the session would still look clean and a
   // close could discard the edit. Element-level ops set their own flags; this
   // covers the archive-only ones.
-  session.metaDirty = true
+  markMetaDirty(session)
   // Post-pass mirroring the dedicated shims (autofit/reparse are render concerns and live
   // outside the executor): text ops get autofit resize + fontScale write-back, level changes
   // materialize, and XML-patching ops reparse the page so the final render reflects them.
@@ -2646,7 +2650,7 @@ export function registerSlidesIpc(): void {
     })
     if (!r) return null
     session.fitWidthPx = op.fitWidthPx
-    if (op.before) session.metaDirty = true
+    if (op.before) markMetaDirty(session)
     return {
       slides: buildAllRenderSlides(session.opened, op.fitWidthPx),
       index: op.before ? op.sourceIndex : op.sourceIndex + 1,
@@ -2726,7 +2730,7 @@ export function registerSlidesIpc(): void {
     sessionTxn(session, { ops: [op], parts: new Map([[me.partPath, me.slide]]) })
 
   const masterEditDone = (session: Session): RenderSlide | null => {
-    session.metaDirty = true
+    markMetaDirty(session)
     return buildMasterRenderSlide(session)
   }
 
@@ -2897,7 +2901,7 @@ export function registerSlidesIpc(): void {
     if (!session) return null
     const r = sessionTxn(session, { ops: [{ op: 'setSlideSize', cx: op.cx, cy: op.cy }] })
     if (!r) return null
-    session.metaDirty = true
+    markMetaDirty(session)
     return buildAllRenderSlides(session.opened, session.fitWidthPx)
   })
 
@@ -2986,7 +2990,7 @@ export function registerSlidesIpc(): void {
     })
     if (!r) return null
     session.fitWidthPx = op.fitWidthPx
-    if (steps.length > 1) session.metaDirty = true
+    if (steps.length > 1) markMetaDirty(session)
     return {
       slides: buildAllRenderSlides(session.opened, op.fitWidthPx),
       index: Math.max(...op.slideIndexes) + 1,
@@ -3937,6 +3941,13 @@ export function registerSlidesIpc(): void {
   ipcMain.handle('slides:set-link', (e, op: SetLinkOp) => {
     const session = sessions.get(e.sender.id)
     if (!session) return null
+    // A javascript:/file: target must never be saved into the package.
+    if (
+      op.target?.kind === 'url' &&
+      safeExternalUrl(op.target.url, { allowedProtocols: DECK_LINK_PROTOCOLS }) === null
+    ) {
+      return null
+    }
     const r = sessionTxn(session, {
       ops: [{ op: 'setLink', target: { slide: op.slideIndex, el: op.sourceId }, link: op.target }],
     })
@@ -4029,7 +4040,7 @@ export function registerSlidesIpc(): void {
     // contiguous buffer fails on large decks
     session.opened = reparseDeck(session.opened)
     // Reopening cleared element-level dirty; the session-level flag preserves the "unsaved" state (reset on save)
-    session.metaDirty = true
+    markMetaDirty(session)
     session.fitWidthPx = op.fitWidthPx
     return buildAllRenderSlides(session.opened, op.fitWidthPx)
   })
@@ -4149,7 +4160,7 @@ export function registerSlidesIpc(): void {
     if (!session) return null
     const r = sessionTxn(session, { ops: [op as Parameters<typeof runTxn>[1]['ops'][0]] })
     if (!r) return null
-    session.metaDirty = true
+    markMetaDirty(session)
     return r.records![0]!.after
   }
 
@@ -4188,7 +4199,7 @@ export function registerSlidesIpc(): void {
     if (!ops.length) return null
     const r = sessionTxn(session, { ops })
     if (!r) return null
-    session.metaDirty = true
+    markMetaDirty(session)
     return {
       slides: buildAllRenderSlides(session.opened, session.fitWidthPx),
       sections: getSections(session.opened),
@@ -4203,7 +4214,7 @@ export function registerSlidesIpc(): void {
       ops: [{ op: 'moveSlide', target: { slide: op.fromIndex }, to: op.toIndex }],
     })
     if (!r) return null
-    session.metaDirty = true
+    markMetaDirty(session)
     return {
       slides: buildAllRenderSlides(session.opened, session.fitWidthPx),
       sections: getSections(session.opened),
@@ -4219,7 +4230,7 @@ export function registerSlidesIpc(): void {
       ops: steps.map((st) => ({ op: 'moveSlide' as const, target: { slide: st.from }, to: st.to })),
     })
     if (!r) return null
-    session.metaDirty = true
+    markMetaDirty(session)
     return {
       slides: buildAllRenderSlides(session.opened, session.fitWidthPx),
       sections: getSections(session.opened),
@@ -4251,7 +4262,7 @@ export function registerSlidesIpc(): void {
     const r = sessionTxn(session, {
       ops: [{ op: 'setNotes', target: { slide: op.slideIndex }, text: op.text }],
     })
-    if (r) session.metaDirty = true
+    if (r) markMetaDirty(session)
     return r !== null
   })
 
@@ -4276,7 +4287,7 @@ export function registerSlidesIpc(): void {
       ],
     })
     if (!r) return null
-    session.metaDirty = true
+    markMetaDirty(session)
     return getSlideComments(session.opened.archive, slide.path)
   })
 
@@ -4295,7 +4306,7 @@ export function registerSlidesIpc(): void {
       ],
     })
     if (!r) return null
-    session.metaDirty = true
+    markMetaDirty(session)
     return getSlideComments(session.opened.archive, slide.path)
   })
 
@@ -4376,6 +4387,7 @@ export function registerSlidesIpc(): void {
       slidesOpenedHook?.(e.sender, session.path)
     }
     try {
+      const metaRevAtSave = session.metaRev ?? 0
       await savePptxToFile(session.opened, session.path)
       autosaveBackoff.delete(session.path)
       void rm(autosavePathFor(session.path), { force: true }).catch(() => {})
@@ -4385,7 +4397,7 @@ export function registerSlidesIpc(): void {
       // whole package, doubling save latency on large decks. Element ids survive,
       // but the renderer still expects the render tree in the response.
       commitSaved(session.opened)
-      session.metaDirty = false
+      if ((session.metaRev ?? 0) === metaRevAtSave) session.metaDirty = false
       return {
         ok: true,
         path: session.path,
@@ -4407,6 +4419,7 @@ export function registerSlidesIpc(): void {
     const r = await showSaveDialogWithMemory(dialog, parent, options, getDraftsDir())
     if (r.canceled || !r.filePath) return { ok: false }
     try {
+      const metaRevAtSave = session.metaRev ?? 0
       await savePptxToFile(session.opened, r.filePath)
       session.path = r.filePath
       autosaveBackoff.delete(r.filePath)
@@ -4414,7 +4427,7 @@ export function registerSlidesIpc(): void {
       await pushRecent(r.filePath)
       syncAttachedPaths(session, r.filePath)
       commitSaved(session.opened)
-      session.metaDirty = false
+      if ((session.metaRev ?? 0) === metaRevAtSave) session.metaDirty = false
       return {
         ok: true,
         path: r.filePath,
@@ -4522,36 +4535,7 @@ export function registerSlidesIpc(): void {
           : {}),
         webPreferences: { sandbox: true },
       })
-      try {
-        await win.loadURL('data:text/html;base64,' + Buffer.from(html, 'utf8').toString('base64'))
-        await win.webContents.executeJavaScript(
-          'Promise.all([document.fonts.ready, ...Array.from(document.images).map((i) => i.decode().catch(() => {}))])',
-          true,
-        )
-        // Chromium attaches the native Windows print dialog to the window being printed.
-        // If that owner is hidden, the dialog is hidden too and the layout buttons appear inert.
-        if (process.platform === 'win32') {
-          win.show()
-          win.focus()
-        }
-        const result = await new Promise<{ success: boolean; failureReason: string }>((resolve) => {
-          win.webContents.print(
-            { silent: false, printBackground: true },
-            (success, failureReason) => resolve({ success, failureReason }),
-          )
-        })
-        if (!result.success) {
-          // Canceling is a normal completion, not a print failure: ok=false without an
-          // error keeps the renderer's print dialog (and its chosen options) open.
-          if (result.failureReason === 'Print job canceled') return { ok: false }
-          return { ok: false, error: result.failureReason }
-        }
-        return { ok: true }
-      } catch (err) {
-        return { ok: false, error: String(err) }
-      } finally {
-        if (!win.isDestroyed()) win.destroy()
-      }
+      return printSlidesHtml(html, win)
     },
   )
 

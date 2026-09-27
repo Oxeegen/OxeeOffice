@@ -53,7 +53,8 @@ import {
   classifyRemovedSheetRels,
   definedNamesReferenceSheet,
   definedNamesUseToken,
-  maxRelationshipId,
+  nextFreeRelationshipId,
+  nextFreeRelationshipIds,
   maxSheetIdInWorkbook,
   parseRelationships,
   parseSheetElements,
@@ -104,6 +105,7 @@ import {
 } from './xlsx-hyperlinks'
 import {
   applyStructuralOps,
+  inferWorksheetAddresses,
   isShiftingOp,
   shiftChartReferences,
   shiftCrossSheetFormulas,
@@ -121,6 +123,9 @@ import { StylesheetEditor } from './xlsx-styles'
 export const XLSX_ZIP_LIMITS = { maxParts: 10_000, maxTotalBytes: 256 * 1024 * 1024 } as const
 const MAX_ENTRY_COUNT = XLSX_ZIP_LIMITS.maxParts
 const MAX_UNCOMPRESSED_BYTES = XLSX_ZIP_LIMITS.maxTotalBytes
+/** Excel grid extent: larger addresses are unaddressable (and unopenable) in Excel */
+export const MAX_GRID_ROWS = 1_048_576
+export const MAX_GRID_COLUMNS = 16_384
 
 export interface PackageEntry {
   readonly path: string
@@ -352,7 +357,7 @@ async function addDefaultStylesheet(
   const relationships = await pkg.readText(relationshipsPath)
   if (!relationships.includes(`Type="${STYLES_REL_TYPE}"`)) {
     const relationship =
-      `<Relationship Id="rId${maxRelationshipId(relationships) + 1}" ` +
+      `<Relationship Id="${nextFreeRelationshipId(relationships)}" ` +
       `Type="${STYLES_REL_TYPE}" Target="styles.xml"/>`
     pkg.write(
       relationshipsPath,
@@ -418,7 +423,7 @@ async function ensureDynamicArrayMetadata(
   const relationships = await pkg.readText(relationshipsPath)
   if (!relationships.includes(`Type="${METADATA_REL_TYPE}"`)) {
     const relationship =
-      `<Relationship Id="rId${maxRelationshipId(relationships) + 1}" ` +
+      `<Relationship Id="${nextFreeRelationshipId(relationships)}" ` +
       `Type="${METADATA_REL_TYPE}" Target="metadata.xml"/>`
     pkg.write(
       relationshipsPath,
@@ -502,7 +507,7 @@ export async function readBasicWorkbook(buffer: Buffer): Promise<ImportedXlsx> {
     sheets.push({
       id,
       name: decodedName,
-      cells: parseWorksheetCells(worksheetXml, sharedStrings),
+      cells: parseWorksheetCells(inferWorksheetAddresses(worksheetXml), sharedStrings),
     })
     sheetNamesById[id] = decodedName
   }
@@ -552,7 +557,7 @@ export async function applyPlanToXlsx(
     const sheetName = sheetNamesById[change.sheetId]
     if (!sheetName) throw new Error(`Missing XLSX sheet mapping for ${change.sheetId}.`)
     const worksheetPath = await resolveWorksheetPath(pkg, sheetName)
-    const worksheetXml = await pkg.readText(worksheetPath)
+    const worksheetXml = inferWorksheetAddresses(await pkg.readText(worksheetPath))
     const actualCell = parseCell(worksheetXml, change.address)
     if (!cellsEqual(actualCell, change.before)) {
       throw new Error(`${sheetName}!${change.address} no longer has the expected content.`)
@@ -874,8 +879,23 @@ export async function planCellEditsToXlsx(
     partPath: string
     insertions: TableColumnInsertion[]
   }> = []
+  // Only shifting ops desync a pivot cache's recorded source range; sizing,
+  // visibility, and outline ops on the source sheet are safe to save.
+  const pivotCacheDefinitionPaths = structuralOps.some(({ ops }) => ops.some(isShiftingOp))
+    ? (await pkg.paths()).filter((path) =>
+        /^xl\/pivotCache\/pivotCacheDefinition[^/]*\.xml$/.test(path),
+      )
+    : []
   for (const { sheetName, ops } of structuralOps) {
     if (ops.length === 0) continue
+    for (const cachePath of ops.some(isShiftingOp) ? pivotCacheDefinitionPaths : []) {
+      if (pivotCacheReadsFromSheet(await pkg.readText(cachePath), sheetName)) {
+        throw new StructuralShiftError(
+          `A pivot table reads its source data from "${sheetName}" — ` +
+            'row/column changes there cannot be saved.',
+        )
+      }
+    }
     worksheetXmls.set(
       sheetName,
       applyStructuralOps(worksheetXmls.get(sheetName) ?? '', ops, sheetName, resolveColStyle),
@@ -952,7 +972,7 @@ export async function planCellEditsToXlsx(
   // 300MB sheet avoids allocating two successive full-size output strings.
   const cellMutationSheets = new Set([...fillsBySheet.keys(), ...editsBySheet.keys()])
   for (const sheetName of cellMutationSheets) {
-    const worksheetXml = worksheetXmls.get(sheetName) ?? ''
+    const worksheetXml = inferWorksheetAddresses(worksheetXmls.get(sheetName) ?? '')
     const cellMutations = groupCellMutations(
       fillsBySheet.get(sheetName) ?? [],
       editsBySheet.get(sheetName) ?? [],
@@ -1382,12 +1402,12 @@ async function allocateAddedSheets(
     if (match) nextPartNumber = Math.max(nextPartNumber, Number(match[1]) + 1)
   }
   const nextSheetId = maxSheetIdInWorkbook(workbookXml) + 1
-  const nextRelationshipId = maxRelationshipId(relationshipsXml) + 1
+  const relationshipIds = nextFreeRelationshipIds(relationshipsXml, names.length)
   return names.map((name, index) => ({
     name,
     path: `xl/worksheets/sheet${nextPartNumber + index}.xml`,
     sheetId: nextSheetId + index,
-    relationshipId: `rId${nextRelationshipId + index}`,
+    relationshipId: relationshipIds[index]!,
   }))
 }
 
@@ -1922,8 +1942,8 @@ async function resolveWorksheetPath(
   const targetMatch =
     relationshipXml === undefined ? undefined : /\bTarget="([^"]+)"/.exec(relationshipXml)?.[1]
   if (!targetMatch) throw new Error(`Relationship ${relationshipId} was not found.`)
-  const target = targetMatch.replace(/^\/?xl\//, '')
-  return `xl/${target.replace(/^\.\//, '')}`
+  const target = decodeXmlText(targetMatch).replace(/^\/?xl\//, '')
+  return resolveRelTarget('xl/workbook.xml', target)
 }
 
 function replaceSheetName(workbookXml: string, before: string, after: string): string {
@@ -2113,7 +2133,13 @@ function patchCellKeepingStyle(
       : existing
         ? readXmlAttribute(`${existing[1] ?? ''} ${existing[2] ?? ''}`, 's')
         : undefined
-  const replacement = serializeStyledCell(address, cell, styleIndex, rich)
+  const replacement = serializeStyledCell(
+    address,
+    cell,
+    styleIndex,
+    rich,
+    existingArrayRef(existing?.[0] ?? ''),
+  )
   // Function replacements throughout: user text can contain `$1`/`$&`, which
   // string replacements would expand as backreferences and corrupt the XML.
   if (existing) return worksheetXml.replace(cellPattern, () => replacement)
@@ -2413,6 +2439,7 @@ function transformWorksheetCells<T>(
   patchPrefix?: (prefix: string) => string,
 ): string {
   if (cellItems.size === 0) return worksheetXml
+  worksheetXml = inferWorksheetAddresses(worksheetXml)
   const remainingRows = new Map(cellItems)
   const targetRows = [...cellItems.keys()].sort((left, right) => left - right)
   const buildRow = (rowNumber: number): string => {
@@ -2745,10 +2772,11 @@ function serializeStyledCell(
   cell: CellState,
   styleIndex: string | undefined,
   rich?: readonly WorkbookRichRun[],
+  arrayRef?: string,
 ): string {
   const style = styleIndex === undefined ? '' : ` s="${styleIndex}"`
   if (cell.formula) {
-    return `<c r="${address}"${style}>${formulaXml(address, cell.formula.replace(/^=/, ''))}</c>`
+    return `<c r="${address}"${style}>${formulaXml(address, cell.formula.replace(/^=/, ''), arrayRef)}</c>`
   }
   if (cell.value === null) {
     // A cleared cell keeps its formatting only if it keeps a style index.
@@ -2822,11 +2850,30 @@ function lettersToColumn(letters: string): number {
   return column - 1
 }
 
-function formulaXml(address: string, formula: string): string {
+/// The `ref` of an existing `<f t="array" ref="…">` master, or undefined when
+/// the cell holds no array formula. `spillsDynamicArray` only recognises modern
+/// spilling functions, so a legacy CSE master such as `=SUM(A1:C1*A2:C2)` has
+/// no marker of its own: without carrying its extent, re-serializing the master
+/// drops t="array" and turns it into an ordinary formula while its followers
+/// keep stale cached values.
+function existingArrayRef(cellXml: string): string | undefined {
+  if (cellXml === '') return undefined
+  const ref = /<f\b[^>]*\bt="array"[^>]*\bref="([^"]+)"/.exec(cellXml)?.[1]
+  if (ref === undefined) return undefined
+  // The extent must name a real range; anything else is left to the default
+  // spelling rather than written out as a broken array master.
+  const [start, end] = ref.split(':')
+  if (start === undefined || !isGridCellAddress(start)) return undefined
+  if (end !== undefined && !isGridCellAddress(end)) return undefined
+  return ref
+}
+
+function formulaXml(address: string, formula: string, arrayRef?: string): string {
   const text = escapeXmlText(withFutureFunctionMarkers(formula))
-  return spillsDynamicArray(formula)
-    ? `<f t="array" ref="${address}">${text}</f>`
-    : `<f>${text}</f>`
+  // An existing array extent wins over the spill heuristic, which can only
+  // guess the master's own address.
+  const ref = arrayRef ?? (spillsDynamicArray(formula) ? address : undefined)
+  return ref === undefined ? `<f>${text}</f>` : `<f t="array" ref="${ref}">${text}</f>`
 }
 
 function serializeCell(address: string, cell: CellState): string {
@@ -2876,7 +2923,7 @@ function parseWorksheetCells(
   while ((match = cellPattern.exec(worksheetXml)) !== null) {
     const attributes = match[1] ?? ''
     const address = readXmlAttribute(attributes, 'r')
-    if (!address || !/^[A-Z]{1,3}[1-9][0-9]{0,6}$/.test(address)) continue
+    if (!address || !isGridCellAddress(address)) continue
     const body = match[2] ?? ''
     const formula = /<f(?:\s[^>]*[^/>])?>([\s\S]*?)<\/f>/.exec(body)?.[1]
     if (formula !== undefined) {
@@ -2914,11 +2961,28 @@ function parseWorksheetCells(
 async function readSharedStrings(source: EntrySource): Promise<readonly string[]> {
   if (!(await source.has('xl/sharedStrings.xml'))) return []
   const xml = await source.readText('xl/sharedStrings.xml')
+  return parseSharedStringsXml(xml)
+}
+
+export function parseSharedStringsXml(xml: string): string[] {
   return [...xml.matchAll(/<si(?:\s[^>]*)?>([\s\S]*?)<\/si>/g)].map((itemMatch) =>
     [...(itemMatch[1] ?? '').matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)]
       .map((textMatch) => decodeCellText(textMatch[1] ?? ''))
       .join(''),
   )
+}
+
+/** Cell addresses outside the Excel grid cannot exist in a valid file; skip them. Exported for tests. */
+export function isGridCellAddress(address: string): boolean {
+  const match = /^([A-Z]{1,3})([1-9][0-9]{0,6})$/.exec(address)
+  if (!match) return false
+  const row = Number(match[2])
+  if (row > MAX_GRID_ROWS) return false
+  let column = 0
+  for (const character of match[1]!) {
+    column = column * 26 + character.charCodeAt(0) - 64
+  }
+  return column <= MAX_GRID_COLUMNS
 }
 
 function cellsEqual(left: CellState, right: CellState): boolean {

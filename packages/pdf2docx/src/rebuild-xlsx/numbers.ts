@@ -81,6 +81,9 @@ function parseBareNumber(text: string): { value: number; grouped: boolean } | nu
     return Number.isFinite(value) ? { value, grouped: false } : null
   }
   if (GROUPED_NUMBER.test(text)) {
+    if (!text.includes('.')) {
+      if (significantIntegerDigits(text) > MAX_INTEGER_DIGITS) return null
+    }
     const value = Number(text.replaceAll(',', ''))
     return Number.isFinite(value) ? { value, grouped: true } : null
   }

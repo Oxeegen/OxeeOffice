@@ -38,8 +38,30 @@ export const GSK_TOOLS_OFF_ERROR =
 /** 200 MB: enough for a long clip through the Gemini Files API, small enough to hold in memory */
 const MAX_MEDIA_BYTES = 200 * 1024 * 1024
 
+/** Per-request ceiling across every reference of one tool call: MAX_MEDIA_BYTES bounds a single
+ *  item, and without a total the same cap could be multiplied by the item count. */
+const MAX_MEDIA_TOTAL_BYTES = 200 * 1024 * 1024
+
+/** Per-request item ceiling: a media tool call is a handful of references, never a data dump. */
+const MAX_MEDIA_ITEMS = 12
+
+/** How many references are decoded at once, so peak memory is a small multiple of the total cap
+ *  rather than the whole request. */
+const MEDIA_LOAD_CONCURRENCY = 3
+
+/** The production budget, exported so callers and tests can reason about the ceilings. */
+export const MEDIA_BUDGET = {
+  maxItems: MAX_MEDIA_ITEMS,
+  maxItemBytes: MAX_MEDIA_BYTES,
+  maxTotalBytes: MAX_MEDIA_TOTAL_BYTES,
+  concurrency: MEDIA_LOAD_CONCURRENCY,
+} as const
+
 /** the only load failure that may hand the request back to Genspark; validation failures never do */
 export class MediaTooLargeError extends Error {}
+
+/** Subclasses MediaTooLargeError so the existing "too big, try Genspark" fallback applies. */
+export class MediaBudgetExceededError extends MediaTooLargeError {}
 
 const MIME_BY_EXT: Record<string, string> = {
   '.png': 'image/png',
@@ -60,6 +82,18 @@ const MIME_BY_EXT: Record<string, string> = {
   '.aac': 'audio/aac',
   '.ogg': 'audio/ogg',
   '.flac': 'audio/flac',
+}
+
+const DATA_URL_RE = /^data:([^;,]+);base64,([\s\S]*)$/
+
+/** Decoded size a data URL will produce, computed from the base64 length alone so the check runs
+ *  before anything is allocated. Whitespace inside the payload only inflates the estimate. */
+function dataUrlDecodedSize(ref: string): number {
+  if (!ref.startsWith('data:')) return 0
+  const match = DATA_URL_RE.exec(ref)
+  if (!match) return 0
+  const b64 = match[2] ?? ''
+  return Math.floor((b64.length * 3) / 4)
 }
 
 export function readAiSettingsFile(path: string): AiSettings {
@@ -116,7 +150,7 @@ export async function loadMediaReference(ref: string): Promise<MediaBlob> {
   }
   // data URLs (pictures embedded in a document) carry their own bytes and type
   if (ref.startsWith('data:')) {
-    const m = /^data:([^;,]+);base64,([\s\S]*)$/.exec(ref)
+    const m = DATA_URL_RE.exec(ref)
     if (!m) throw new Error('Unsupported data URL: only base64-encoded media can be analyzed')
     const [, mime = '', b64 = ''] = m
     const bytes = new Uint8Array(Buffer.from(b64.replace(/\s+/g, ''), 'base64'))
@@ -142,6 +176,64 @@ export async function loadMediaReference(ref: string): Promise<MediaBlob> {
 export interface MediaToolOptions {
   /** localized replacement for the default signed-out message */
   notLoggedInError?: string
+}
+
+export interface MediaBudget {
+  maxItems?: number
+  maxItemBytes?: number
+  maxTotalBytes?: number
+  concurrency?: number
+}
+
+/**
+ * Load a tool call's references under a total byte budget and an item cap. Encoded data URLs are
+ * measured before they are decoded, the references are loaded with bounded concurrency, and the
+ * running total is re-checked as each one lands, so a request can no longer hold N times the
+ * per-file cap in memory at once.
+ */
+export async function loadMediaReferences(
+  refs: readonly string[],
+  budget: MediaBudget = MEDIA_BUDGET,
+): Promise<MediaBlob[]> {
+  const maxItems = budget.maxItems ?? MAX_MEDIA_ITEMS
+  const maxItemBytes = budget.maxItemBytes ?? MAX_MEDIA_BYTES
+  const maxTotalBytes = budget.maxTotalBytes ?? MAX_MEDIA_TOTAL_BYTES
+  const concurrency = Math.max(1, budget.concurrency ?? MEDIA_LOAD_CONCURRENCY)
+  if (refs.length > maxItems) {
+    throw new MediaBudgetExceededError(
+      `Too many media items in one request (${refs.length}, limit ${maxItems}); analyze them in smaller batches`,
+    )
+  }
+  const declared = refs.map(dataUrlDecodedSize)
+  for (const bytes of declared) {
+    if (bytes > maxItemBytes) {
+      throw new MediaTooLargeError(`data URL is too large to analyze (limit ${maxItemBytes} bytes)`)
+    }
+  }
+  const declaredTotal = declared.reduce((n, bytes) => n + bytes, 0)
+  if (declaredTotal > maxTotalBytes) {
+    throw new MediaBudgetExceededError(
+      `Media in one request is too large to analyze (${declaredTotal} bytes, limit ${maxTotalBytes}); analyze it in smaller batches`,
+    )
+  }
+  const blobs: MediaBlob[] = new Array(refs.length)
+  let next = 0
+  let landed = 0
+  const worker = async (): Promise<void> => {
+    while (next < refs.length) {
+      const index = next++
+      const blob = await loadMediaReference(refs[index]!)
+      landed += blob.bytes.byteLength
+      if (landed > maxTotalBytes) {
+        throw new MediaBudgetExceededError(
+          `Media in one request is too large to analyze (over ${maxTotalBytes} bytes); analyze it in smaller batches`,
+        )
+      }
+      blobs[index] = blob
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, refs.length) }, () => worker()))
+  return blobs
 }
 
 /** Genspark background-removal model — chained after generation for transparentBackground */
@@ -181,7 +273,7 @@ export async function generateImageTool(
       }
     }
     // `model` names Genspark-only special models (fal-*); BYOK uses the configured image model
-    const references = await Promise.all((op.referenceImageUrls ?? []).map(loadMediaReference))
+    const references = await loadMediaReferences(op.referenceImageUrls ?? [])
     const image = await generateImageWithProvider(byok.provider, byok.config, {
       prompt,
       aspectRatio: op.aspectRatio,
@@ -217,7 +309,7 @@ export async function analyzeMediaTool(
     // image-analysis provider, anything with video/audio to the video one
     let media: MediaBlob[]
     try {
-      media = await Promise.all(mediaUrls.map(loadMediaReference))
+      media = await loadMediaReferences(mediaUrls)
     } catch (err) {
       // only the size cap hands the request back to Genspark (the CLI streams large
       // files itself); scheme / path / SSRF rejections stay rejections

@@ -5,9 +5,18 @@
  * `../../..` chain cannot read as a deeper traversal than root.
  */
 export function resolveTarget(basePart: string, target: string): string {
-  if (target.startsWith('/')) return target.slice(1)
-  const parts = basePart.slice(0, basePart.lastIndexOf('/')).split('/').filter(Boolean)
-  for (const seg of target.replace(/\\/g, '/').split('/')) {
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(target)) return ''
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(target)
+  } catch {
+    return ''
+  }
+  const baseSlash = basePart.lastIndexOf('/')
+  const parts = decoded.startsWith('/')
+    ? []
+    : (baseSlash >= 0 ? basePart.slice(0, baseSlash) : '').split('/').filter(Boolean)
+  for (const seg of decoded.replace(/\\/g, '/').split('/')) {
     if (seg === '.' || seg === '') continue
     if (seg === '..') {
       if (parts.length > 0) parts.pop()

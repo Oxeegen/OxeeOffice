@@ -58,7 +58,16 @@ export interface AiProviderMeta {
 /** Image generation / media analysis backends (separate from the chat provider) */
 export type AiMediaProviderId =
   | 'oxeegen' // OxeeOffice brand hook: see oxeegen.ts
-  | 'genspark' | 'openai' | 'gemini' | 'doubao' | 'glm' | 'xai' | 'qwen' | 'minimax' | 'custom'
+  | 'genspark'
+  | 'openai'
+  | 'gemini'
+  | 'doubao'
+  | 'glm'
+  | 'xai'
+  | 'qwen'
+  | 'minimax'
+  | 'deepseek'
+  | 'custom'
 
 /** wire shape of the image endpoint */
 export type AiImageProtocol = 'openai-images' | 'gemini' | 'dashscope' | 'minimax'

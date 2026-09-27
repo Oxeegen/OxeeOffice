@@ -56,103 +56,93 @@ pub fn translate_shared_formula(
     let mut out = String::with_capacity(formula.len() + 8);
     let mut i = 0;
     while i < bytes.len() {
-        match bytes[i] {
-            b'"' | b'\'' => {
-                // Copy the quoted section verbatim; a doubled quote escapes.
-                let quote = bytes[i];
-                let start = i;
-                i += 1;
-                while i < bytes.len() {
-                    if bytes[i] == quote {
-                        if bytes.get(i + 1) == Some(&quote) {
-                            i += 2;
-                            continue;
-                        }
-                        i += 1;
-                        break;
+        if bytes[i] == b'"' || bytes[i] == b'\'' {
+            let quote = bytes[i];
+            let start = i;
+            i += 1;
+            while i < bytes.len() {
+                if bytes[i] == quote {
+                    if bytes.get(i + 1) == Some(&quote) {
+                        i += 2;
+                        continue;
                     }
                     i += 1;
+                    break;
                 }
-                out.push_str(&formula[start..i]);
+                i += 1;
             }
-            byte if byte == b'$'
-                || byte.is_ascii_alphanumeric()
-                || byte == b'_'
-                || byte == b'.' =>
-            {
-                let start = i;
-                while i < bytes.len()
-                    && (bytes[i] == b'$'
-                        || bytes[i].is_ascii_alphanumeric()
-                        || bytes[i] == b'_'
-                        || bytes[i] == b'.')
-                {
-                    i += 1;
-                }
-                let token = &formula[start..i];
-                if bytes.get(i) == Some(&b'(') {
-                    out.push_str(token); // function name (LOG10, ATAN2, …)
+            out.push_str(&formula[start..i]);
+            continue;
+        }
+        let start = i;
+        let end = formula_name_end(formula, start);
+        if end == start {
+            let character = formula[i..].chars().next()?;
+            out.push(character);
+            i += character.len_utf8();
+            continue;
+        }
+        let token = &formula[start..end];
+        if bytes.get(end) == Some(&b'(') {
+            out.push_str(token);
+            i = end;
+            continue;
+        }
+        if bytes.get(end) == Some(&b':') {
+            let second_start = end + 1;
+            let second_end = formula_name_end(formula, second_start);
+            let second = &formula[second_start..second_end];
+            let cell_after = bytes.get(second_end) != Some(&b'(');
+            if cell_after {
+                if let (Some(a), Some(b)) = (
+                    shift_axis_token(
+                        token,
+                        column_delta,
+                        MAX_COLUMN,
+                        parse_column,
+                        column_to_letters,
+                    ),
+                    shift_axis_token(
+                        second,
+                        column_delta,
+                        MAX_COLUMN,
+                        parse_column,
+                        column_to_letters,
+                    ),
+                ) {
+                    out.push_str(&a);
+                    out.push(':');
+                    out.push_str(&b);
+                    i = second_end;
                     continue;
                 }
-                // Whole-column (B:B) / whole-row (3:3) ranges: both sides are
-                // bare axis tokens joined by ':'.
-                if bytes.get(i) == Some(&b':') {
-                    let second_start = i + 1;
-                    let mut j = second_start;
-                    while j < bytes.len() && (bytes[j] == b'$' || bytes[j].is_ascii_alphanumeric())
-                    {
-                        j += 1;
-                    }
-                    let second = &formula[second_start..j];
-                    let cell_after = bytes.get(j) != Some(&b'(');
-                    if cell_after {
-                        if let (Some(a), Some(b)) = (
-                            shift_axis_token(
-                                token,
-                                column_delta,
-                                MAX_COLUMN,
-                                parse_column,
-                                column_to_letters,
-                            ),
-                            shift_axis_token(
-                                second,
-                                column_delta,
-                                MAX_COLUMN,
-                                parse_column,
-                                column_to_letters,
-                            ),
-                        ) {
-                            out.push_str(&a);
-                            out.push(':');
-                            out.push_str(&b);
-                            i = j;
-                            continue;
-                        }
-                        if let (Some(a), Some(b)) = (
-                            shift_axis_token(token, row_delta, MAX_ROW, parse_row, |row| {
-                                row.to_string()
-                            }),
-                            shift_axis_token(second, row_delta, MAX_ROW, parse_row, |row| {
-                                row.to_string()
-                            }),
-                        ) {
-                            out.push_str(&a);
-                            out.push(':');
-                            out.push_str(&b);
-                            i = j;
-                            continue;
-                        }
-                    }
+                if let (Some(a), Some(b)) = (
+                    shift_axis_token(token, row_delta, MAX_ROW, parse_row, |row| row.to_string()),
+                    shift_axis_token(second, row_delta, MAX_ROW, parse_row, |row| row.to_string()),
+                ) {
+                    out.push_str(&a);
+                    out.push(':');
+                    out.push_str(&b);
+                    i = second_end;
+                    continue;
                 }
-                out.push_str(&shift_cell_token(token, row_delta, column_delta)?);
-            }
-            byte => {
-                out.push(byte as char);
-                i += 1;
             }
         }
+        out.push_str(&shift_cell_token(token, row_delta, column_delta)?);
+        i = end;
     }
     Some(out)
+}
+
+fn formula_name_end(formula: &str, start: usize) -> usize {
+    let mut end = start;
+    for (offset, character) in formula[start..].char_indices() {
+        if !character.is_alphanumeric() && !matches!(character, '_' | '.' | '\\' | '$') {
+            break;
+        }
+        end = start + offset + character.len_utf8();
+    }
+    end
 }
 
 /// `$?letters$?digits` → shifted reference; anything else passes through.
@@ -327,6 +317,22 @@ mod tests {
         assert_eq!(
             translate_shared_formula("ROUND(1.5,0)+TaxRate+3", 1, 1).as_deref(),
             Some("ROUND(1.5,0)+TaxRate+3")
+        );
+    }
+
+    #[test]
+    fn preserves_unicode_defined_names() {
+        let mut shared = SharedFormulas::default();
+        shared.register(0, 0, 0, "é”€å”®é¡^M+A1");
+
+        assert_eq!(shared.expand(0, 0, 1).as_deref(), Some("é”€å”®é¡^M+B1"));
+    }
+
+    #[test]
+    fn does_not_shift_ascii_suffixes_inside_unicode_names() {
+        assert_eq!(
+            translate_shared_formula("\u{540d}A1+A1", 0, 1).as_deref(),
+            Some("\u{540d}A1+B1")
         );
     }
 

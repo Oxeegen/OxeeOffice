@@ -111,6 +111,13 @@ const OPENCODE_GATEWAY_ROOTS = {
  * Stored provider settings are user data: a custom base URL must be a
  * bounded http(s) URL. Anything else (file:/javascript: schemes, megabyte
  * strings) would misroute gateway traffic or overflow request builders.
+ *
+ * A query string is kept — Azure-style bases pin `?api-version=…` and
+ * gateways pin a version there — while the fragment is dropped (it is never
+ * sent to the server, and leaving it on would truncate every composed
+ * endpoint path). Embedded credentials are refused outright: they would end
+ * up in request logs and error messages, and the api key field is the
+ * supported place for them.
  */
 function normalizeBaseUrl(raw: string | undefined, fallback: string): string {
   const candidate = (raw ?? fallback).trim()
@@ -126,7 +133,11 @@ function normalizeBaseUrl(raw: string | undefined, fallback: string): string {
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     throw new Error('Base URL must use http or https')
   }
-  return candidate
+  if (parsed.username || parsed.password) {
+    throw new Error('Base URL must not embed credentials; put the key in the API key field')
+  }
+  parsed.hash = ''
+  return parsed.toString()
 }
 
 function opencodeEndpoint(

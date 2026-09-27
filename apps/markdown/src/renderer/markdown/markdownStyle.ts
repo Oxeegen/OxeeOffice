@@ -74,6 +74,7 @@ export interface MarkedToken {
   items?: MarkedToken[]
   header?: Array<{ tokens?: MarkedToken[] }>
   rows?: Array<Array<{ tokens?: MarkedToken[] }>>
+  tag?: string
 }
 
 type Tally = { [K in keyof MarkdownStyle]?: Map<MarkdownStyle[K], number> }

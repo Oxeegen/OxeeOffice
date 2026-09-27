@@ -286,6 +286,16 @@ describe('paragraph direction rtl', () => {
 })
 
 describe('multi-level indentation indentDelta', () => {
+  it('bounds imported paragraph levels before numbering layout', () => {
+    const { el } = parseOne(
+      '<a:bodyPr/>' +
+        '<a:p><a:pPr lvl="20000000"><a:buAutoNum type="arabicPeriod"/></a:pPr><a:r><a:t>huge</a:t></a:r></a:p>' +
+        '<a:p><a:pPr lvl="-4"/><a:r><a:t>negative</a:t></a:r></a:p>' +
+        '<a:p><a:r><a:t>normal</a:t></a:r></a:p>',
+    )
+    expect(el.text!.paragraphs.map((p) => p.level)).toEqual([8, 0, undefined])
+  })
+
   it('increasing level writes lvl, own bullet hanging indent grows with the level', () => {
     const { slide, el } = parseOne('<a:bodyPr/><a:p><a:r><a:t>x</a:t></a:r></a:p>')
     setElementParagraphFormat(slide, el.id, { bullet: 'char' })

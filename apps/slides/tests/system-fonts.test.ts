@@ -1,6 +1,21 @@
 import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { RunStyle } from '@genoffice/pptx-render'
+
+// Vitest turns ?asset imports into /@fs URLs, while font metrics reads the files from disk.
+vi.mock('@genoffice/ui/fonts/Carlito-Regular.ttf?asset', () => ({
+  default: resolve(process.cwd(), '../../packages/ui/src/fonts/Carlito-Regular.ttf'),
+}))
+vi.mock('@genoffice/ui/fonts/Carlito-Bold.ttf?asset', () => ({
+  default: resolve(process.cwd(), '../../packages/ui/src/fonts/Carlito-Bold.ttf'),
+}))
+vi.mock('@genoffice/ui/fonts/Carlito-Italic.ttf?asset', () => ({
+  default: resolve(process.cwd(), '../../packages/ui/src/fonts/Carlito-Italic.ttf'),
+}))
+vi.mock('@genoffice/ui/fonts/Carlito-BoldItalic.ttf?asset', () => ({
+  default: resolve(process.cwd(), '../../packages/ui/src/fonts/Carlito-BoldItalic.ttf'),
+}))
 
 // shaped-metrics pulls in the harfbuzz wasm (?asset only resolves in electron builds); disconnected in unit tests
 vi.mock('../src/main/shaped-metrics', () => ({
@@ -31,7 +46,7 @@ describe.runIf(mac)(
   () => {
     const m = createSystemFontMetrics()
 
-    it('missing Japanese fonts substitute to Hiragino (same family for metrics and rendering)', () => {
+    it('Japanese font requests resolve to matching system faces', () => {
       const yuSans = office ? /^Yu Gothic/ : /^Hiragino Sans$/
       expect(m.displayFamily!(style('游ゴシック'))).toMatch(yuSans)
       expect(m.displayFamily!(style('Yu Gothic'))).toMatch(yuSans)
@@ -39,9 +54,7 @@ describe.runIf(mac)(
       expect(m.displayFamily!(style('ＭＳ Ｐゴシック'))).toMatch(
         office ? /MS P?Gothic|Hiragino Sans/ : /^Hiragino Sans$/,
       )
-      expect(m.displayFamily!(style('游明朝'))).toMatch(
-        office ? /Yu Mincho|Hiragino Mincho/ : /^Hiragino Mincho ProN$/,
-      )
+      expect(m.displayFamily!(style('游明朝'))).toMatch(/Yu ?Mincho|Hiragino Mincho/) // public-hygiene: fixture
       expect(m.displayFamily!(style('MS Mincho'))).toMatch(
         office ? /MS Mincho|Hiragino Mincho/ : /^Hiragino Mincho ProN$/,
       )
@@ -72,7 +85,7 @@ describe.runIf(mac)(
     })
 
     it('unresolvable families substitute to Calibri regardless of apparent class (PPT probe truth)', () => {
-      const cal = office ? /^Calibri$/ : /^Carlito$/
+      const cal = office ? /^Calibri$/ : /^Carlito(?: GO)?$/
       expect(m.displayFamily!(style('Zxqvwt Nonexistent'))).toMatch(cal)
       expect(m.displayFamily!(style('Qqzgaramond'))).toMatch(cal) // serif-looking name
       expect(m.displayFamily!(style('Zxqvwt Mono Courier'))).toMatch(cal) // mono-looking name

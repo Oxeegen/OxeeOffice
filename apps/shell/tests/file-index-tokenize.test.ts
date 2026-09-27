@@ -6,7 +6,8 @@ import {
   toMatchExpression,
   tokenize,
 } from '../src/main/file-index/tokenize'
-import { buildSnippet, containsAny } from '../src/main/file-index/snippet'
+import { buildSnippet, containsAny, excerpt } from '../src/main/file-index/snippet'
+import { markText } from '../src/shared/text-marks'
 
 describe('tokenize', () => {
   it('splits CJK runs into bigrams and keeps Latin words whole', () => {
@@ -99,6 +100,27 @@ describe('tokenExprs', () => {
 })
 
 describe('buildSnippet', () => {
+  it('highlights compatibility characters at their original positions', () => {
+    expect(markText('eﬃcient', ['effi'])).toEqual([
+      { text: 'eﬃ', hit: true },
+      { text: 'cient', hit: false },
+    ])
+    expect(markText('eﬃcient', ['ffi'])).toEqual([
+      { text: 'e', hit: false },
+      { text: 'ﬃ', hit: true },
+      { text: 'cient', hit: false },
+    ])
+    expect(markText('ﬃcient', ['ffi'])[0]).toEqual({ text: 'ﬃ', hit: true })
+    expect(markText('A\u030a report', ['å'])[0]).toEqual({ text: 'A\u030a', hit: true })
+    expect(buildSnippet('before eﬃcient after', ['effi'])?.filter((p) => p.hit)).toEqual([
+      { text: 'eﬃ', hit: true },
+    ])
+    expect(buildSnippet('before eﬃcient after', ['ffi'])?.filter((p) => p.hit)).toEqual([
+      { text: 'ﬃ', hit: true },
+    ])
+    expect(excerpt('x'.repeat(100) + ' eﬃcient', ['effi'], 12)).toContain('eﬃ')
+  })
+
   it('fuses overlapping bigram hits into one run', () => {
     const parts = buildSnippet('\u2026\u5927\u6a21\u578b\u6280\u672f\u6f14\u8fdb', [
       '\u5927\u6a21',

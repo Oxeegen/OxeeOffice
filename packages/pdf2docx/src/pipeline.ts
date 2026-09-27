@@ -113,7 +113,7 @@ function isNearWhiteHex(hex: string): boolean {
 }
 
 /** authored visible-ink boxes: chars, images, and non-white opaque path fills */
-function authoredInkBoxes(extracted: ExtractedPage): Rect[] {
+export function authoredInkBoxes(extracted: ExtractedPage): Rect[] {
   const boxes: Rect[] = []
   for (const c of extracted.chars) {
     if (!c.isGenerated && !c.invisible && c.text.trim() !== '') boxes.push(c.box)
@@ -125,14 +125,20 @@ function authoredInkBoxes(extracted: ExtractedPage): Rect[] {
     if (!p.filled || (p.fillAlpha ?? 255) < 128 || isNearWhiteHex(p.fillColor)) continue
     for (const sub of p.subpaths) {
       if (sub.points.length < 3) continue
-      const xs = sub.points.map((pt) => pt.x)
-      const ys = sub.points.map((pt) => pt.y)
-      boxes.push({
-        x0: Math.min(...xs),
-        y0: Math.min(...ys),
-        x1: Math.max(...xs),
-        y1: Math.max(...ys),
-      })
+      // a single path can carry 100k+ points (maps, CAD, chart exports);
+      // Math.min(...points) would spread them as arguments and throw past
+      // the engine's argument-count limit
+      let x0 = Infinity
+      let y0 = Infinity
+      let x1 = -Infinity
+      let y1 = -Infinity
+      for (const pt of sub.points) {
+        if (pt.x < x0) x0 = pt.x
+        if (pt.x > x1) x1 = pt.x
+        if (pt.y < y0) y0 = pt.y
+        if (pt.y > y1) y1 = pt.y
+      }
+      boxes.push({ x0, y0, x1, y1 })
     }
   }
   return boxes
@@ -226,7 +232,7 @@ const stitchableText = (b: PageBlock | undefined): TextBlock | null =>
     : null
 
 const lineFontSizePt = (line: TextBlock['lines'][number]): number =>
-  Math.max(...line.spans.map((s) => s.fontSize), 1)
+  line.spans.reduce((max, span) => Math.max(max, span.fontSize), 1)
 
 const lineWidth = (line: TextBlock['lines'][number]): number => line.box.x1 - line.box.x0
 
@@ -250,10 +256,9 @@ export function stitchCrossPageParagraphs(pages: IrPage[]): void {
     // only near-full pages carry overflow risk worth trading the break for
     const tops = prev.blocks.map((b) => b.box.y1)
     const bottoms = prev.blocks.map((b) => b.box.y0)
-    if (
-      prev.heightPt <= 0 ||
-      (Math.max(...tops) - Math.min(...bottoms)) / prev.heightPt < STITCH_PREV_FILL_MIN
-    ) {
+    const top = tops.reduce((max, value) => Math.max(max, value), Number.NEGATIVE_INFINITY)
+    const bottom = bottoms.reduce((min, value) => Math.min(min, value), Number.POSITIVE_INFINITY)
+    if (prev.heightPt <= 0 || (top - bottom) / prev.heightPt < STITCH_PREV_FILL_MIN) {
       continue
     }
     const tailLine = tail.lines[tail.lines.length - 1]!
@@ -262,7 +267,7 @@ export function stitchCrossPageParagraphs(pages: IrPage[]): void {
     const sizeRatio = fontSize / lineFontSizePt(headLine)
     if (sizeRatio > STITCH_SIZE_TOL || sizeRatio < 1 / STITCH_SIZE_TOL) continue
     // the tail line must look unfinished: as wide as the paragraph's widest line
-    const widest = Math.max(...tail.lines.map(lineWidth))
+    const widest = tail.lines.reduce((max, line) => Math.max(max, lineWidth(line)), 0)
     if (lineWidth(tailLine) < STITCH_TAIL_FULL_RATIO * widest) continue
     // the continuation starts flush with the tail paragraph's left edge
     if (Math.abs(tail.box.x0 - head.box.x0) > STITCH_LEFT_TOL_EMS * fontSize) continue

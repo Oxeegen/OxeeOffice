@@ -104,6 +104,30 @@ describe('rebuildDocx', () => {
     expect(runs[0]!.sizeHalfPoints).toBe(24)
   })
 
+  it('omits run sizes for corrupt font sizes instead of emitting invalid XML', async () => {
+    const bad = page([
+      textBlock([
+        line([
+          span('huge', { fontSize: 1e22 }),
+          span('inf', { fontSize: Infinity }),
+          span('big', { fontSize: 2000 }),
+          span('nan', { fontSize: Number.NaN }),
+          span('ok', { fontSize: 12 }),
+        ]),
+      ]),
+    ])
+    const docx = await rebuildDocx([bad])
+    const parsed = await parseDocx(docx)
+    const runs = parsed.blocks.find((b) => b.runs?.length)!.runs!
+    expect(runs.map((r) => r.text).join('')).toContain('hugeinfbignanok')
+    const ok = runs.find((r) => r.text === 'ok')!
+    expect(ok.sizeHalfPoints).toBe(24)
+    for (const r of runs) {
+      if (r.text === 'ok') continue
+      expect(r.sizeHalfPoints).toBeUndefined()
+    }
+  })
+
   it('joins latin lines with a space and CJK lines without one', async () => {
     const latin = textBlock([line([span('first line')], 700), line([span('second line')], 688)])
     const cjk = textBlock([

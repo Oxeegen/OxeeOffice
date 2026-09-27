@@ -10,6 +10,7 @@ import { BrowserWindow, dialog } from 'electron'
 
 import { isHeadlessMode, showSaveDialogWithMemory } from '@genoffice/electron-utils'
 
+import { atomicWriteFile } from './atomic-write'
 import { evenPageRanges, stitchPlan, type PageVariant } from './pdf-page-variants'
 import { printOptionsFor } from './print-options'
 
@@ -47,7 +48,7 @@ export async function exportPdf(
     await writeFile(htmlPath, request.html, 'utf8')
     await window.loadFile(htmlPath)
     const pdf = await renderPdf(window.webContents, request)
-    await writeFile(selection.filePath, pdf)
+    await atomicWriteFile(selection.filePath, pdf)
     return { canceled: false, path: selection.filePath }
   } finally {
     window.destroy()

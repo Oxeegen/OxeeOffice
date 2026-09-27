@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   clickSelection,
+  currentAfterHistory,
   movedBlockPositions,
   normalizeSelection,
   planSlideDuplicates,
@@ -42,6 +43,24 @@ describe('thumbnail click selection', () => {
     expect(normalizeSelection([1, 2], 0, 3)).toEqual([0])
     expect(normalizeSelection([1, 5], 1, 3)).toEqual([1])
     expect(normalizeSelection([], 1, 3)).toEqual([1])
+  })
+})
+
+describe('history selection', () => {
+  const before = ['A', 'B', 'C', 'D'].map((partPath) => ({ partPath }))
+  const moved = [before[0]!, before[2]!, before[3]!, before[1]!]
+
+  it('keeps the same slide selected when undo restores its earlier position', () => {
+    expect(currentAfterHistory(before, 3, moved[3]!.partPath)).toBe(1)
+  })
+
+  it('keeps the same slide selected when redo reapplies the move', () => {
+    expect(currentAfterHistory(moved, 1, before[1]!.partPath)).toBe(3)
+  })
+
+  it('clamps the old index when the selected slide no longer exists', () => {
+    expect(currentAfterHistory(before.slice(0, 3), 3, 'D')).toBe(2)
+    expect(currentAfterHistory(before, 2)).toBe(2)
   })
 })
 

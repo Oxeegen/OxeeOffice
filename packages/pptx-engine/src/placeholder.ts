@@ -19,7 +19,7 @@ import { XMLParser } from 'fast-xml-parser'
 import type { Transform, TextAlign } from './types'
 import { type EaScript, type Theme, eaScriptOfLang, resolveFontRef } from './theme'
 import { resolveColorNode } from './color'
-import { asXmlNode, xmlArray, type XmlNode } from './xml-utils'
+import { asXmlNode, decodeNumericCharRefs, xmlArray, type XmlNode } from './xml-utils'
 
 const phParser = new XMLParser({
   ignoreAttributes: false,
@@ -238,13 +238,6 @@ const ALIGN_MAP: Record<string, TextAlign> = {
   just: 'justify',
 }
 
-/** fast-xml-parser does not decode numeric character references in attributes (&#x2022; etc.); done here. */
-function decodeAttrCharRefs(s: string): string {
-  return s
-    .replace(/&#x([0-9a-fA-F]+);/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))
-    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)))
-}
-
 /** <a:spcPct val="150000"/> → 150 (%). */
 function spcPctVal(node: unknown): number | undefined {
   const v = asXmlNode(asXmlNode(node)['a:spcPct'])['@_val']
@@ -295,7 +288,7 @@ function parseLvlPPr(
   const buChar = asXmlNode(pPr['a:buChar'])['@_char']
   if (pPr['a:buNone'] !== undefined) out.bullet = { type: 'none' }
   else if (buChar != null) {
-    out.bullet = { type: 'char', char: decodeAttrCharRefs(String(buChar)) }
+    out.bullet = { type: 'char', char: decodeNumericCharRefs(String(buChar)) }
   } else if (pPr['a:buAutoNum']) {
     out.bullet = { type: 'number' }
     const an = asXmlNode(pPr['a:buAutoNum'])

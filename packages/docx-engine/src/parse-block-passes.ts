@@ -25,7 +25,7 @@ export function applyProtectedLeadingBreaks(blocks: Block[]): void {
     if (!xml) continue
     const drawing = xml.search(/<w:drawing[\s>]|<w:pict[\s>]|<w:object[\s>]/)
     const head = xml.slice(0, drawing === -1 ? xml.length : drawing)
-    const br = head.search(/<w:br\s[^>]*w:type="page"/)
+    const br = head.search(/<w:br\s[^>]*w:type=(["'])page\1/)
     if (br === -1) continue
     const textBefore = [...head.slice(0, br).matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)]
       .map((m) => m[1])

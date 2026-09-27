@@ -63,6 +63,9 @@ export interface Session {
   aiSnapshots?: Map<number, HistorySnapshot>
   /** Edits that only touch archive entries (notes/comments; element-level dirty cannot detect them), reset after save */
   metaDirty?: boolean
+  /** Monotonic count of metaDirty transitions, so a save can tell a notes/comments
+      edit committed while its write was streaming from one the write carried. */
+  metaRev?: number
   /** Transform preview gesture in progress (the first preview already pushed an undo snapshot; later previews/final commit do not) */
   transformPreview?: boolean
   /** The part currently edited in master view (exception to the fidelity rule: only that part is written back) */
@@ -77,6 +80,12 @@ export interface Session {
   opLog?: OpLogEntry[]
 }
 export const sessions = new Map<number, Session>()
+
+/** Flag an archive-only edit (notes/comments) and advance the save-snapshot counter. */
+export function markMetaDirty(session: Session): void {
+  session.metaDirty = true
+  session.metaRev = (session.metaRev ?? 0) + 1
+}
 
 // ── Op journal (collab groundwork) ──────────────────────────────────────
 // Every applied transaction appends its records here in order. Snapshot restores

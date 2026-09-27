@@ -73,6 +73,79 @@ export type RowColumnOp = Extract<StructuralOp, { index: number }>
 
 export class StructuralShiftError extends Error {}
 
+export function inferWorksheetAddresses(worksheetXml: string): string {
+  const sheetDataOpen = /<sheetData\b[^>]*>/.exec(worksheetXml)
+  const closeIndex = worksheetXml.lastIndexOf('</sheetData>')
+  if (!sheetDataOpen || closeIndex < sheetDataOpen.index + sheetDataOpen[0].length) {
+    return worksheetXml
+  }
+
+  const bodyStart = sheetDataOpen.index + sheetDataOpen[0].length
+  const body = worksheetXml.slice(bodyStart, closeIndex)
+  let currentRow = 0
+  let firstRow = true
+  let changed = false
+  const normalizedBody = body.replace(/<row\b[^>]*?(?:\/>|>[\s\S]*?<\/row>)/g, (rowXml) => {
+    const rowOpenEnd = rowXml.indexOf('>')
+    if (rowOpenEnd === -1) return rowXml
+    // The open tag keeps its closing `>` (or `/>`) so a self-closing row is
+    // re-emitted as-is instead of gaining a stray `</row>`.
+    const rowOpen = rowXml.slice(0, rowOpenEnd + 1)
+    const selfClosing = rowOpen.endsWith('/>')
+    const rowBody = selfClosing ? '' : rowXml.slice(rowOpenEnd + 1, rowXml.length - '</row>'.length)
+    const explicitRow = readPositiveInteger(readTagAttribute(rowOpen, 'r'))
+    const rowNumber = explicitRow ?? (firstRow ? 1 : currentRow + 1)
+    firstRow = false
+    currentRow = rowNumber
+    let nextColumn = 0
+    const rowAttributeMissing = readTagAttribute(rowOpen, 'r') === undefined
+    let rowChanged = rowAttributeMissing
+    const normalizedCells = rowBody.replace(/<c\b[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g, (cellXml) => {
+      const cellOpenEnd = cellXml.indexOf('>')
+      if (cellOpenEnd === -1) return cellXml
+      const cellOpen = cellXml.slice(0, cellOpenEnd + 1)
+      const cellSelfClosing = cellOpen.endsWith('/>')
+      const cellBody = cellSelfClosing
+        ? ''
+        : cellXml.slice(cellOpenEnd + 1, cellXml.length - '</c>'.length)
+      const explicitAddress = readTagAttribute(cellOpen, 'r')
+      const parsed = explicitAddress === undefined ? null : parseA1(explicitAddress)
+      nextColumn = parsed === null ? nextColumn + 1 : parsed.column + 1
+      if (explicitAddress !== undefined) return cellXml
+      rowChanged = true
+      const address = `${columnToLetters(nextColumn - 1)}${rowNumber}`
+      const normalizedOpen = addTagAttribute(cellOpen, 'r', address)
+      return cellSelfClosing ? normalizedOpen : `${normalizedOpen}${cellBody}</c>`
+    })
+    const normalizedOpen = rowAttributeMissing
+      ? addTagAttribute(rowOpen, 'r', String(rowNumber))
+      : rowOpen
+    changed ||= rowChanged
+    return selfClosing
+      ? `${normalizedOpen}${normalizedCells}`
+      : `${normalizedOpen}${normalizedCells}</row>`
+  })
+
+  return changed
+    ? worksheetXml.slice(0, bodyStart) + normalizedBody + worksheetXml.slice(closeIndex)
+    : worksheetXml
+}
+
+function readTagAttribute(tag: string, name: string): string | undefined {
+  return new RegExp(`(?:^|\\s)${name}="([^"]*)"`).exec(tag)?.[1]
+}
+
+function addTagAttribute(tag: string, name: string, value: string): string {
+  const nameEnd = /^<[^ \t\r\n/>]+/.exec(tag)?.[0].length ?? 1
+  return `${tag.slice(0, nameEnd)} ${name}="${value}"${tag.slice(nameEnd)}`
+}
+
+function readPositiveInteger(value: string | undefined): number | undefined {
+  if (value === undefined || !/^[0-9]+$/.test(value)) return undefined
+  const number = Number(value)
+  return number > 0 && Number.isSafeInteger(number) ? number : undefined
+}
+
 export function applyStructuralOps(
   worksheetXml: string,
   ops: readonly StructuralOp[],
@@ -82,7 +155,7 @@ export function applyStructuralOps(
   /// whenever such ops exist).
   resolveColStyle?: (baseXfIndex: number, delta: WorkbookStyleEdit) => number,
 ): string {
-  let xml = worksheetXml
+  let xml = ops.length === 0 ? worksheetXml : inferWorksheetAddresses(worksheetXml)
   let outlineTouched = false
   for (const op of ops) {
     if ('start' in op) {
@@ -460,15 +533,27 @@ export function shiftCrossSheetFormulas(
   for (const op of rowColumnOps(ops)) {
     const axis: Axis = axisOf(op)
     const shift = toShift(op)
+    const rewrite = (body: string): string =>
+      escapeXmlText(shiftFormulaText(decodeEntities(body), editedSheetName, shift, axis, true))
     // The attribute part must not end with '/': a self-closing shared
     // formula (`<f t="shared" si="0"/>`) is not an opening tag, and matching
     // it would swallow real XML up to the next `</f>` as a "formula body".
     xml = xml.replace(
       /<f\b([^>]*[^/>])?>([\s\S]*?)<\/f>/g,
       (_full, attributes: string | undefined, body: string) =>
-        `<f${attributes ?? ''}>${escapeXmlText(
-          shiftFormulaText(decodeEntities(body), editedSheetName, shift, axis, true),
-        )}</f>`,
+        `<f${attributes ?? ''}>${rewrite(body)}</f>`,
+    )
+    xml = xml.replace(
+      /<(formula[12]?)>([\s\S]*?)<\/\1>/g,
+      (_full, tag: string, body: string) => `<${tag}>${rewrite(body)}</${tag}>`,
+    )
+    // Attribute value: `"` must stay `&quot;` (a quoted sheet name may carry one).
+    xml = xml.replace(
+      /(<hyperlink\b[^>]*?\blocation=")([^"]+)(")/g,
+      (_full, prefix: string, location: string, suffix: string) =>
+        `${prefix}${escapeXmlAttribute(
+          shiftFormulaText(decodeEntities(location), editedSheetName, shift, axis, true),
+        )}${suffix}`,
     )
   }
   return xml
@@ -1301,18 +1386,22 @@ function transformRangedFeatures(xml: string, shift: Shift, axis: Axis): string 
       )
     },
   )
-  // dimension / autoFilter shift in place (kept even when degenerate).
+  // dimension shifts in place (kept even when degenerate).
   result = result.replace(
-    /(<(?:dimension|autoFilter)\b[^>]*?\bref=")([^"]+)(")/g,
+    /(<dimension\b[^>]*?\bref=")([^"]+)(")/g,
     (full, prefix: string, ref: string, suffix: string) => {
       const moved = moveRefRange(ref, shift, axis)
       return moved === null ? full : `${prefix}${moved}${suffix}`
     },
   )
+  result = result.replace(
+    /<autoFilter\b[^>]*\/>|<autoFilter\b[^>]*>[\s\S]*?<\/autoFilter>/g,
+    (element) => shiftAutoFilterCriteria(element, shift, axis),
+  )
   for (const tag of ['hyperlink', 'dataValidation', 'conditionalFormatting']) {
     const attribute = tag === 'hyperlink' ? 'ref' : 'sqref'
     result = result.replace(
-      new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?</${tag}>|<${tag}\\b[^>]*/>`, 'g'),
+      new RegExp(`<${tag}\\b[^>]*/>|<${tag}\\b[^>]*>[\\s\\S]*?</${tag}>`, 'g'),
       (element) => {
         const refMatch = new RegExp(`\\b${attribute}="([^"]+)"`).exec(element)
         if (!refMatch?.[1]) return element
@@ -1336,6 +1425,47 @@ function transformRangedFeatures(xml: string, shift: Shift, axis: Axis): string 
     },
   )
   return result
+}
+
+function shiftAutoFilterCriteria(element: string, shift: Shift, axis: Axis): string {
+  const ref = /\bref="([^"]+)"/.exec(element)?.[1]
+  if (ref === undefined) return element
+  const movedRef = moveRefRange(ref, shift, axis)
+  if (movedRef === null) return element
+  let result = element.replace(/\bref="[^"]+"/, () => `ref="${movedRef}"`)
+  if (result.endsWith('/>')) return result
+
+  const from = refFirstColumn(ref)
+  const to = refFirstColumn(movedRef)
+  if (from === null || to === null) return result
+  result = result.replace(
+    /<filterColumn\b[^>]*?\bcolId="([0-9]+)"[^>]*?(?:\/>|>[\s\S]*?<\/filterColumn>)/g,
+    (full, colId: string) => {
+      if (axis !== 'column') return full
+      const column = movePosition(from + Number(colId), shift)
+      if (column === null) return ''
+      return full.replace(/\bcolId="[0-9]+"/, () => `colId="${column - to}"`)
+    },
+  )
+  result = result.replace(
+    /<sortCondition\b[^>]*?\bref="([^"]+)"[^>]*?\/>/g,
+    (full, conditionRef: string) => {
+      const moved = moveRefRange(conditionRef, shift, axis)
+      return moved === null ? '' : full.replace(/\bref="[^"]+"/, () => `ref="${moved}"`)
+    },
+  )
+  result = result.replace(
+    /(<sortState\b[^>]*?\bref=")([^"]+)(")/g,
+    (full, prefix: string, stateRef: string, suffix: string) => {
+      const moved = moveRefRange(stateRef, shift, axis)
+      return moved === null ? full : `${prefix}${moved}${suffix}`
+    },
+  )
+  return result.replace(/<sortState\b[^>]*>\s*<\/sortState>/g, '')
+}
+
+function refFirstColumn(ref: string): number | null {
+  return parseA1(ref.split(':')[0] ?? '')?.column ?? null
 }
 
 function assertSwapKeepsAnchorIntact(ref: string, swap: BlockSwap['swap']): void {
@@ -1600,7 +1730,7 @@ export function qualifierMatches(qualifier: string, sheetName: string): boolean 
   const unquoted = qualifier.startsWith("'")
     ? qualifier.slice(1, -1).replaceAll("''", "'")
     : qualifier
-  return unquoted === sheetName
+  return unquoted.toLowerCase() === sheetName.toLowerCase()
 }
 
 function parseA1(ref: string): { row: number; column: number } | null {
@@ -1639,4 +1769,8 @@ function decodeEntities(input: string): string {
 
 function escapeXmlText(input: string): string {
   return input.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+}
+
+function escapeXmlAttribute(input: string): string {
+  return escapeXmlText(input).replaceAll('"', '&quot;')
 }

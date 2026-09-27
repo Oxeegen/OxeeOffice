@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseFileToText } from '../src/index'
+import { resolveTarget } from '../src/opc'
 import { writeFixture } from './helpers/fixtures'
 
 describe('parseFileToText: plain-text formats', () => {
@@ -33,6 +34,17 @@ describe('parseFileToText: plain-text formats', () => {
     const result = await parseFileToText('/nonexistent/nowhere.txt')
     expect(result.ok).toBe(false)
     expect(result.error).toBeTruthy()
+  })
+})
+
+describe('OPC relationship targets', () => {
+  it('decodes percent-encoded targets and normalizes backslashes', () => {
+    expect(resolveTarget('ppt/presentation.xml', 'slides/slide%201.xml')).toBe(
+      'ppt/slides/slide 1.xml',
+    )
+    expect(resolveTarget('ppt/slides/slide1.xml', '..\\media\\image%201.png')).toBe(
+      'ppt/media/image 1.png',
+    )
   })
 })
 

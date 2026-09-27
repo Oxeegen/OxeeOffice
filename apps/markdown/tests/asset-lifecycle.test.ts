@@ -411,6 +411,11 @@ describe('serialized Markdown image references', () => {
     ).toEqual(['assets/a.png', 'assets/b image.png', 'assets/a.png'])
   })
 
+  it('handles repeated malformed image starts without rescanning the document', () => {
+    const text = '![x'.repeat(16_000)
+    expect(extractMarkdownImageSources(text)).toEqual([])
+  })
+
   it('extracts and rewrites mixed Markdown and HTML image sources without touching lookalikes', () => {
     const text = [
       '![markdown](assets/a.png "title")',

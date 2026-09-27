@@ -146,7 +146,7 @@ jobs:
       # pptx-engine's OOXML schema gate validates saved decks with xmllint
       # (tools/ooxml-validate); the runner image is not guaranteed to have it.
       - name: Install xmllint
-        run: sudo apt-get install -y --no-install-recommends libxml2-utils
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxml2-utils
 
       - name: Test
         run: npm test

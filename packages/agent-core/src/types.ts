@@ -14,6 +14,8 @@ export interface AgentToolCall {
   inputError?: string | undefined
   /** The argument stream was cut off by the token limit (stop_reason max_tokens); the loop asks the model to split the call instead of "fixing JSON" */
   truncated?: boolean | undefined
+  /** Opaque provider token that must travel back with the call in history (Gemini 3 thoughtSignature; a 400 otherwise) */
+  signature?: string | undefined
 }
 
 export interface AgentToolResult {

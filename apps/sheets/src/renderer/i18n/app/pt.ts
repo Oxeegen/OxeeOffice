@@ -523,6 +523,7 @@ export const pt = {
   appBridgeUnavailable:
     'A ponte de arquivos do desktop está indisponível. Reinicie o aplicativo Electron.',
   appOpenCanceled: 'Seleção de pasta de trabalho cancelada.',
+  appOpeningWorkbook: 'Abrindo pasta de trabalho…',
   appOpened: '{name} aberto — edições de células são salvas de volta com ⌘S.',
   appOpenFailed: 'Não foi possível abrir a pasta de trabalho.',
   appPageSetupNeedsFile:
@@ -697,7 +698,7 @@ export const pt = {
   appTabData: 'Dados',
   appTabReview: 'Revisão',
   appRibbonCollapse: 'Recolher a Faixa de Opções',
-  appRibbonPin: 'Fixar a Faixa de Opções',
+  appRibbonExpand: 'Expandir a Faixa de Opções',
   appTabView: 'Exibir',
   appTabAi: 'IA',
   appTabChartDesign: 'Design do Gráfico',

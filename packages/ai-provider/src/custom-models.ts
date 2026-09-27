@@ -10,6 +10,7 @@
 // have added is still set, since gateways reject a bare `node`.
 import type { CodexModelCatalog } from './types'
 import { withUserAgent } from './fetch'
+import { endpointUrl } from './protocols/shared'
 import { createStreamWatchdog } from './watchdog'
 
 /** a server this slow is not usable for chat either, and the settings field must stay responsive */
@@ -97,7 +98,7 @@ export async function listCustomModels(
   try {
     return await watchdog.guard(async () => {
       const response = await fetch(
-        `${base}/models`,
+        endpointUrl(base, 'models'),
         withUserAgent({ headers, signal: watchdog.signal }),
       )
       if (!response.ok) return emptyCatalog()

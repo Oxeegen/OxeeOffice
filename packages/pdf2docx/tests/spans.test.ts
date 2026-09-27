@@ -69,6 +69,30 @@ describe('span building', () => {
     expect(span!.charSpacingPt).toBeCloseTo(-0.4, 5)
   })
 
+  const scaledChars = (hscale: number) => {
+    const chars = []
+    let x = 72
+    for (const ch of '\u538b\u7f29\u6587\u672c') {
+      const c = mkChar(ch, x, { fontSize: 10, width: 9 })
+      c.hscale = hscale
+      chars.push(c)
+      x += 8.6
+    }
+    return chars
+  }
+
+  it('drops non-finite glyph scales instead of emitting invalid w:w', () => {
+    const [span] = spansOf(scaledChars(Infinity))
+    expect(span!.charScale).toBeUndefined()
+  })
+
+  it('keeps condensed and stretched scales inside the OOXML 1%..600% window', () => {
+    expect(spansOf(scaledChars(0.3))[0]!.charScale).toBeCloseTo(0.3, 5)
+    expect(spansOf(scaledChars(3))[0]!.charScale).toBeCloseTo(3, 5)
+    expect(spansOf(scaledChars(6.5))[0]!.charScale).toBeUndefined()
+    expect(spansOf(scaledChars(0.005))[0]!.charScale).toBeUndefined()
+  })
+
   it('drops negative tracking when word spaces render at normal width (P14 B: inflated /Widths)', () => {
     // PowerPoint-export pattern: every glyph's declared advance (loose box) is
     // ~0.18em wider than the TJ-laid advance, so pairwise "tracking" reads a

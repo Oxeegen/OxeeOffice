@@ -4,6 +4,7 @@ import type {
   AgentMessage,
   AgentStreamHandle,
   AgentToolCall,
+  AgentToolDef,
   AgentToolResult,
   AgentTransport,
   ToolExecution,
@@ -81,8 +82,26 @@ const STALE_TOOL_OUTPUT_MAX = 1_000
 /** Unified turn budget across the suite's chat panels (apps may still override per loop) */
 export const DEFAULT_MAX_TURNS = 100
 
-/** Cap on consecutive tool-input parse failures (a successful parse resets it); abort beyond it (keeps the model from burning turns on bad JSON) */
+/** Cap on consecutive turns whose tool input was all unusable (a turn that executes a call resets it); abort beyond it (keeps the model from burning turns on bad JSON) */
 const MAX_INPUT_PARSE_RETRIES = 3
+
+/**
+ * Required fields the model left out of a tool call, per the tool's JSON
+ * Schema. Providers turn an empty argument stream into `{}` without an
+ * inputError (the model wrote prose instead of arguments, or a gateway dropped
+ * the argument stream), so without this check the empty object reaches the
+ * skill and fails with a tool-specific message instead of a targeted retry.
+ */
+export function missingRequiredFields(
+  tool: AgentToolDef | undefined,
+  input: Record<string, unknown>,
+): string[] {
+  const required = tool?.inputSchema.required
+  if (!Array.isArray(required)) return []
+  return required.filter(
+    (field): field is string => typeof field === 'string' && input[field] === undefined,
+  )
+}
 
 /**
  * Degenerate-loop guards. Weak models (BYOK/local endpoints especially) can
@@ -112,6 +131,37 @@ const TOOL_ARGS_DROP_RETRIES = 1
 const TURN_LIMIT_NOTE =
   '[System] The tool-call turn limit for this request has been reached; no more tools may be called this turn. ' +
   'Answer directly from the information already gathered; if the task is unfinished, briefly state what is done and what remains.'
+
+export const TOOL_ABORTED_OUTPUT =
+  '(the user stopped the run while this tool was still executing; its result was discarded)'
+
+const TOOL_ABORTED = Symbol('tool-aborted')
+
+async function awaitToolOrAbort(
+  tool: ToolExecution | Promise<ToolExecution>,
+  signal: AbortSignal | undefined,
+): Promise<ToolExecution | typeof TOOL_ABORTED> {
+  if (!signal) return tool
+  if (signal.aborted) return TOOL_ABORTED
+  const running = Promise.resolve(tool)
+  return new Promise<ToolExecution | typeof TOOL_ABORTED>((resolve, reject) => {
+    const onAbort = (): void => {
+      resolve(TOOL_ABORTED)
+      running.catch(() => undefined)
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    running.then(
+      (execution) => {
+        signal.removeEventListener('abort', onAbort)
+        resolve(execution)
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', onAbort)
+        reject(error)
+      },
+    )
+  })
+}
 
 /**
  * Terminal assistant text when tools mutated the artifact (or an edits-only
@@ -428,16 +478,20 @@ export class AgentLoop<TSnapshot = unknown> {
     return new Promise((resolve) => {
       let text = ''
       let settled = false
+      let handle: AgentStreamHandle | null = null
       const finish = (v: string | null) => {
         if (settled) return
         settled = true
         clearTimeout(timer)
         resolve(v)
       }
-      const timer = setTimeout(() => finish(null), SUMMARIZE_TIMEOUT_MS)
+      const timer = setTimeout(() => {
+        finish(null)
+        handle?.cancel()
+      }, SUMMARIZE_TIMEOUT_MS)
       try {
         // Attach to this.handle so cancel() can abort the summary request when the user clicks stop
-        this.handle = this.options.transport.stream(
+        handle = this.options.transport.stream(
           {
             system: SUMMARIZE_SYSTEM,
             messages: [
@@ -449,6 +503,7 @@ export class AgentLoop<TSnapshot = unknown> {
           },
           {
             onDelta: (t) => {
+              if (settled) return
               text += t
             },
             onToolCall: () => {
@@ -458,6 +513,7 @@ export class AgentLoop<TSnapshot = unknown> {
             onError: () => finish(null),
           },
         )
+        this.handle = handle
       } catch {
         finish(null)
       }
@@ -678,13 +734,22 @@ export class AgentLoop<TSnapshot = unknown> {
     this.history.push({
       role: 'assistant',
       text: this.turnText,
-      toolCalls: toolCalls.map(({ id, name, input }) => ({ id, name, input })),
+      toolCalls: toolCalls.map(({ id, name, input, signature }) => ({
+        id,
+        name,
+        input,
+        ...(signature ? { signature } : {}),
+      })),
       // interleaved-thinking models degrade in tool loops unless their reasoning is echoed back
       ...(this.turnReasoning ? { reasoning: this.turnReasoning } : {}),
     })
     const generation = this.generation
     const results: AgentToolResult[] = []
     let turnMutated = false
+    // unusable-input streak is counted per turn: a batch of empty calls in one
+    // turn is one failed attempt, and any executed call in the turn resets it
+    let unusableInTurn = false
+    let executedInTurn = false
     for (const call of toolCalls) {
       // The user hit stop while an earlier tool was running: skip remaining tools,
       // but fill in paired error results to keep tool_use/tool_result pairs valid for the next request
@@ -699,11 +764,20 @@ export class AgentLoop<TSnapshot = unknown> {
       }
       // Unusable input (truncated by the token limit, or JSON that failed to parse):
       // don't execute; feed a targeted error back so the model retries correctly
-      if (call.truncated || call.inputError) {
-        this.inputParseFails++
+      const missing =
+        call.truncated || call.inputError
+          ? []
+          : missingRequiredFields(
+              skill.tools.find((t) => t.name === call.name),
+              call.input,
+            )
+      if (call.truncated || call.inputError || missing.length > 0) {
+        unusableInTurn = true
         const output = call.truncated
           ? 'Tool arguments were cut off by the output length limit; the tool was not executed. Split this operation into several smaller tool calls (less content per call) and try again.'
-          : `Tool input JSON failed to parse; the tool was not executed: ${call.inputError}\nFix the arguments (make sure quotes inside strings are escaped) and call again.`
+          : call.inputError
+            ? `Tool input JSON failed to parse; the tool was not executed: ${call.inputError}\nFix the arguments (make sure quotes inside strings are escaped) and call again.`
+            : `Tool call ${call.name} is missing the required argument(s) ${missing.map((f) => `"${f}"`).join(', ')}; the tool was not executed. Put the arguments in the tool call itself (not in your reply text) and call again with every required field.`
         results.push({ id: call.id, name: call.name, output, isError: true })
         events?.onToolExecuted?.({
           call,
@@ -711,20 +785,35 @@ export class AgentLoop<TSnapshot = unknown> {
         })
         continue
       }
-      this.inputParseFails = 0
+      executedInTurn = true
       events?.onToolStart?.(call)
       const snapshot = !this.mutationSeen ? captureSnapshot?.() : undefined
-      let execution: ToolExecution
+      let raced: ToolExecution | typeof TOOL_ABORTED
       try {
-        execution = await skill.executeTool(call, this.abortController?.signal)
+        raced = await awaitToolOrAbort(
+          skill.executeTool(call, this.abortController?.signal),
+          this.abortController?.signal,
+        )
       } catch (e) {
-        execution = {
+        raced = {
           output: e instanceof Error ? e.message : String(e),
           isError: true,
           summary: call.name,
         }
       }
       if (generation !== this.generation) return // reset while a tool was running
+      if (raced === TOOL_ABORTED) {
+        const aborted: ToolExecution = {
+          output: TOOL_ABORTED_OUTPUT,
+          isError: true,
+          summary: call.name,
+        }
+        this.executedCalls.push({ name: call.name, ok: false })
+        results.push({ id: call.id, name: call.name, output: aborted.output, isError: true })
+        events?.onToolExecuted?.({ call, execution: aborted })
+        continue
+      }
+      const execution = raced
       this.executedCalls.push({ name: call.name, ok: !execution.isError })
       const firstMutation = !!execution.mutated && !this.mutationSeen
       if (execution.mutated) {
@@ -744,6 +833,8 @@ export class AgentLoop<TSnapshot = unknown> {
       })
     }
     this.history.push({ role: 'tool', results })
+    if (executedInTurn) this.inputParseFails = 0
+    else if (unusableInTurn) this.inputParseFails++
 
     // Cancelled while tools were executing: finish immediately, no further model request
     if (this.cancelled) {
@@ -758,7 +849,7 @@ export class AgentLoop<TSnapshot = unknown> {
       this.running = false
       this.rollbackFailedRun()
       events?.onError?.(
-        `Tool input was unusable (unparseable or truncated) ${MAX_INPUT_PARSE_RETRIES} times in a row; retries stopped, please send the request again`,
+        `Tool input was unusable (unparseable, truncated or missing required arguments) ${MAX_INPUT_PARSE_RETRIES} times in a row; retries stopped, please send the request again`,
       )
       return
     }
@@ -823,11 +914,30 @@ export class AgentLoop<TSnapshot = unknown> {
  * prose is never rewritten.
  */
 export function sanitizeAgentPayload(payload: string): string {
-  return payload
-    .replace(/\b(?:sk-|AIza|ghp_|secret_)[A-Za-z0-9_-]{16,}/g, '[REDACTED_API_KEY]')
-    .replace(/([a-z][a-z0-9+.-]*:\/\/[^\s:@/]+):[^\s@/]+@/gi, '$1:[REDACTED_CREDENTIALS]@')
-    .replace(
-      /(password|passwd|secret_key|private_key)(\s*[:=]\s*)["'][^"']+["']/gi,
-      '$1$2"[REDACTED_SECURE_TOKEN]"',
-    )
+  return (
+    payload
+      .replace(
+        /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
+        '[REDACTED_PRIVATE_KEY]',
+      )
+      // Truncated paste: header plus base64 body lines, no END marker.
+      .replace(
+        /-----BEGIN [A-Z ]*PRIVATE KEY-----(?:\r?\n[A-Za-z0-9+/=]+(?=\r?\n|$))*/g,
+        '[REDACTED_PRIVATE_KEY]',
+      )
+      .replace(/\b(?:sk-|AIza|ghp_|secret_)[A-Za-z0-9_-]{16,}/g, '[REDACTED_API_KEY]')
+      .replace(/\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g, '[REDACTED_API_KEY]')
+      .replace(/\bxox[abeoprs]-[A-Za-z0-9-]{10,}/g, '[REDACTED_API_KEY]')
+      .replace(/([a-z][a-z0-9+.-]*:\/\/[^\s:@/]+):[^\s@/]+@/gi, '$1:[REDACTED_CREDENTIALS]@')
+      .replace(
+        /(password|passwd|secret_key|private_key)(\s*[:=]\s*)["'][^"']+["']/gi,
+        '$1$2"[REDACTED_SECURE_TOKEN]"',
+      )
+      // Unquoted `password=abc123`: the value must be 6+ chars with a non-letter,
+      // so "password: is in the vault" prose stays untouched.
+      .replace(
+        /(?<!\/)(\w*(?:password|passwd|secret_key|private_key))(\s*[:=]\s*)(?=[^\s"',;]*[^A-Za-z\s"',;])[^\s"',;]{6,}/gi,
+        '$1$2[REDACTED_SECURE_TOKEN]',
+      )
+  )
 }

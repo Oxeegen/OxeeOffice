@@ -360,6 +360,12 @@ function toAbsCmds(p: RawPath, resolve: (tok: string) => number): AbsCmd[] {
       // Endpoint-converted sweep, restored to swRay's revolution count (each endpoint shifts < π/2)
       let sw = paramAngle(stRay + swRay, wR, hR) - st
       sw += 2 * Math.PI * Math.round((swRay - sw) / (2 * Math.PI))
+      // Repeated full revolutions retrace the same ellipse. Keep one loop and
+      // the final partial sweep so a single arc cannot expand without bound.
+      const fullTurn = 2 * Math.PI
+      if (Math.abs(sw) > fullTurn) {
+        sw = Math.sign(sw) * (fullTurn + (Math.abs(sw) % fullTurn))
+      }
       // Treat current point as at stAng on the ellipse and derive the center
       const ecx = cx - wR * Math.cos(st)
       const ecy = cy - hR * Math.sin(st)

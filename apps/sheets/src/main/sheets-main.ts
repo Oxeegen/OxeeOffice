@@ -53,6 +53,7 @@ import {
   installRendererProtocol,
   registerRendererScheme,
   rendererUrl,
+  writeJsonAtomic,
 } from '@genoffice/electron-utils'
 import { createI18n, getUiLang, type Lang, normalizeLang, setUiLang } from '@genoffice/i18n'
 import { ProjectStore } from '@genoffice/project-store'
@@ -78,7 +79,7 @@ import {
 } from '@genoffice/ai-provider'
 import { shutdownCodexAppServers } from '@genoffice/ai-provider/codex-app-server'
 import {
-  csvToXlsxBuffer,
+  csvToXlsxBufferForOpen,
   decodeCsvBuffer,
   sheetCsvToXlsxBuffer,
 } from '@genoffice/xlsx-gateway/gateway/csv-import'
@@ -155,6 +156,7 @@ import {
   cleanupSessionResources,
 } from './temp-files'
 import { XlsxSidecarClient } from './xlsx-sidecar-client'
+import { sessionAfterRename } from './session-rename'
 
 /**
  * Sheets main-process logic as an embeddable module: no top-level lifecycle.
@@ -1570,8 +1572,8 @@ interface SheetsTabSession {
  * tab (or a closed-then-reopened tab) registered and overwrote the previous closure. */
 /// Same ceiling as local add_image (readLocalImage's 20MB check)
 const MAX_REMOTE_IMAGE_BYTES = 20 * 1024 * 1024
-/** Max CSV bytes converted on open: prevents 500MB CSV OOMing main before sidecar limits. */
-const MAX_CSV_IMPORT_BYTES = 32 * 1024 * 1024
+/** Max .csv/.tsv bytes converted on open: stops a 500MB text file OOMing main before sidecar limits. */
+const MAX_DELIMITED_IMPORT_BYTES = 32 * 1024 * 1024
 
 const sheetsTabs = new Map<number, SheetsTabSession>()
 let activeSheetsWebContents: WebContents | null = null
@@ -1673,8 +1675,12 @@ export function sheetsFileRenamed(wc: WebContents, oldPath: string, newPath: str
   if (!entry) return
   let matched = false
   for (const [id, session] of entry.sessions) {
-    if (session.path !== oldPath) continue
-    entry.sessions.set(id, { ...session, path: newPath })
+    // Converted copies (.csv / .xls / .tsv) and restored recovery copies keep
+    // the user's file in a side field, not in `path`; move those too, or the
+    // next Save recreates the file under the old name.
+    const renamed = sessionAfterRename(session, oldPath, newPath)
+    if (renamed === null) continue
+    entry.sessions.set(id, renamed)
     matched = true
   }
   if (matched) wc.send(IPC_CHANNELS.workbookRenamed, basename(newPath))
@@ -1838,11 +1844,6 @@ function readJson<T>(path: string, fallback: T): T {
     /* corrupted state file: fall back to defaults */
   }
   return fallback
-}
-
-function writeJson(path: string, value: unknown): void {
-  mkdirSync(join(path, '..'), { recursive: true })
-  writeFileSync(path, JSON.stringify(value, null, 2))
 }
 
 const SETTINGS_PATH = () => userDataPath('ai-settings.json')
@@ -2066,7 +2067,9 @@ export async function exportSheetsPdfHeadless(
 }
 
 /** tab-mode equivalent of createSheetsWindow: same runtime/IPC wiring, no BrowserWindow of its own. */
-export function createSheetsView(options: { includeAiHandlers?: boolean } = {}): WebContentsView {
+export function createSheetsView(
+  options: { includeAiHandlers?: boolean; openingWorkbook?: boolean } = {},
+): WebContentsView {
   const client = sidecar ?? new XlsxSidecarClient(resolveSidecarPath())
   sidecar = client
   client.start()
@@ -2091,7 +2094,12 @@ export function createSheetsView(options: { includeAiHandlers?: boolean } = {}):
   }
   // mode=tab: the shell's tab strip owns the traffic lights / caption buttons,
   // so the ribbon must not reserve space for them
-  void view.webContents.loadURL(rendererUrl(runtime.rendererUrl, 'sheets', { mode: 'tab' }))
+  void view.webContents.loadURL(
+    rendererUrl(runtime.rendererUrl, 'sheets', {
+      mode: 'tab',
+      ...(options.openingWorkbook ? { openingWorkbook: '1' } : {}),
+    }),
+  )
   return view
 }
 
@@ -2403,7 +2411,9 @@ export function registerSheetsIpc(): void {
     if (!path) {
       const selection = await openFileDialog(event, {
         properties: ['openFile'],
-        filters: [{ name: tm('filterSpreadsheets'), extensions: ['xlsx', 'xlsm', 'xls', 'csv'] }],
+        filters: [
+          { name: tm('filterSpreadsheets'), extensions: ['xlsx', 'xlsm', 'xls', 'csv', 'tsv'] },
+        ],
       })
       if (selection.canceled || !selection.filePaths[0]) return null
       path = selection.filePaths[0]
@@ -2428,6 +2438,7 @@ export function registerSheetsIpc(): void {
       suggestSaveAs: prepared.suggestSaveAs,
       csvImport: prepared.csvImport,
       csvSourcePath: prepared.csvSourcePath,
+      emptyCsv: prepared.emptyCsv,
       importTempDir: prepared.importTempDir,
       restoreTarget: prepared.restoreTarget,
     })
@@ -2529,13 +2540,15 @@ export function registerSheetsIpc(): void {
   ipcMain.handle(IPC_CHANNELS.selectWorkbooksForMerge, async (event) => {
     const selection = await openFileDialog(event, {
       properties: ['openFile', 'multiSelections'],
-      filters: [{ name: tm('filterSpreadsheets'), extensions: ['xlsx', 'xlsm', 'xls', 'csv'] }],
+      filters: [
+        { name: tm('filterSpreadsheets'), extensions: ['xlsx', 'xlsm', 'xls', 'csv', 'tsv'] },
+      ],
     })
     if (selection.canceled || selection.filePaths.length === 0) return null
     return openMergeSources(event, selection.filePaths)
   })
 
-  const MERGE_SOURCE_EXTS = new Set(['xlsx', 'xlsm', 'xls', 'csv'])
+  const MERGE_SOURCE_EXTS = new Set(['xlsx', 'xlsm', 'xls', 'csv', 'tsv'])
   ipcMain.handle(IPC_CHANNELS.openWorkbooksForMerge, async (event, input: unknown) => {
     const paths = z.array(z.string().min(1)).min(1).max(20).parse(input)
     for (const path of paths) {
@@ -3285,10 +3298,10 @@ export function registerSheetsAiIpc(): void {
     ensureGenofficeLogin((url) => void shell.openExternal(url))
   })
 
-  ipcMain.handle(IPC_CHANNELS.aiSetSettings, (event, input: unknown) => {
+  ipcMain.handle(IPC_CHANNELS.aiSetSettings, async (event, input: unknown) => {
     sessionFor(event)
     const settings = aiSettingsInputSchema.parse(input)
-    writeJson(SETTINGS_PATH(), settings)
+    writeJsonAtomic(SETTINGS_PATH(), settings)
   })
 
   ipcMain.handle(IPC_CHANNELS.aiChat, async (event, input: unknown) => {
@@ -3892,11 +3905,13 @@ async function openWorkbookSession(
     suggestSaveAs?: string | undefined
     csvImport?: boolean | undefined
     csvSourcePath?: string | undefined
+    emptyCsv?: boolean | undefined
     importTempDir?: string | undefined
     restoreTarget?: string | undefined
   },
 ): Promise<WorkbookFile> {
-  const { suggestSaveAs, csvImport, csvSourcePath, importTempDir, restoreTarget } = options ?? {}
+  const { suggestSaveAs, csvImport, csvSourcePath, emptyCsv, importTempDir, restoreTarget } =
+    options ?? {}
   // Snapshot first, then the sidecar opens the snapshot (not the live path):
   // everything the session serves — cell reads, media, recalc, saves — comes
   // from the same bytes, even if the file on disk changes right after the
@@ -3941,6 +3956,7 @@ async function openWorkbookSession(
       readOnly: false,
       needsSaveAs: suggestSaveAs !== undefined,
       ...(csvSourcePath === undefined ? {} : { csvPath: csvSourcePath }),
+      ...(emptyCsv ? { emptyCsv: true } : {}),
       restoredFromRecovery: restoreTarget !== undefined,
       automaticRecoveryDisabled: !allowsAutomaticWorkbookRecovery(opened.sheets),
     })
@@ -3964,8 +3980,9 @@ function legacyCsvCharset(): string | undefined {
   return byLang[getUiLang()]
 }
 
-/// .xls and .csv open as a converted copy in the temp dir; the session
-/// remembers the original's .xlsx sibling as the Save As default.
+/// .xls and .tsv open as a converted copy in the temp dir; the session
+/// remembers the original's .xlsx sibling as the Save As default. .csv converts
+/// the same way but keeps its file identity, so Save writes values back to it.
 async function prepareWorkbookForOpen(
   client: XlsxSidecarClient,
   path: string,
@@ -3977,11 +3994,12 @@ async function prepareWorkbookForOpen(
   suggestSaveAs?: string
   csvImport?: boolean
   csvSourcePath?: string
+  emptyCsv?: boolean
   importTempDir?: string
   restoreTarget?: string
 }> {
   const extension = path.slice(path.lastIndexOf('.') + 1).toLowerCase()
-  if (extension !== 'csv' && extension !== 'xls') {
+  if (extension !== 'csv' && extension !== 'tsv' && extension !== 'xls') {
     // Unsaved work from a lost session: offer the recovery copy. Restoring
     // opens it with restoreTarget pointing back at the original, so a plain
     // Save writes straight back over the file the user opened — the restore
@@ -4003,14 +4021,24 @@ async function prepareWorkbookForOpen(
   const directory = join(app.getPath('temp'), 'genoffice-imports', randomUUID())
   await mkdir(directory, { recursive: true })
   const openPath = join(directory, `${stem}.xlsx`)
+  let emptyCsv = false
   try {
-    if (extension === 'csv') {
+    if (extension === 'csv' || extension === 'tsv') {
       const csvStat = await stat(path)
-      if (csvStat.size > MAX_CSV_IMPORT_BYTES) throw new Error(tm('errFileTooLarge'))
-      await writeFile(
-        openPath,
-        await csvToXlsxBuffer(decodeCsvBuffer(await readFile(path), legacyCsvCharset())),
+      if (csvStat.size > MAX_DELIMITED_IMPORT_BYTES) throw new Error(tm('errFileTooLarge'))
+      const converted = await csvToXlsxBufferForOpen(
+        decodeCsvBuffer(await readFile(path), legacyCsvCharset()),
+        'Sheet1',
+        // A .tsv's delimiter is declared by its extension, and sniffing by
+        // frequency can get it wrong: annotation-heavy exports (gene
+        // descriptions, database cross-references) hold comma-separated
+        // lists, so a narrow table ends up with more commas than tabs and
+        // every row shatters on the comma. A .csv keeps the sniff — the prose
+        // guard in resolveImportDelimiter is what that path needs.
+        extension === 'tsv' ? '\t' : undefined,
       )
+      emptyCsv = converted.empty
+      await writeFile(openPath, converted.buffer)
     } else {
       await client.convertWorkbook({ path, targetPath: openPath })
     }
@@ -4019,10 +4047,17 @@ async function prepareWorkbookForOpen(
     throw error
   }
   // CSV keeps its file identity: Save writes the values back to the original
-  // .csv (Excel's behavior), so no Save As detour is suggested. Legacy .xls
-  // still routes the first save through Save As to a fresh .xlsx.
+  // .csv (Excel's behavior), so no Save As detour is suggested. Legacy .xls and
+  // view-only .tsv route the first save through Save As to a fresh .xlsx —
+  // writing values back to a .tsv would need a tab serializer this path lacks.
   return extension === 'csv'
-    ? { openPath, importTempDir: directory, csvImport: true, csvSourcePath: path }
+    ? {
+        openPath,
+        importTempDir: directory,
+        csvImport: true,
+        csvSourcePath: path,
+        ...(emptyCsv ? { emptyCsv: true } : {}),
+      }
     : { openPath, importTempDir: directory, suggestSaveAs: path.replace(/\.[^.]+$/, '.xlsx') }
 }
 

@@ -566,7 +566,7 @@ export function parseChartXml(
         const pointExpl: Array<number | undefined> = []
         for (const dPt of dPts) {
           const idx = parseInt(dPt['c:idx']?.['@_val'], 10)
-          if (Number.isNaN(idx)) continue
+          if (!Number.isFinite(idx) || idx < 0 || idx >= s.values.length) continue
           const dSp = dPt['c:spPr']
           const c = resolveColorNode(dSp?.['a:solidFill'], theme)
           if (c != null) pointColors[idx] = c
@@ -1191,14 +1191,23 @@ function formatDateSerial(serial: number, fmt: string, date1904: boolean): strin
 }
 
 /** c:pt list → value array ordered by idx. */
+/** Largest point count honored: a hostile ptCount must not allocate the array. */
+const MAX_CHART_POINTS = 1_048_576
+
 function readPoints(cache: any): Array<string | null> {
   const ptsRaw = cache?.['c:pt']
   const pts: any[] = Array.isArray(ptsRaw) ? ptsRaw : ptsRaw ? [ptsRaw] : []
   const count = cache?.['c:ptCount']?.['@_val']
-  const n = count != null ? parseInt(count, 10) : pts.length
-  const out: Array<string | null> = new Array(Math.max(n, pts.length)).fill(null)
+  const parsed = count != null ? parseInt(count, 10) : pts.length
+  const n = Number.isFinite(parsed) ? Math.min(Math.max(0, parsed), MAX_CHART_POINTS) : pts.length
+  const out: Array<string | null> = new Array(
+    Math.max(n, Math.min(pts.length, MAX_CHART_POINTS)),
+  ).fill(null)
   for (const pt of pts) {
     const idx = parseInt(pt['@_idx'], 10) || 0
+    // A sparse hostile idx would grow the array without bound: ignore
+    // out-of-range entries instead.
+    if (idx < 0 || idx >= out.length) continue
     const v = pt['c:v']
     out[idx] = typeof v === 'string' ? v : v != null ? String(v['#text'] ?? v) : null
   }
@@ -1250,7 +1259,7 @@ function parseAxis(ax: any, theme?: Theme): ChartAxisStyle | undefined {
   if (scaling?.['c:max']?.['@_val'] != null && Number.isFinite(max)) out.max = max
   if (scaling?.['c:orientation']?.['@_val'] === 'maxMin') out.reversed = true
   const logBase = Number(scaling?.['c:logBase']?.['@_val'])
-  if (Number.isFinite(logBase) && logBase > 1) out.logBase = logBase
+  if (Number.isFinite(logBase) && logBase >= 2 && logBase <= 1000) out.logBase = logBase
   const crosses = ax['c:crosses']?.['@_val']
   if (crosses === 'autoZero' || crosses === 'min' || crosses === 'max') out.crosses = crosses
   const tickLblPos = ax['c:tickLblPos']?.['@_val']

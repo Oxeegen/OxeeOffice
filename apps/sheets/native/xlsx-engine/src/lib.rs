@@ -143,6 +143,7 @@ impl WorkbookSessions {
         )?;
         let custom_table_styles = read_custom_table_styles(&mut archive, &dxf_styles);
         let rich_value_images = richdata::read_rich_value_images(&mut archive);
+        let wps_cell_images = read_wps_cell_images(&mut archive);
         let mut cell_image_count = 0usize;
         let mut sheets = Vec::with_capacity(declarations.len());
         let mut runtimes = Vec::with_capacity(declarations.len());
@@ -185,6 +186,7 @@ impl WorkbookSessions {
                 &mut archive,
                 &worksheet_path,
                 &rich_value_images,
+                &wps_cell_images,
                 &mut cell_image_count,
             )?;
             let pivot_infos = visuals::read_pivot_tables(&mut archive, &worksheet_path)?;

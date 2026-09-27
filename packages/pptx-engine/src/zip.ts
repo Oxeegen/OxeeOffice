@@ -258,10 +258,18 @@ export function relsPathFor(partPath: string): string {
  * something like '../slideLayouts/slideLayout1.xml'.
  */
 export function resolveTarget(basePart: string, target: string): string {
-  if (target.startsWith('/')) return target.slice(1)
-  const baseDir = basePart.slice(0, basePart.lastIndexOf('/'))
-  const parts = baseDir.split('/').filter(Boolean)
-  for (const seg of target.split('/')) {
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/.test(target)) return ''
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(target)
+  } catch {
+    return ''
+  }
+  const baseSlash = basePart.lastIndexOf('/')
+  const parts = decoded.startsWith('/')
+    ? []
+    : (baseSlash >= 0 ? basePart.slice(0, baseSlash) : '').split('/').filter(Boolean)
+  for (const seg of decoded.replace(/\\/g, '/').split('/')) {
     if (seg === '.' || seg === '') continue
     if (seg === '..') parts.pop()
     else parts.push(seg)

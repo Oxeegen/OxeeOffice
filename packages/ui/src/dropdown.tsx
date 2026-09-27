@@ -10,7 +10,7 @@
  * Styling comes from dropdown.css (gs-dd* classes, token colors only); apps
  * size the control via `className` on the wrapper.
  */
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useId, useRef, useState } from 'react'
 import { useDismissablePopover } from './popover-dismiss'
 
 export interface DropdownOption<K extends string = string> {
@@ -20,6 +20,32 @@ export interface DropdownOption<K extends string = string> {
   readonly render?: React.ReactNode
   /** Shown but not pickable (placeholder rows like "Auto", unavailable modes). */
   readonly disabled?: boolean
+}
+
+export function nextEnabledIndex(
+  options: ReadonlyArray<{ readonly disabled?: boolean }>,
+  start: number,
+  step: 1 | -1,
+): number {
+  for (let i = start; i >= 0 && i < options.length; i += step) {
+    if (!options[i]!.disabled) return i
+  }
+  return -1
+}
+
+export function reconcileActiveIndex(
+  options: ReadonlyArray<{ readonly value?: string; readonly disabled?: boolean }>,
+  active: number,
+  value?: string,
+): number {
+  if (active >= 0 && active < options.length && !options[active]!.disabled) return active
+  if (value !== undefined) {
+    const selected = options.findIndex((option) => option.value === value)
+    if (selected >= 0 && !options[selected]!.disabled) return selected
+  }
+  const start = active >= 0 && active < options.length ? active : 0
+  const forward = nextEnabledIndex(options, start, 1)
+  return forward >= 0 ? forward : nextEnabledIndex(options, Math.min(start, options.length - 1), -1)
 }
 
 export function Dropdown<K extends string>({
@@ -51,6 +77,10 @@ export function Dropdown<K extends string>({
   const [active, setActive] = useState(0)
   const popRef = useRef<HTMLDivElement>(null)
   const wrapRef = useRef<HTMLSpanElement>(null)
+  // Focus stays on the trigger (menu-button pattern), so the open listbox and
+  // the option the arrows are on are referenced by id instead of by focus.
+  const listId = useId()
+  const optionId = (index: number): string => `${listId}-option-${index}`
   // guarded (capture-phase) dismissal: a press on another dropdown's trigger
   // must close this one even though that trigger stops mousedown propagation
   useDismissablePopover(open, () => setOpen(false), { inside: () => [wrapRef.current] })
@@ -59,18 +89,31 @@ export function Dropdown<K extends string>({
     // optional chaining on the call: jsdom elements have no scrollIntoView
     popRef.current?.querySelectorAll('.gs-dd-item')[active]?.scrollIntoView?.({ block: 'nearest' })
   }, [open, active])
+  useEffect(() => {
+    setActive((current) => reconcileActiveIndex(options, current, value))
+  }, [options, value])
   // No fallback to options[0]: an off-list value (e.g. a document-only font)
   // must read as itself, not masquerade as the first option
   const current = options.find((o) => o.value === value)
+  // mirrors the .active class: a disabled row is never the active option
+  const activeOption = open && options[active] && !options[active]!.disabled ? active : null
   const openList = () => {
     const i = options.findIndex((o) => o.value === value)
-    setActive(i < 0 ? 0 : i)
+    setActive(reconcileActiveIndex(options, i, value))
     setOpen(true)
   }
   const pick = (o: DropdownOption<K>) => {
     if (o.disabled) return
     setOpen(false)
     onPick(o.value)
+  }
+  const move = (step: 1 | -1) => {
+    setActive((i) => {
+      const current = i >= 0 && i < options.length ? i : -1
+      const start = current < 0 ? (step === 1 ? 0 : options.length - 1) : current + step
+      const next = nextEnabledIndex(options, start, step)
+      return next < 0 ? reconcileActiveIndex(options, current, value) : next
+    })
   }
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (!open) {
@@ -81,13 +124,19 @@ export function Dropdown<K extends string>({
       return
     }
     if (e.key === 'Escape') setOpen(false)
-    else if (e.key === 'ArrowDown') setActive((i) => Math.min(options.length - 1, i + 1))
-    else if (e.key === 'ArrowUp') setActive((i) => Math.max(0, i - 1))
-    else if (e.key === 'Home') setActive(0)
-    else if (e.key === 'End') setActive(options.length - 1)
+    else if (e.key === 'ArrowDown') move(1)
+    else if (e.key === 'ArrowUp') move(-1)
+    else if (e.key === 'Home') setActive(nextEnabledIndex(options, 0, 1))
+    else if (e.key === 'End') setActive(nextEnabledIndex(options, options.length - 1, -1))
     else if (e.key === 'Enter' || e.key === ' ') {
       const o = options[active]
-      if (o) pick(o)
+      if (o && !o.disabled) pick(o)
+      else {
+        const next = reconcileActiveIndex(options, active, value)
+        setActive(next)
+        const nextOption = options[next]
+        if (nextOption) pick(nextOption)
+      }
     } else return
     e.preventDefault()
     // handled keys stay ours while the list is open: a bubbling Escape would
@@ -104,6 +153,8 @@ export function Dropdown<K extends string>({
         data-tip={tip}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        aria-activedescendant={activeOption === null ? undefined : optionId(activeOption)}
         aria-label={ariaLabel ?? current?.label ?? value}
         aria-required={ariaRequired}
         aria-invalid={ariaInvalid}
@@ -129,10 +180,11 @@ export function Dropdown<K extends string>({
         </span>
       </button>
       {open && (
-        <div ref={popRef} className="gs-dd-pop" role="listbox">
+        <div ref={popRef} className="gs-dd-pop" role="listbox" id={listId}>
           {options.map((o, i) => (
             <button
               key={o.value}
+              id={optionId(i)}
               type="button"
               role="option"
               // menu-button pattern: options never join the tab order (focus
@@ -144,7 +196,9 @@ export function Dropdown<K extends string>({
               data-value={o.value}
               title={o.label}
               className={`gs-dd-item${o.value === value ? ' selected' : ''}${i === active && !o.disabled ? ' active' : ''}`}
-              onMouseEnter={() => setActive(i)}
+              onMouseEnter={() => {
+                if (!o.disabled) setActive(i)
+              }}
               // menu-button pattern: options never take focus, so picking one
               // can't blur focus-scoped hosts (the PDF text editor commits its
               // draft on focus leaving the edit bar)

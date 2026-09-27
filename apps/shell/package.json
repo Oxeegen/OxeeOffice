@@ -11,12 +11,13 @@
   "scripts": {
     "dev": "electron-vite dev --watch",
     "build": "electron-vite build",
+    "notices": "node ../../tools/gen-third-party-notices.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "start": "electron-vite build && electron .",
-    "dist:mac": "electron-vite build && electron-builder --mac",
-    "dist:win": "electron-vite build && electron-builder --win",
-    "dist:linux": "electron-vite build && electron-builder --linux"
+    "dist:mac": "npm run notices && electron-vite build && electron-builder --mac",
+    "dist:win": "npm run notices && electron-vite build && electron-builder --win",
+    "dist:linux": "npm run notices && electron-vite build && electron-builder --linux"
   },
   "devDependencies": {
     "@genoffice/agent-core": "*",

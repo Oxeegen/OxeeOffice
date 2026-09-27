@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 
 use super::*;
+use crate::visuals::resolve_part_target;
+use crate::visuals::{reset_sheet_passes, sheet_passes};
 
 #[test]
 fn normalizes_crlf_and_stray_cr_to_lf() {
@@ -170,6 +172,34 @@ fn strips_future_function_markers_outside_strings() {
 }
 
 #[test]
+fn preserves_future_function_markers_in_sheet_and_defined_names() {
+    assert_eq!(
+        strip_future_function_markers("='Data_xlfn.Total'!_xlfn.MINIFS(A1:A3,A1:A3,\">0\")"),
+        "='Data_xlfn.Total'!MINIFS(A1:A3,A1:A3,\">0\")"
+    );
+    assert_eq!(
+        strip_future_function_markers("'Owner''s_xlfn.Data'!A1"),
+        "'Owner''s_xlfn.Data'!A1"
+    );
+    assert_eq!(
+        strip_future_function_markers("Budget_xlfn.Total+A1"),
+        "Budget_xlfn.Total+A1"
+    );
+    assert_eq!(
+        strip_future_function_markers("Budget_xlfn.Total(A1)+_xlfn.MINIFS(A1,A1,\">0\")"),
+        "Budget_xlfn.Total(A1)+MINIFS(A1,A1,\">0\")"
+    );
+    assert_eq!(
+        strip_future_function_markers("Budget_xlfn._xlws.FILTER(A1)"),
+        "Budget_xlfn._xlws.FILTER(A1)"
+    );
+    assert_eq!(
+        strip_future_function_markers("'Data_xlfn.Total'!_xlfn._xlws.SORT(A1)"),
+        "'Data_xlfn.Total'!SORT(A1)"
+    );
+}
+
+#[test]
 fn normalizes_worksheet_paths_with_forward_slashes() {
     assert_eq!(
         normalize_worksheet_path("worksheets/sheet1.xml").unwrap(),
@@ -188,6 +218,68 @@ fn normalizes_worksheet_paths_with_forward_slashes() {
         "xl/worksheets/sheet1.xml"
     );
     assert!(normalize_worksheet_path("../../etc/passwd").is_err());
+}
+
+#[test]
+fn resolves_encoded_internal_relationship_targets() {
+    assert_eq!(
+        normalize_worksheet_path("worksheets/sheet%201.xml").unwrap(),
+        "xl/worksheets/sheet 1.xml"
+    );
+    assert_eq!(
+        normalize_worksheet_path("worksheets/%E6%95%B0%E6%8D%AE.xml").unwrap(),
+        "xl/worksheets/\u{6570}\u{636e}.xml"
+    );
+    assert_eq!(
+        resolve_part_target("xl/worksheets/sheet.xml", "../drawings/drawing%201.xml").unwrap(),
+        "xl/drawings/drawing 1.xml"
+    );
+    assert!(normalize_worksheet_path("worksheets/%ZZ.xml").is_err());
+    assert!(normalize_worksheet_path("../../outside.xml").is_err());
+    assert!(resolve_part_target("xl/worksheets/sheet.xml", "../../../outside.xml").is_err());
+
+    let (_dir, path) = open_fixture(&[("xl/media/image 1.png", "image")]);
+    let mut archive = zip::ZipArchive::new(File::open(&path).unwrap()).unwrap();
+    assert!(crate::xml_util::zip_entry(&mut archive, "xl/media/image%201.png").is_ok());
+}
+
+#[test]
+fn opens_percent_encoded_worksheet_target() {
+    let (_dir, path) = open_fixture(&[
+        (
+            "xl/workbook.xml",
+            r#"<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="S" sheetId="1" r:id="rId1"/></sheets></workbook>"#,
+        ),
+        (
+            "xl/_rels/workbook.xml.rels",
+            r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet%201.xml"/></Relationships>"#,
+        ),
+        (
+            "xl/worksheets/sheet 1.xml",
+            r#"<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1"/><sheetData><row r="1"><c r="A1"><v>7</v></c></row></sheetData></worksheet>"#,
+        ),
+    ]);
+    let mut sessions = WorkbookSessions::new();
+    let metadata = sessions.open(&path).unwrap();
+    assert_eq!(metadata.sheets[0].name, "S");
+    let result = sessions
+        .read_range(
+            &metadata.session_id,
+            "sheet-1",
+            &CellRange {
+                start_row: 0,
+                end_row: 0,
+                start_column: 0,
+                end_column: 0,
+            },
+        )
+        .unwrap();
+    assert!(
+        result
+            .cells
+            .iter()
+            .any(|cell| { matches!(&cell.value, Some(CellValue::Number(value)) if *value == 7.0) })
+    );
 }
 
 #[test]
@@ -504,6 +596,154 @@ fn resolves_in_cell_rich_value_pictures() {
     let json = serde_json::to_string(&metadata.sheets[0]).unwrap();
     assert!(json.contains("cellImages"));
     assert!(!json.contains("mediaPath"));
+}
+
+fn wps_cell_image_fixture_entries() -> Vec<(&'static str, &'static str)> {
+    let mut entries: Vec<_> = rich_data_fixture_entries()
+        .into_iter()
+        .filter(|(name, _)| matches!(*name, "xl/workbook.xml" | "xl/media/image1.png"))
+        .collect();
+    entries.extend([
+        (
+            "xl/_rels/workbook.xml.rels",
+            r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>"#,
+        ),
+        (
+            "xl/cellimages.xml",
+            r#"<etc:cellImages xmlns:etc="http://www.wps.cn/officeDocument/2017/etCustomData" xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><etc:cellImage><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="1" name="ID_photo"/></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId1"/></xdr:blipFill></xdr:pic></etc:cellImage></etc:cellImages>"#,
+        ),
+        (
+            "xl/_rels/cellimages.xml.rels",
+            r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/></Relationships>"#,
+        ),
+        (
+            "xl/worksheets/sheet1.xml",
+            r#"<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="2"><c r="A2"/><c r="B2" t="str"><f>_xlfn.DISPIMG(&quot;ID_photo&quot;,1)</f><v>cached image text</v></c><c r="C2" t="e"><f>DISPIMG("ID_photo",1)</f><v>#VALUE!</v></c><c r="D2" t="str"><f>DISPIMG("ID_missing",1)</f><v>missing image</v></c><c r="E2" t="str"><v>DISPIMG("ID_photo",1)</v></c></row><row r="4"><c r="A4" t="str"><f>=_xlfn.DISPIMG("ID_photo",1)</f><v>merged image text</v></c></row></sheetData><mergeCells count="1"><mergeCell ref="A4:C5"/></mergeCells></worksheet>"#,
+        ),
+    ]);
+    entries
+}
+
+#[test]
+fn resolves_wps_cell_images_per_formula_cell_and_suppresses_cached_text() {
+    let (_dir, path) = open_fixture(&wps_cell_image_fixture_entries());
+    let original = fs::read(&path).unwrap();
+    let mut sessions = WorkbookSessions::new();
+    let metadata = sessions.open(&path).unwrap();
+    let images = &metadata.sheets[0].cell_images;
+    assert_eq!(images.len(), 3);
+    assert_eq!(
+        images
+            .iter()
+            .map(|image| (image.row, image.column))
+            .collect::<Vec<_>>(),
+        [(1, 1), (1, 2), (3, 0)]
+    );
+    assert_ne!(images[0].id, images[1].id);
+    for image in images {
+        assert_eq!(image.media_path, "xl/media/image1.png");
+        let media = sessions
+            .read_media(&metadata.session_id, &image.id)
+            .unwrap();
+        assert_eq!(media.media_type, "image/png");
+    }
+    let result = sessions
+        .read_range(
+            &metadata.session_id,
+            "sheet-1",
+            &CellRange {
+                start_row: 0,
+                end_row: 3,
+                start_column: 0,
+                end_column: 4,
+            },
+        )
+        .unwrap();
+    for image in images {
+        assert!(!result.cells.iter().any(|cell| {
+            cell.row == image.row
+                && cell.column == image.column
+                && (cell.value.is_some() || cell.formula.is_some())
+        }));
+    }
+    assert!(result.cells.iter().any(|cell| {
+        cell.column == 3
+            && matches!(&cell.value, Some(CellValue::String(text)) if text == "missing image")
+    }));
+    assert!(result.cells.iter().any(|cell| {
+        cell.column == 4 && matches!(&cell.value, Some(CellValue::String(text)) if text == "DISPIMG(\"ID_photo\",1)")
+    }));
+    assert_eq!(fs::read(&path).unwrap(), original);
+}
+
+#[test]
+fn missing_wps_media_keeps_cached_cell_values() {
+    let entries: Vec<_> = wps_cell_image_fixture_entries()
+        .into_iter()
+        .filter(|(name, _)| *name != "xl/media/image1.png")
+        .collect();
+    let (_dir, path) = open_fixture(&entries);
+    let mut sessions = WorkbookSessions::new();
+    let metadata = sessions.open(&path).unwrap();
+    assert!(metadata.sheets[0].cell_images.is_empty());
+    let result = sessions
+        .read_range(
+            &metadata.session_id,
+            "sheet-1",
+            &CellRange {
+                start_row: 1,
+                end_row: 1,
+                start_column: 1,
+                end_column: 1,
+            },
+        )
+        .unwrap();
+    let cell = &result.cells[0];
+    assert!(matches!(&cell.value, Some(CellValue::String(text)) if text == "cached image text"));
+    assert_eq!(cell.formula.as_deref(), Some("=DISPIMG(\"ID_photo\",1)"));
+}
+
+#[test]
+fn caps_wps_pictures_without_hiding_unrendered_cells() {
+    let cells: String = (1..=MAX_CELL_IMAGES + 1).map(|row| format!(
+        "<row r=\"{row}\"><c r=\"A{row}\" t=\"str\"><f>DISPIMG(\"ID_photo\",1)</f><v>image placeholder</v></c></row>"
+    )).collect();
+    let sheet = format!(
+        "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>{cells}</sheetData></worksheet>"
+    );
+    let entries: Vec<_> = wps_cell_image_fixture_entries()
+        .into_iter()
+        .map(|(name, value)| {
+            (
+                name,
+                if name == "xl/worksheets/sheet1.xml" {
+                    sheet.as_str()
+                } else {
+                    value
+                },
+            )
+        })
+        .collect();
+    let (_dir, path) = open_fixture(&entries);
+    let mut sessions = WorkbookSessions::new();
+    let metadata = sessions.open(&path).unwrap();
+    assert_eq!(metadata.sheets[0].cell_images.len(), MAX_CELL_IMAGES);
+    let result = sessions
+        .read_range(
+            &metadata.session_id,
+            "sheet-1",
+            &CellRange {
+                start_row: MAX_CELL_IMAGES,
+                end_row: MAX_CELL_IMAGES,
+                start_column: 0,
+                end_column: 0,
+            },
+        )
+        .unwrap();
+    assert!(
+        matches!(&result.cells[0].value, Some(CellValue::String(text)) if text == "image placeholder")
+    );
+    assert!(result.cells[0].formula.is_some());
 }
 
 /// A valueMetadata bk may carry one rc per metadata type; XLRICHVALUE
@@ -3559,4 +3799,129 @@ fn source_linked_chart_formats_follow_the_cells() {
     assert_eq!(style.color.as_deref(), Some("#FFFFFF"));
     assert_eq!(style.size, Some(12.0));
     assert_eq!(style.bold, Some(true));
+}
+
+/// Each `sourceLinked` axis format is read from the first cell of the series'
+/// range, so a workbook with many such series used to reopen the worksheet
+/// part once per referenced cell and stream it from byte zero. Every
+/// reference must now be resolved in a single pass per worksheet, with the
+/// per-cell formats unchanged.
+#[test]
+fn source_linked_chart_formats_resolve_in_one_pass_per_worksheet() {
+    // Six charts over one large sheet, each pointing at a different first
+    // cell far down the rows.
+    const CHARTS: [(u32, &str); 6] = [
+        (10, "#,##0"),
+        (20, "#,##0.00"),
+        (30, "0.00%"),
+        (40, "#,##0"),
+        (50, "#,##0.00"),
+        (60, "0.00%"),
+    ];
+    // cellXfs: 0 General, 1 -> numFmtId 3, 2 -> 4, 3 -> 10.
+    let styles = r#"<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="0"/><cellXfs count="4"><xf numFmtId="0"/><xf numFmtId="3"/><xf numFmtId="4"/><xf numFmtId="10"/></cellXfs></styleSheet>"#;
+    let mut rows = String::new();
+    for (index, (row, _)) in CHARTS.iter().enumerate() {
+        rows.push_str(&format!(
+            r#"<row r="{row}"><c r="A{row}" t="inlineStr"><is><t>label</t></is></c><c r="B{row}" s="{}"><v>1</v></c></row>"#,
+            index % 3 + 1
+        ));
+    }
+    // Padding rows after the referenced ones, so a per-cell prefix scan has
+    // real work to redo.
+    for row in 70..=400 {
+        rows.push_str(&format!(
+            r#"<row r="{row}"><c r="D{row}"><v>0</v></c></row>"#
+        ));
+    }
+    let sheet = format!(
+        r#"<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>{rows}</sheetData></worksheet>"#
+    );
+    let mut anchors = String::new();
+    let mut chart_rels = String::new();
+    let mut entries: Vec<(String, String)> = vec![
+        (
+            "xl/workbook.xml".into(),
+            r#"<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Data" sheetId="1" r:id="rId1"/></sheets></workbook>"#.into(),
+        ),
+        (
+            "xl/_rels/workbook.xml.rels".into(),
+            r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>"#.into(),
+        ),
+        ("xl/styles.xml".into(), styles.into()),
+        ("xl/worksheets/sheet1.xml".into(), sheet),
+        (
+            "xl/worksheets/_rels/sheet1.xml.rels".into(),
+            r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>"#.into(),
+        ),
+    ];
+    for (index, (row, _)) in CHARTS.iter().enumerate() {
+        let number = index + 1;
+        anchors.push_str(&format!(
+            r#"<xdr:absoluteAnchor><xdr:pos x="0" y="0"/><xdr:ext cx="100" cy="100"/><xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="{number}" name="Chart {number}"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="rId{number}"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:absoluteAnchor>"#
+        ));
+        chart_rels.push_str(&format!(
+            r#"<Relationship Id="rId{number}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart{number}.xml"/>"#
+        ));
+        entries.push((
+            format!("xl/charts/chart{number}.xml"),
+            format!(
+                r#"<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><c:chart><c:plotArea><c:barChart><c:barDir val="col"/><c:ser><c:idx val="0"/><c:val><c:numRef><c:f>Data!$B${row}:$B${row}</c:f><c:numCache><c:pt idx="0"><c:v>1</c:v></c:pt></c:numCache></c:numRef></c:val></c:ser></c:barChart><c:valAx><c:axPos val="l"/><c:numFmt formatCode="0.0" sourceLinked="1"/></c:valAx></c:plotArea></c:chart></c:chartSpace>"#
+            ),
+        ));
+    }
+    entries.push((
+        "xl/drawings/drawing1.xml".into(),
+        format!(
+            r#"<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">{anchors}</xdr:wsDr>"#
+        ),
+    ));
+    entries.push((
+        "xl/drawings/_rels/drawing1.xml.rels".into(),
+        format!(
+            r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">{chart_rels}</Relationships>"#
+        ),
+    ));
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("fixture.xlsx");
+    {
+        let mut writer = zip::ZipWriter::new(File::create(&path).unwrap());
+        let options = zip::write::SimpleFileOptions::default()
+            .compression_method(zip::CompressionMethod::Deflated);
+        for (name, content) in &entries {
+            writer.start_file(name.as_str(), options).unwrap();
+            writer.write_all(content.as_bytes()).unwrap();
+        }
+        writer.finish().unwrap();
+    }
+
+    reset_sheet_passes();
+    let mut sessions = WorkbookSessions::new();
+    let metadata = sessions.open(&path).unwrap();
+    assert_eq!(
+        sheet_passes(),
+        1,
+        "every chart reference must resolve in one worksheet pass"
+    );
+    let mut seen = 0;
+    for visual in &metadata.visuals {
+        let Some(chart) = visual.chart.as_ref() else {
+            continue;
+        };
+        let row = CHARTS[seen].0;
+        let expected = CHARTS[seen].1;
+        assert_eq!(
+            chart
+                .y_axis
+                .as_ref()
+                .expect("value axis")
+                .num_fmt
+                .as_deref(),
+            Some(expected),
+            "chart {seen} keeps the format of Data!B{row}"
+        );
+        seen += 1;
+    }
+    assert_eq!(seen, CHARTS.len(), "every chart visual was resolved");
 }

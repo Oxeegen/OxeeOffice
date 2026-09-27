@@ -5,7 +5,11 @@
  * "planned N pages but only 1 remains" for good.
  */
 import { describe, it, expect } from 'vitest'
-import { createSlidesSkill, type DeckAccess } from '../src/renderer/ai/slides-skill'
+import {
+  createSlidesSkill,
+  MAX_APPROX_PAGES,
+  type DeckAccess,
+} from '../src/renderer/ai/slides-skill'
 import type { RenderSlide } from '@genoffice/pptx-render'
 import type { AgentToolCall } from '../src/shared/ipc'
 
@@ -13,6 +17,7 @@ function makeAccess(opts?: {
   failPages?: number[]
   failAttempts?: Record<number, number>
   cloudEnabled?: boolean
+  cloudDown?: boolean
   localImageFails?: Record<number, string[]>
   landFailOnce?: number[]
   searchImagesFail?: boolean
@@ -80,6 +85,11 @@ function makeAccess(opts?: {
       genPageCalls.push(args.pageIndex)
       stylesSeen.push(args.style)
       imagesSeen.push([...args.images])
+      if (opts?.cloudDown)
+        return {
+          ok: false,
+          error: 'tool_cli /slide_generate failed: the Genspark CLI requires a paid plan',
+        }
       if (failPages.has(args.pageIndex)) return { ok: false, error: 'mock fail' }
       if (failAttempts[args.pageIndex] && failAttempts[args.pageIndex] > 0) {
         failAttempts[args.pageIndex] -= 1
@@ -277,6 +287,32 @@ describe('generate_deck local page generation (cloud/gsk unavailable)', () => {
     expect(res.output).toContain('https://img.example/broken.jpg')
   })
 
+  it('cloud fails (e.g. Genspark free plan) → falls back to the local pipeline and still produces the deck', async () => {
+    const { access, localPageCalls, getPages } = makeAccess({ cloudDown: true })
+    const skill = createSlidesSkill(access)
+    const res = (await skill.executeTool(deckCall(3))) as { output: string }
+    expect(getPages()).toBe(3)
+    expect(localPageCalls.sort((a, b) => a - b)).toEqual([1, 2, 3])
+    expect(res.output).toContain('3/3')
+    expect(res.output).toContain('locally')
+  })
+
+  it('pages that fail both pipelines during a cloud→local switch still get the retry round', async () => {
+    // Cloud is down for every page; page 2 also exhausts its two local attempts inside
+    // genOne. The retry round must give it two more local attempts (the run ended on the
+    // local pipeline), where the old !useCloud guard skipped it entirely.
+    const { access, localPageCalls, getPages } = makeAccess({
+      cloudDown: true,
+      failAttempts: { 2: 2 },
+    })
+    const skill = createSlidesSkill(access)
+    const res = (await skill.executeTool(deckCall(3))) as { output: string }
+    expect(getPages()).toBe(3)
+    // page 2: two local attempts inside genOne (both fail) + the retry round's third
+    expect(localPageCalls.filter((p) => p === 2)).toHaveLength(3)
+    expect(res.output).toContain('3/3')
+  })
+
   it('neither cloud nor local pipeline available → fails fast', async () => {
     const { access } = makeAccess({ cloudEnabled: false })
     delete (access as { generatePageLocal?: unknown }).generatePageLocal
@@ -312,6 +348,24 @@ describe('generate_deck batched planning (topic mode)', () => {
     expect(res.output).toContain('20/20')
     const ctx = skill.buildContext?.() ?? ''
     expect(ctx).toContain('all generated')
+  })
+
+  it('clamps an absurd approx_pages to MAX_APPROX_PAGES planner work (genoffice#1100)', async () => {
+    const { access, getPages } = makeAccess()
+    let planCalls = 0
+    const plan = access.planDeckOutline!
+    access.planDeckOutline = async (a) => {
+      planCalls++
+      return plan(a)
+    }
+    const skill = createSlidesSkill(access)
+    await skill.executeTool(topicCall('Everything', 100000))
+    expect(getPages()).toBe(MAX_APPROX_PAGES)
+    expect(planCalls).toBeLessThanOrEqual(Math.ceil(MAX_APPROX_PAGES / 12))
+    const schema = skill.tools.find((t) => t.name === 'generate_deck')!.inputSchema as {
+      properties: { approx_pages: { maximum?: number } }
+    }
+    expect(schema.properties.approx_pages.maximum).toBe(MAX_APPROX_PAGES)
   })
 
   it('style generated independently → the same styleSkill is passed to every page (consistent across pages)', async () => {

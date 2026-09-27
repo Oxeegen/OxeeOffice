@@ -5,6 +5,12 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent, ReactNode, WheelEvent as ReactWheelEvent } from 'react'
+import type { Lang } from '@genoffice/i18n'
+import { useImageViewerFocus } from './image-viewer-focus'
+import { IMAGE_VIEWER_TITLES } from './strings-image-viewer'
+
+/** marks the control the viewer focuses on open and restores focus to after Esc */
+const CLOSE_CONTROL = '[data-imgview-close]'
 
 export interface ImageViewerLabels {
   zoomIn: string
@@ -46,12 +52,15 @@ export function ImageViewer({
   labels,
   onClose,
   onSave,
+  lang = 'en',
 }: {
   src: string
   alt?: string
   labels: ImageViewerLabels
   onClose: () => void
   onSave?: () => void
+  /** language of the dialog's accessible name */
+  lang?: Lang
 }) {
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null)
   const [scale, setScale] = useState(1)
@@ -98,12 +107,12 @@ export function ImageViewer({
     setScale((s) => clamp(s * factor))
   }, [])
 
+  // Esc closes through useImageViewerFocus on the mask; the zoom keys stay on
+  // window so they work wherever focus sits inside the viewer, and the editor
+  // behind the overlay must not see them either.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // the editor behind the overlay keeps focus (and often the picture selected):
-      // swallow the handled keys so they never reach it
-      if (e.key === 'Escape') onClose()
-      else if (e.key === '+' || e.key === '=') zoomBy(STEP)
+      if (e.key === '+' || e.key === '=') zoomBy(STEP)
       else if (e.key === '-') zoomBy(1 / STEP)
       else if (e.key === '0') {
         setOffset({ x: 0, y: 0 })
@@ -114,7 +123,10 @@ export function ImageViewer({
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [onClose, zoomBy, zoomTo])
+  }, [zoomBy, zoomTo])
+
+  // Esc / Tab trap / initial focus on the close control / focus restore (one handler).
+  const focus = useImageViewerFocus(onClose, CLOSE_CONTROL)
 
   const onWheel = (e: ReactWheelEvent) => {
     e.preventDefault()
@@ -145,13 +157,20 @@ export function ImageViewer({
     }
   }, [dragging])
 
-  const button = (label: string, onClick: () => void, icon: ReactNode, active = false) => (
+  const button = (
+    label: string,
+    onClick: () => void,
+    icon: ReactNode,
+    active = false,
+    extra: { 'data-imgview-close'?: true } = {},
+  ) => (
     <button
       type="button"
       className={`gs-imgview-btn${active ? ' active' : ''}`}
       aria-label={label}
       title={label}
       onClick={onClick}
+      {...extra}
     >
       {icon}
     </button>
@@ -162,6 +181,11 @@ export function ImageViewer({
       className="gs-imgview-mask"
       role="dialog"
       aria-modal="true"
+      aria-label={IMAGE_VIEWER_TITLES[lang]}
+      tabIndex={-1}
+      ref={focus.ref}
+      onKeyDown={focus.onKeyDown}
+      onBlur={focus.onBlur}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
@@ -222,6 +246,8 @@ export function ImageViewer({
           <Svg>
             <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" />
           </Svg>,
+          false,
+          { 'data-imgview-close': true },
         )}
       </div>
       <img

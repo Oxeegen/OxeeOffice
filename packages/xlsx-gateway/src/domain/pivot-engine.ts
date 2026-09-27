@@ -96,9 +96,13 @@ function aggregate(subtotal: string, values: readonly SourceCell[]): number | nu
     case 'average':
       return numbers.length === 0 ? null : numbers.reduce((t, v) => t + v, 0) / numbers.length
     case 'max':
-      return numbers.length === 0 ? null : Math.max(...numbers)
+      return numbers.length === 0
+        ? null
+        : numbers.reduce((max, value) => Math.max(max, value), -Infinity)
     case 'min':
-      return numbers.length === 0 ? null : Math.min(...numbers)
+      return numbers.length === 0
+        ? null
+        : numbers.reduce((min, value) => Math.min(min, value), Infinity)
     case 'product':
       return numbers.length === 0 ? null : numbers.reduce((t, v) => t * v, 1)
     default:

@@ -243,40 +243,47 @@ describe('opening tabs', () => {
 })
 
 describe('spare sheets view', () => {
-  function homeLoaded(): void {
-    const call = shellWindow.webContents.once.mock.calls.find(
-      ([event]) => event === 'did-finish-load',
-    )
-    ;(call![1] as () => void)()
-  }
-
-  it('warms a hidden sheets view after the home page loads and hands it to the next open', () => {
+  it('does not warm Sheets during Home or Docs sessions', () => {
     vi.useFakeTimers()
     try {
-      homeLoaded()
+      const homeLoaded = shellWindow.webContents.once.mock.calls.find(
+        ([event]) => event === 'did-finish-load',
+      )
+      ;(homeLoaded?.[1] as (() => void) | undefined)?.()
+      vi.advanceTimersByTime(5000)
+      manager.openDocsTab('/tmp/report.docx')
+      vi.advanceTimersByTime(5000)
       expect(createSheetsView).not.toHaveBeenCalled()
-      vi.advanceTimersByTime(1500)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('warms a spare while Sheets is active and hands it to the next open', () => {
+    vi.useFakeTimers()
+    try {
+      manager.openSheetsTab('/tmp/first.xlsx')
       expect(createSheetsView).toHaveBeenCalledTimes(1)
+      vi.advanceTimersByTime(3000)
+      expect(createSheetsView).toHaveBeenCalledTimes(2)
       const spare = lastCreatedView(createSheetsView)
-      expect(setActiveSheetsWebContents).toHaveBeenLastCalledWith(null)
       expect(shellWindow.contentView.addChildView).toHaveBeenCalledWith(spare)
       expect(spare.setVisible).toHaveBeenLastCalledWith(false)
-      expect(manager.list()).toHaveLength(1)
+      expect(manager.list()).toHaveLength(2)
 
       manager.openSheetsTab('/tmp/budget.xlsx')
-      expect(createSheetsView).toHaveBeenCalledTimes(1)
-      expect(shellWindow.contentView.addChildView).toHaveBeenCalledTimes(1)
+      expect(createSheetsView).toHaveBeenCalledTimes(2)
       expect(queueWorkbookForView).toHaveBeenCalledWith(spare.webContents, '/tmp/budget.xlsx')
       expect(nudgeQueuedWorkbook).toHaveBeenCalledWith(spare.webContents)
       expect(spare.setVisible).toHaveBeenLastCalledWith(true)
-      expect(manager.list()[1]).toMatchObject({
+      expect(manager.list()[2]).toMatchObject({
         kind: 'sheets',
         title: 'budget.xlsx',
         active: true,
       })
 
       vi.advanceTimersByTime(3000)
-      expect(createSheetsView).toHaveBeenCalledTimes(2)
+      expect(createSheetsView).toHaveBeenCalledTimes(3)
       expect(lastCreatedView(createSheetsView)).not.toBe(spare)
       expect(setActiveSheetsWebContents).toHaveBeenLastCalledWith(spare.webContents)
     } finally {
@@ -287,14 +294,26 @@ describe('spare sheets view', () => {
   it('creates a fresh view when no spare is ready and does not nudge it', () => {
     manager.openSheetsTab('/tmp/budget.xlsx')
     expect(createSheetsView).toHaveBeenCalledTimes(1)
+    expect(createSheetsView).toHaveBeenCalledWith({
+      includeAiHandlers: false,
+      openingWorkbook: true,
+    })
     expect(nudgeQueuedWorkbook).not.toHaveBeenCalled()
+  })
+
+  it('starts a new blank view without the opening state', () => {
+    manager.openSheetsTab()
+    expect(createSheetsView).toHaveBeenCalledWith({
+      includeAiHandlers: false,
+      openingWorkbook: false,
+    })
   })
 
   it('drops a spare whose renderer died instead of handing it out', () => {
     vi.useFakeTimers()
     try {
-      homeLoaded()
-      vi.advanceTimersByTime(1500)
+      manager.openSheetsTab()
+      vi.advanceTimersByTime(3000)
       const spare = lastCreatedView(createSheetsView)
       const gone = spare.webContents.once.mock.calls.find(
         ([event]) => event === 'render-process-gone',
@@ -302,7 +321,27 @@ describe('spare sheets view', () => {
       ;(gone![1] as () => void)()
       expect(spare.webContents.close).toHaveBeenCalledTimes(1)
       manager.openSheetsTab()
+      expect(createSheetsView).toHaveBeenCalledTimes(3)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('cancels a pending spare and closes an existing spare on leaving Sheets', () => {
+    vi.useFakeTimers()
+    try {
+      const sheetsId = manager.openSheetsTab()
+      manager.openDocsTab()
+      vi.advanceTimersByTime(3000)
+      expect(createSheetsView).toHaveBeenCalledTimes(1)
+
+      manager.activateTab(sheetsId)
+      vi.advanceTimersByTime(3000)
       expect(createSheetsView).toHaveBeenCalledTimes(2)
+      const spare = lastCreatedView(createSheetsView)
+      manager.activateTab('home')
+      expect(shellWindow.contentView.removeChildView).toHaveBeenCalledWith(spare)
+      expect(spare.webContents.close).toHaveBeenCalledTimes(1)
     } finally {
       vi.useRealTimers()
     }
@@ -312,9 +351,9 @@ describe('spare sheets view', () => {
     vi.stubEnv('GENOFFICE_NO_SPARE_VIEW', '1')
     vi.useFakeTimers()
     try {
-      homeLoaded()
+      manager.openSheetsTab()
       vi.advanceTimersByTime(5000)
-      expect(createSheetsView).not.toHaveBeenCalled()
+      expect(createSheetsView).toHaveBeenCalledTimes(1)
     } finally {
       vi.useRealTimers()
       vi.unstubAllEnvs()

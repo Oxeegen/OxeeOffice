@@ -1551,6 +1551,54 @@ button.check-item:hover {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   min-height: 0;
+  position: relative;
+}
+
+.workbook-opening-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.csv-empty-notice {
+  position: absolute;
+  z-index: 20;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--sheets-notice-border);
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-size: 12px;
+}
+
+.csv-empty-notice span {
+  flex: 1;
+}
+
+.csv-empty-notice button {
+  border: 1px solid var(--sheets-notice-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  background: var(--surface);
+  color: var(--accent-dark);
+  cursor: pointer;
+}
+
+.csv-empty-notice button.csv-empty-notice-close {
+  border: 0;
+  background: transparent;
+  font-size: 16px;
 }
 
 /* ================= status bar (unified with docs/slides) ================= */

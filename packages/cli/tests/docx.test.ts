@@ -190,6 +190,18 @@ describe('genoffice docx (docs editor under jsdom)', () => {
     expect((await run(['docs', 'read', out, '--max-chars', '0', '--json'])).code).toBe(1)
   })
 
+  it('read rejects an unbounded --max-chars instead of defeating the preview cap', async () => {
+    const dir = tempDir()
+    writeFileSync(join(dir, 'tiny.md'), '# Title\n\nbody\n')
+    const out = join(dir, 'tiny.docx')
+    expect(
+      (await run(['create', '--type', 'docx', '--from', join(dir, 'tiny.md'), '--out', out])).code,
+    ).toBe(0)
+    const over = await run(['docs', 'read', out, '--max-chars', '1000001', '--json'])
+    expect(over.code).toBe(1)
+    expect(over.json().message).toContain('--full')
+  })
+
   it('inserts fields, bookmarks and notes, lists them and deletes a note', async () => {
     const dir = tempDir()
     const copy = join(dir, 'doc.docx')

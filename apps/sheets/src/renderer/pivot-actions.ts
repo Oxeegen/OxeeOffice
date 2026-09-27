@@ -74,6 +74,13 @@ export interface PivotActionContext {
   setPendingEdits: (count: number) => void
 }
 
+function pivotSourceValueFields(definition: WorkbookPivotDefinition): string[] {
+  return definition.dataFields.flatMap(({ field }) => {
+    const source = definition.fields[field]
+    return source && source.formula === undefined ? [source.name] : []
+  })
+}
+
 export function findPivotAtSelection(ctx: PivotActionContext): {
   sheetId: string
   pivot: WorkbookFile['sheets'][number]['pivotTables'][number]
@@ -140,6 +147,7 @@ export function refreshPivotTables(ctx: PivotActionContext, sheetId: string): nu
     const sourceValues = readPivotSourceGrid(
       sourceSheet.getRange(definition.sourceRef),
       ctx.lazyWorkbookRef.current?.file.date1904 === true,
+      pivotSourceValueFields(definition),
     )
     // (3) Automatic layout growth: when source data has new categories outside
     // the cache, first fold the new members into the layout (in memory), then
@@ -600,6 +608,7 @@ export function applySlicerSelection(
     const sourceValues = readPivotSourceGrid(
       sourceSheet.getRange(definition.sourceRef),
       ctx.lazyWorkbookRef.current?.file.date1904 === true,
+      pivotSourceValueFields(definition),
     )
     const next = applyPivotSlicer(definition, sourceValues, slicer.field, selectedMembers)
     if (next === definition) return null

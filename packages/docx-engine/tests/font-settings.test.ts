@@ -80,6 +80,13 @@ it('records an explicit East Asian choice equal to the previous Latin fallback',
 })
 
 import { previewFontSettings } from '../src/font-settings'
+
+const SINGLE_QUOTED_STYLE_XML =
+  '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+  "<w:style w:type='paragraph' w:styleId='Custom'>" +
+  "<w:rPr><w:rFonts w:ascii='Arial' w:eastAsia='SimSun'/></w:rPr></w:style>" +
+  '</w:styles>'
+
 it('previews and persists per-slot inheritance for both style types', async () => {
   const parsed = await parseDocx(
     await buildDocx({
@@ -110,6 +117,36 @@ it('previews and persists per-slot inheritance for both style types', async () =
   )
   expect(preview.styles).toEqual(reopened.styles)
   expect(preview.docDefaults).toEqual(reopened.docDefaults)
+})
+it('previews a single-quoted existing style without replacing it', async () => {
+  const parsed = await parseDocx(
+    await buildDocx({
+      bodyXml: '<w:p><w:r><w:t>Text</w:t></w:r></w:p>',
+      stylesXml: SINGLE_QUOTED_STYLE_XML,
+    }),
+  )
+  const preview = await previewFontSettings(parsed, [
+    { styleId: 'Custom', rPr: { font: 'Times New Roman' } },
+  ])
+  expect(preview.styles.get('Custom')?.display).toMatchObject({
+    fontAscii: 'Times New Roman',
+    eastAsiaFont: 'SimSun',
+  })
+})
+it('patches a single-quoted existing style without appending a duplicate', async () => {
+  const parsed = await parseDocx(
+    await buildDocx({
+      bodyXml: '<w:p><w:r><w:t>Text</w:t></w:r></w:p>',
+      stylesXml: SINGLE_QUOTED_STYLE_XML,
+    }),
+  )
+  const saved = await saveDocx(parsed, [{ kind: 'original', docxIndex: 0 }], {
+    styleUpserts: [{ styleId: 'Custom', rPr: { font: 'Times New Roman' } }],
+  })
+  const stylesXml = await (await JSZip.loadAsync(saved)).file('word/styles.xml')!.async('string')
+  expect(stylesXml.match(/<w:style\b/g)).toHaveLength(1)
+  expect(stylesXml).toContain('w:ascii="Times New Roman"')
+  expect(stylesXml).toContain('w:eastAsia="SimSun"')
 })
 it('an East Asian-only edit does not materialize inherited Latin or complex-script slots', async () => {
   const parsed = await parseDocx(

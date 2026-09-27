@@ -81,6 +81,16 @@ describe('patchImageParagraphXml', () => {
     expect(doc.blocks[0].imageAlign).toBe('center')
   })
 
+  it('replaces single-quoted image transform attributes', () => {
+    const xml =
+      '<w:p><w:r><w:drawing><wp:inline><a:graphic><pic:pic><pic:spPr>' +
+      "<a:xfrm rot='0' flipH='0'></a:xfrm></pic:spPr></pic:pic></a:graphic></wp:inline></w:drawing></w:r></w:p>"
+    const out = patchImageParagraphXml(xml, { rotDeg: 90, flipH: false })
+    expect(out).toContain('<a:xfrm rot="5400000">')
+    expect(out).not.toContain("rot='0'")
+    expect(out).not.toContain('flipH')
+  })
+
   it('ignores non-finite dimensions, rotation, and offsets instead of writing them verbatim', () => {
     const xml =
       '<w:p><w:r><w:drawing><wp:inline><wp:extent cx="914400" cy="457200"/>' +

@@ -6,6 +6,7 @@
  * reports the two addends separately — Chinese users care about the
  * Asian-character figure.
  */
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 
 // Han (incl. radicals/compat/ext-B+), kana, hangul, bopomofo, CJK symbols
 // and punctuation (U+3001 up: the ideographic space stays whitespace),
@@ -36,4 +37,13 @@ export function nonAsianWordCount(text: string): number {
 /** Word's Words figure: asian chars + non-asian words */
 export function countWords(text: string): number {
   return asianCharCount(text) + nonAsianWordCount(text)
+}
+
+export function documentTextForWordCount(doc: ProseMirrorNode): string {
+  // ProseMirror textContent skips Tiptap renderText serializers on atomic leaves.
+  return doc.textBetween(0, doc.content.size, ' ', (leaf) => {
+    if (leaf.type.name === 'docInlineMath') return String(leaf.attrs.text ?? '')
+    if (leaf.type.name === 'docRuby') return String(leaf.attrs.base ?? '')
+    return leaf.type.spec.leafText?.(leaf) ?? ''
+  })
 }

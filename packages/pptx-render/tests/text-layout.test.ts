@@ -2092,3 +2092,77 @@ describe('Korean word wrap and hanging punctuation (PowerPoint probe)', () => {
     expect(lines('aaa bb)', box)).toEqual(['aaa', 'bb)'])
   })
 })
+
+describe('hard-break measurement cost (#1007)', () => {
+  const m = new HeuristicMetrics()
+  const style = { fontFamily: 'Arial', fontSizePx: 32, bold: false, italic: false }
+  const w = (t: string) => m.measure(t, style)
+
+  /** HeuristicMetrics plus a tally of how much text the layout asked to measure. */
+  const counting = () => {
+    let calls = 0
+    let chars = 0
+    const provider: FontMetricsProvider = {
+      metrics: (s) => m.metrics(s),
+      measure: (text, s) => {
+        calls++
+        chars += [...text].length
+        return m.measure(text, s)
+      },
+    }
+    return { provider, stats: () => ({ calls, chars }) }
+  }
+
+  const layoutOf = (
+    text: string,
+    boxWidthPx: number,
+    metrics: FontMetricsProvider,
+    para: Partial<Paragraph> = {},
+  ) =>
+    layoutText({
+      body: body({ paragraphs: [{ runs: [{ text, fontSize: 24 }], ...para }] }),
+      boxWidthPx,
+      boxHeightPx: 200_000,
+      metrics,
+      vp,
+    }).lines.map((l) => l.runs.map((r) => r.text).join(''))
+
+  it('measures an over-long word linearly instead of re-measuring the whole buffer', () => {
+    // One word, no spaces, 4000 clusters in a box that holds 100. The old code
+    // re-measured the whole buffer for every grapheme (~40 lines x 1+2+..+100),
+    // so the characters handed to measure grew quadratically; a linear layout
+    // pass measures each line once.
+    const cluster = w('\uac00')
+    const perLine = 100
+    const pattern = '\uac00\uB098\uB2E4\uB77C\uB9C8\uBC14\uC0AC\uC544'
+    const text = pattern.repeat(500)
+    const n = [...text].length
+    expect(n).toBe(4000)
+    const c = counting()
+    const out = layoutOf(text, cluster * perLine, c.provider)
+    expect(out).toHaveLength(n / perLine)
+    expect([...out[0]!].length).toBe(perLine)
+    expect(out.join('')).toBe(text)
+    expect(c.stats().chars).toBeLessThan(n * 10)
+  })
+
+  it('letter spacing on an over-long word also measures linearly', () => {
+    const cluster = w('\uac00')
+    const text = '\uac00\uB098\uB2E4\uB77C'.repeat(1000)
+    const n = [...text].length
+    const c = counting()
+    const out = layoutOf(text, cluster * 100, c.provider, {
+      runs: [{ text, fontSize: 24, letterSpacing: 2 }],
+    })
+    expect(out.length).toBeGreaterThan(1)
+    expect(out.join('')).toBe(text)
+    // the letter-spacing term used to be recomputed over the whole buffer too
+    expect(c.stats().chars).toBeLessThan(n * 10)
+  })
+
+  it('a word that fits on one line is never hard-broken', () => {
+    const text = '\uac00\uB098\uB2E4'
+    const c = counting()
+    expect(layoutOf(text, w(text) + 1, c.provider)).toEqual([text])
+  })
+})

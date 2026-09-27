@@ -67,7 +67,16 @@ const C_NS = 'http://schemas.openxmlformats.org/drawingml/2006/chart'
 const A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 const R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 
-const colLetter = (i: number) => String.fromCharCode(66 + i) // B, C, D…
+const colLetter = (i: number): string => {
+  let n = i + 2
+  let label = ''
+  while (n > 0) {
+    const rem = (n - 1) % 26
+    label = String.fromCharCode(65 + rem) + label
+    n = Math.floor((n - 1) / 26)
+  }
+  return label
+}
 
 function strCacheXml(values: string[], f: string): string {
   return (

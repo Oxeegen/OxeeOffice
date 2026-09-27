@@ -136,7 +136,7 @@ const HOOKS = [
   {
     file: 'packages/ai-provider/src/providers.ts',
     why: 'Oxeegen chat catalogue, defaults, fallback and settings migration',
-    must: ['withOxeegenProviders([', 'return withOxeegenDefaults({', 'return oxeegenFallback(activeProviderUpstream(settings))', 'const stored = migrateToOxeegen(storedRaw)'],
+    must: ['withOxeegenProviders([', 'return withOxeegenDefaults({', 'return oxeegenFallback(activeProviderUpstream(settings))', 'const stored: unknown = isRecord(storedRaw) ? migrateToOxeegen(storedRaw as StoredAiSettings) : storedRaw'],
   },
   {
     file: 'packages/ai-provider/src/registry.ts',

@@ -477,16 +477,20 @@ function escapedAt(text: string, index: number): boolean {
 
 function imageDestinationRanges(markdown: string): DestinationRange[] {
   const ranges: DestinationRange[] = []
+  const closingBrackets = new Map<number, number>()
+  const bracketStack: number[] = []
+  for (let index = 0; index < markdown.length; index++) {
+    if (escapedAt(markdown, index)) continue
+    if (markdown[index] === '[') bracketStack.push(index)
+    else if (markdown[index] === ']') {
+      const open = bracketStack.pop()
+      if (open !== undefined) closingBrackets.set(open, index)
+    }
+  }
   for (let i = 0; i < markdown.length - 2; i++) {
     if (markdown[i] !== '!' || markdown[i + 1] !== '[' || escapedAt(markdown, i)) continue
-    let bracketDepth = 1
-    let altEnd = i + 2
-    for (; altEnd < markdown.length; altEnd++) {
-      if (escapedAt(markdown, altEnd)) continue
-      if (markdown[altEnd] === '[') bracketDepth++
-      else if (markdown[altEnd] === ']' && --bracketDepth === 0) break
-    }
-    if (bracketDepth !== 0) continue
+    const altEnd = closingBrackets.get(i + 1)
+    if (altEnd === undefined) continue
     let open = altEnd + 1
     while (markdown[open] === ' ' || markdown[open] === '\t') open++
     if (markdown[open] !== '(') {

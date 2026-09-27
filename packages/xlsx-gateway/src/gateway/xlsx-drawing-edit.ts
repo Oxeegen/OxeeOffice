@@ -125,7 +125,7 @@ async function cleanupRemovedAnchorRelationships(
     }
     relsXml = withoutRelationship
     if (relationship.external) continue
-    const targetPath = resolvePackageTarget(drawingPath, relationship.target)
+    const targetPath = resolveRelTarget(drawingPath, relationship.target)
     if (kind === 'chart') {
       if (!/^xl\/charts\/[^/]+\.xml$/.test(targetPath) || !(await pkg.has(targetPath))) {
         throw new VisualEditError('The deleted chart relationship has an invalid package target.')
@@ -179,7 +179,7 @@ async function collectUnreferencedOwnedParts(
       relationshipOverrides.get(childRelsPath) ?? (await pkg.readText(childRelsPath))
     for (const relationship of parseRelationships(childRelationships)) {
       if (relationship.external) continue
-      const targetPath = resolvePackageTarget(current.path, relationship.target)
+      const targetPath = resolveRelTarget(current.path, relationship.target)
       if (
         !CHART_OWNED_RELATIONSHIP_TYPES.test(relationship.type) ||
         !CHART_OWNED_PATHS.test(targetPath)
@@ -200,7 +200,7 @@ async function collectUnreferencedOwnedParts(
     const relationships = relationshipOverrides.get(relsPath) ?? (await pkg.readText(relsPath))
     for (const relationship of parseRelationships(relationships)) {
       if (relationship.external) continue
-      const target = resolvePackageTarget(owner, relationship.target)
+      const target = resolveRelTarget(owner, relationship.target)
       if (closure.has(target)) retained.add(target)
     }
   }
@@ -214,7 +214,7 @@ async function collectUnreferencedOwnedParts(
       relationshipOverrides.get(childRelsPath) ?? (await pkg.readText(childRelsPath))
     for (const relationship of parseRelationships(childRelationships)) {
       if (relationship.external) continue
-      const target = resolvePackageTarget(source, relationship.target)
+      const target = resolveRelTarget(source, relationship.target)
       if (closure.has(target) && !retained.has(target)) {
         retained.add(target)
         propagate.push(target)
@@ -256,10 +256,7 @@ async function cleanupEmptyDrawingHookup(
     if (!candidateRelsPath.endsWith('.rels') || candidateRelsPath === drawingRelsPath) continue
     const owner = partPathForRels(candidateRelsPath)
     for (const relationship of parseRelationships(await pkg.readText(candidateRelsPath))) {
-      if (
-        !relationship.external &&
-        resolvePackageTarget(owner, relationship.target) === drawingPath
-      ) {
+      if (!relationship.external && resolveRelTarget(owner, relationship.target) === drawingPath) {
         incoming.push({ owner, relsPath: candidateRelsPath, relationship })
       }
     }
@@ -306,10 +303,6 @@ async function cleanupEmptyDrawingHookup(
     pkg.write(contentTypesPath, stripped)
     touchedEntries.add(contentTypesPath)
   }
-}
-
-function resolvePackageTarget(fromPart: string, target: string): string {
-  return target.startsWith('/') ? target.slice(1) : resolveRelTarget(fromPart, target)
 }
 
 function xmlHasAttributeValue(xml: string, value: string): boolean {

@@ -735,6 +735,8 @@ export const workbookFileSchema = z
     /// writes it back here. Background flows (AutoSave, crash recovery)
     /// stand down: silently flattening the file would lose data.
     csvPath: z.string().min(1).optional(),
+    /// The source CSV had no data rows; the renderer opens a blank grid with one notice.
+    emptyCsv: z.boolean().optional(),
     /// Session opened from a restored crash-recovery copy: Save silently
     /// writes back to the original file, and the 30s recovery writer stands
     /// down (it would overwrite the copy the sidecar is streaming from).
@@ -2266,6 +2268,7 @@ const agentToolCallSchema = z
     id: z.string(),
     name: z.string(),
     input: z.record(z.string(), z.unknown()),
+    signature: z.string().optional(),
   })
   .strict()
 

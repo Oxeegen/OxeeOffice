@@ -236,13 +236,15 @@ function plainReference(part: string): string {
     .trim()
 }
 
-/// `'S 1'!$A$1:$K$84,'S 1'!$M$1:$N$9` → ['A1:K84', 'M1:N9']. Anything the
-/// print layout cannot crop to (full-column spans, 3-D refs, #REF!) yields
-/// [] so the export falls back to the used range instead of dropping content.
+/// `'S 1'!$A$1:$K$84,'S 1'!$M$1:$N$9` → ['A1:K84', 'M1:N9']. Stale `#REF!`
+/// parts are skipped (Excel prints the rest); a part the print layout cannot
+/// crop to (full-column spans, 3-D refs) yields [] so the export falls back
+/// to the used range instead of dropping the columns Excel would print.
 export function printAreasFromFormula(formula: string | undefined): string[] {
   if (formula === undefined || formula === '') return []
   const areas: string[] = []
   for (const part of splitAreas(formula)) {
+    if (/#REF!/i.test(part)) continue
     const reference = plainReference(part).toUpperCase()
     if (/^[A-Z]{1,3}[0-9]{1,7}$/.test(reference)) {
       areas.push(`${reference}:${reference}`)
