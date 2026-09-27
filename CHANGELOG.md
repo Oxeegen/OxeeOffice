@@ -5,6 +5,45 @@ What changed in each OxeeOffice release. Installers are on the
 
 ---
 
+## OxeeOffice 0.10.1467 — 2026-09-27
+
+Windows x64, Linux x64
+
+### New in the editors
+
+- **Docs, a big step towards Word:** spelling suggestions and AutoCorrect; Find & Replace
+  with wildcards and regular expressions; a Navigation pane; rich header and footer
+  editing; ruler handles for indents and margins; the advanced tabs of the Font and
+  Paragraph dialogs; list numbering tools; table Design and Layout groups on the ribbon;
+  the Simple Markup review view; zoom from 10 to 500%; many layout fixes for Asian text,
+  tables, floating pictures and page breaks.
+- **Sheets:** Ctrl + drag on the fill handle fills a series from a single number;
+  lowercase formula references shift correctly.
+- **Slides:** the layout check also flags elements that sit off the slide or are
+  stretched; long presentations use less memory.
+- **Markdown and HTML:** Word export embeds SVG, WebP, BMP, AVIF and online pictures;
+  single-file HTML export keeps stylesheets and fonts.
+- **App:** a setting to make OxeeOffice the default app for Office documents; the ribbon
+  collapses like Word's; settings are written safely even if the computer stops
+  mid-save; accessibility fixes for find panels, comments and colour grids.
+- **AI:** an AI edit whose instructions arrive incomplete is retried instead of failing;
+  secrets are removed from more places before anything is logged.
+- **Command line and agents:** one command registers OxeeOffice's tools with coding
+  agents; fill `{{placeholders}}` in Word, PowerPoint and Excel templates; read PDF text
+  without opening the app.
+
+### Reliability
+
+- A damaged or hand-edited settings file no longer stops OxeeOffice from starting; it
+  falls back to the defaults.
+
+### Oxeegen AI
+
+Unchanged: Oxee models with the picker in every editor, reasoning off for slides, layout
+checks and long writing, Brave search, and OpenAI `gpt-image-2.5-flare` images.
+
+---
+
 ## OxeeOffice 0.10.1038 — 2026-09-22
 
 Windows x64, Linux x64
