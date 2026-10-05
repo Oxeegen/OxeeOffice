@@ -5,6 +5,32 @@ What changed in each OxeeOffice release. Installers are on the
 
 ---
 
+## OxeeOffice 0.11.0 — 2026-10-05
+
+Windows x64, Linux x64
+
+### New in the editors
+
+- **Docs:** large documents with many sections open without maxing out the processor,
+  and a watchdog offers to close a document that runs away.
+- **Sheets:** statistics in the status bar, Excel-style; a new spreadsheet gets its file
+  when you first save it instead of in the default folder.
+- **Slides:** shapes can be flipped horizontally and vertically; a cancelled deck no
+  longer reports its pages as done.
+- **Markdown and HTML:** escaped currency signs are no longer read as maths.
+- **App:** Vietnamese interface (some new strings still appear in English); the Linux
+  `.rpm` installs alongside other apps without file conflicts.
+- **AI:** Serply joins the web and image search options for anyone using their own key.
+- **Under the hood:** a large batch of engine fixes across the editors.
+
+### Oxeegen AI
+
+Unchanged: Oxee models with the picker in every editor, reasoning off for slides, layout
+checks and long writing, Brave search, and OpenAI `gpt-image-2.5-flare` images. Dragging
+a tab out of the strip still opens it in its own window, for every editor.
+
+---
+
 ## OxeeOffice 0.10.1467 — 2026-09-27
 
 Windows x64, Linux x64
