@@ -284,6 +284,68 @@ const tMain = createI18n({
     csvKeepFormatDetail:
       'CSV keeps plain values of a single sheet only — formulas, formatting, and any additional sheets are not saved to the .csv file.',
   },
+  vi: {
+    filterSpreadsheets: 'Bảng tính',
+    filterXlsx: 'Sổ làm việc Excel',
+    filterXlsm: 'Sổ làm việc Excel hỗ trợ Macro',
+    dlgAddAttachment: 'Thêm tệp đính kèm',
+    filterSupported: 'Các tệp được hỗ trợ',
+    filterAll: 'Tất cả các tệp',
+    errUnsupportedExt: 'Tệp .{ext} không được hỗ trợ',
+    errNotFile: 'không phải là tệp',
+    errTooLarge: 'vượt quá giới hạn {mb}MB',
+    errImageTooLarge: 'hình ảnh vượt quá giới hạn 5MB',
+    errUnreadable: 'không thể đọc được',
+    errFileTooLarge: 'Tệp vượt quá giới hạn kích thước',
+    errParseFailed: 'Không thể phân tích tệp',
+    errImageNoText:
+      'Tệp đính kèm hình ảnh không có văn bản; hình ảnh được gửi cùng với tin nhắn của người dùng',
+    errNotImage: 'loại hình ảnh không được hỗ trợ',
+    errGskNotLoggedIn:
+      'Chưa đăng nhập vào Genspark: nhấp vào “Đăng nhập vào Genspark” bên dưới, đăng nhập, sau đó thử lại',
+    errNoApiKey: 'Chưa cấu hình khóa API cho {provider}',
+    errAiBusy: 'Dịch vụ AI hiện đang bận — vui lòng thử lại sau giây lát',
+    errNoModel: 'Chưa cấu hình tên mô hình',
+    errImgAbsPath: 'Đường dẫn hình ảnh phải là đường dẫn tuyệt đối.',
+    errImgNotFound: 'Không tìm thấy tệp hình ảnh: {path}',
+    errImgTooLarge20: 'Hình ảnh vượt quá 20MB và không thể chèn.',
+    errImgBadType: 'Tệp không phải là hình ảnh PNG/JPEG/GIF.',
+    errDiskChanged: 'Sổ làm việc đã thay đổi trên đĩa sau khi mở — hãy sử dụng Lưu dưới dạng.',
+    autosaveFoundTitle: 'Tìm thấy phiên bản khôi phục',
+    autosaveFoundBody:
+      'Có những thay đổi chưa được lưu từ phiên làm việc trước của bạn. Khôi phục phiên bản đã lưu tự động? Việc lưu sau khi khôi phục sẽ ghi đè lên tệp gốc.',
+    autosaveRestore: 'Khôi phục',
+    autosaveDiscard: 'Bỏ qua',
+    menuFile: 'Tệp',
+    menuOpenWorkbook: 'Mở sổ làm việc…',
+    menuSave: 'Lưu',
+    menuSaveAs: 'Lưu dưới dạng…',
+    menuExportPdf: 'Xuất PDF…',
+    menuPrint: 'In…',
+    menuClose: 'Đóng',
+    menuQuit: 'Thoát',
+    menuEdit: 'Chỉnh sửa',
+    menuUndo: 'Hoàn tác',
+    menuRedo: 'Làm lại',
+    closeUnsavedMsg: '{count} thay đổi chưa lưu',
+    closeUnsavedDetail: 'Các thay đổi của bạn sẽ bị mất nếu bạn đóng mà không lưu.',
+    btnDontSave: 'Không lưu',
+    btnCancel: 'Hủy',
+    csvSaveAsNotice:
+      'Tệp CSV không thể giữ lại định dạng — lưu dưới dạng .xlsx sẽ giữ lại tất cả các thay đổi của bạn.',
+    menuExportCsv: 'Xuất CSV…',
+    filterCsv: 'CSV (Phân tách bằng dấu phẩy)',
+    csvFormulaLossMsg: 'Trang tính này chứa các công thức mà định dạng CSV không thể lưu giữ.',
+    csvFormulaLossDetail:
+      'CSV chỉ giữ các giá trị thuần — các công thức được làm phẳng thành kết quả hiện tại của chúng và định dạng sẽ bị mất.',
+    csvKeepXlsxBtn: 'Lưu dưới dạng .xlsx',
+    csvContinueBtn: 'Tiếp tục dưới dạng CSV',
+    csvActiveSheetOnlyNotice:
+      'Tệp CSV chỉ chứa một trang tính duy nhất — chỉ trang tính đang hoạt động "{name}" sẽ được xuất.',
+    csvKeepFormatMsg: 'Tiếp tục lưu ở định dạng CSV?',
+    csvKeepFormatDetail:
+      'CSV chỉ giữ các giá trị thuần của một trang tính duy nhất — các công thức, định dạng và mọi trang tính bổ sung sẽ không được lưu vào tệp .csv.',
+  },
   ja: {
     filterSpreadsheets: 'スプレッドシート',
     filterXlsx: 'Excel ブック',
@@ -1694,6 +1756,24 @@ export function sheetsFileRenamed(wc: WebContents, oldPath: string, newPath: str
 const untitledWorkbookPaths = new Set<string>()
 export function markSheetsUntitledPath(path: string): void {
   untitledWorkbookPaths.add(path)
+}
+
+/**
+ * Backing workbooks the shell created in a temp directory for "New
+ * spreadsheet". The user has no file yet — it only comes into existence at the
+ * first Save, which this routes through Save As — and a tab closed without
+ * saving discards the temp directory with it. Same shape as an .xls/.tsv
+ * import: the file the session edits is not the user's file.
+ */
+const unsavedNewWorkbooks = new Map<string, { suggestSaveAs: string; tempDir: string }>()
+
+/** shell: mark a backing workbook it just created as not-yet-saved (see above) */
+export function markSheetsUnsavedNew(
+  openPath: string,
+  suggestSaveAs: string,
+  tempDir: string,
+): void {
+  unsavedNewWorkbooks.set(openPath, { suggestSaveAs, tempDir })
 }
 
 const mcpWritablePaths = new Map<number, Set<string>>()
@@ -3146,6 +3226,20 @@ export function registerSheetsIpc(): void {
       if (!session || !untitledWorkbookPaths.has(session.path)) return { renamed: false }
       const base = sanitizeAutoRenameBase(z.string().min(1).max(100).parse(baseName))
       if (!base) return { renamed: false }
+      // An unsaved new workbook has no user-visible file to rename — it sits in
+      // a temp directory that closing the tab discards. Retarget the suggested
+      // Save As name instead, so the AI-derived name is what the first save
+      // offers, and leave the mark in place for a later run. No rename on disk
+      // and no open hook: the temp path must not reach the title or recents.
+      if (session.suggestSaveAs !== undefined) {
+        const suggestDir = dirname(session.suggestSaveAs)
+        let suggested = join(suggestDir, `${base}.xlsx`)
+        for (let i = 2; existsSync(suggested) && i < 100; i++) {
+          suggested = join(suggestDir, `${base}-${i}.xlsx`)
+        }
+        entry.sessions.set(validatedSessionId, { ...session, suggestSaveAs: suggested })
+        return { renamed: true, name: basename(suggested) }
+      }
       const dir = dirname(session.path)
       let target = join(dir, `${base}.xlsx`)
       for (let i = 2; existsSync(target) && i < 100; i++) target = join(dir, `${base}-${i}.xlsx`)
@@ -3998,6 +4092,18 @@ async function prepareWorkbookForOpen(
   importTempDir?: string
   restoreTarget?: string
 }> {
+  // A shell-created "New spreadsheet" opens from a temp directory and has no
+  // user-visible file yet: Save As produces it, and closing unsaved discards
+  // the directory. Consumed on first open so a reopened path is a normal file.
+  const unsavedNew = unsavedNewWorkbooks.get(path)
+  if (unsavedNew !== undefined) {
+    unsavedNewWorkbooks.delete(path)
+    return {
+      openPath: path,
+      suggestSaveAs: unsavedNew.suggestSaveAs,
+      importTempDir: unsavedNew.tempDir,
+    }
+  }
   const extension = path.slice(path.lastIndexOf('.') + 1).toLowerCase()
   if (extension !== 'csv' && extension !== 'tsv' && extension !== 'xls') {
     // Unsaved work from a lost session: offer the recovery copy. Restoring

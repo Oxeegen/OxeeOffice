@@ -119,7 +119,7 @@ export interface AiMediaSettings {
 
 /** web/image search backends; Parallel supports both a user key and free keyless search */
 // OxeeOffice brand hook: oxeegen
-export type AiSearchProviderId = 'oxeegen' | 'genspark' | 'serper' | 'tavily' | 'parallel'
+export type AiSearchProviderId = 'oxeegen' | 'genspark' | 'serper' | 'serply' | 'tavily' | 'parallel'
 
 export interface AiSearchProviderMeta {
   id: AiSearchProviderId

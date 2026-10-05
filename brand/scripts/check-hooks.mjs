@@ -67,7 +67,7 @@ const HOOKS = [
   {
     file: 'packages/ai-provider/src/types.ts',
     why: 'oxeegen provider ids',
-    must: ["| 'oxeegen' // OxeeOffice brand hook", "'oxeegen' | 'genspark' | 'serper' | 'tavily'", 'oxeegen?: { apiKey: string }', "purpose?: 'compaction'", 'thinking?: boolean | undefined'],
+    must: ["| 'oxeegen' // OxeeOffice brand hook", "AiSearchProviderId = 'oxeegen' | 'genspark' |", 'oxeegen?: { apiKey: string }', "purpose?: 'compaction'", 'thinking?: boolean | undefined'],
   },
   {
     file: 'packages/ai-provider/src/media-protocols.ts',
@@ -171,7 +171,7 @@ const HOOKS = [
   {
     file: 'packages/ai-provider/src/search-settings.ts',
     why: 'Oxeegen (Brave) search entry and defaults',
-    must: ['= withOxeegenSearch([', 'return withOxeegenSearchDefaults({', "['serper', 'tavily', 'parallel', 'oxeegen']"],
+    must: ['= withOxeegenSearch([', 'return withOxeegenSearchDefaults({', "['serper', 'serply', 'tavily', 'parallel', 'oxeegen']"],
   },
   {
     file: 'packages/ai-provider/src/index.ts',

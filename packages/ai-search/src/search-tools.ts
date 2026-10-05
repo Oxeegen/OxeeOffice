@@ -24,6 +24,7 @@ export function searchOptionsFromSettings(settings: AiSettings): SearchOptions {
   }
   const key = settings.search!.providers?.[provider]?.apiKey?.trim() ?? ''
   if (provider === 'parallel') return { useGsk: false, parallelKey: key, prefer: 'parallel' }
+  if (provider === 'serply') return { useGsk: false, serplyKey: key, prefer: 'serply' }
   return provider === 'tavily'
     ? { useGsk: false, tavilyKey: key, prefer: 'tavily' }
     : { useGsk: false, serperKey: key }
@@ -48,10 +49,11 @@ export async function testSearchProvider(
   const options: SearchOptions =
     // OxeeOffice brand hook: the Oxeegen entry is tested against Brave
     provider === 'oxeegen'
-      ? { useGsk: false, braveKey: apiKey, serperKey: '', tavilyKey: '', parallelKey: '' }
+      ? { useGsk: false, braveKey: apiKey, serperKey: '', serplyKey: '', tavilyKey: '', parallelKey: '' }
       : {
           useGsk: false,
           serperKey: provider === 'serper' ? apiKey : '',
+          serplyKey: provider === 'serply' ? apiKey : '',
           tavilyKey: provider === 'tavily' ? apiKey : '',
           parallelKey: provider === 'parallel' ? apiKey : '',
           prefer: provider,
