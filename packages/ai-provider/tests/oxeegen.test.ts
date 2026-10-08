@@ -448,3 +448,24 @@ describe('a corrupted settings file', () => {
     expect(s.providers.oxeegen).toMatchObject({ apiKey: 'k', model: 'Oxee-pro', baseUrl: EU })
   })
 })
+
+describe("upstream's AI settings schema check", () => {
+  it('keeps the per-request reasoning switch, and only as a boolean', () => {
+    const base = { provider: 'oxeegen', providers: { oxeegen: { apiKey: 'k', model: 'Oxee-max', baseUrl: US } } }
+    const off = api.sanitizeAiSettings({ ...base, providers: { oxeegen: { ...base.providers.oxeegen, thinking: false } } })
+    expect(off?.providers.oxeegen).toMatchObject({ model: 'Oxee-max', thinking: false })
+    const junk = api.sanitizeAiSettings({ ...base, providers: { oxeegen: { ...base.providers.oxeegen, thinking: 'no' } } })
+    expect(junk?.providers.oxeegen).not.toHaveProperty('thinking')
+  })
+
+  it('a reasoning-off request survives the check and still reaches Oxeegen with the switch', () => {
+    const routed = api.oxeegenRoleSettings(
+      { provider: 'oxeegen', providers: { oxeegen: { apiKey: 'k', model: 'Oxee-max', baseUrl: US } } },
+      'deckPages',
+    )!
+    const checked = api.sanitizeAiSettings(routed)!
+    expect(api.getProviderAdapter('oxeegen').resolveEndpoint(checked.providers.oxeegen!).bodyExtras).toEqual({
+      chat_template_kwargs: { enable_thinking: false },
+    })
+  })
+})

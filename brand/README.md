@@ -38,7 +38,7 @@ Outside this directory, fork-owned files:
 | `packages/ai-provider/src/oxeegen.ts` (+ `tests/oxeegen.test.ts`) | The Oxeegen AI layer: chat/media/search catalogue entries, US/EU endpoints, models, adapter, defaults, settings migration, layer switch. |
 | `packages/ai-search/src/brave.ts` (+ `tests/oxeegen-search.test.ts`) | Brave web and image search behind the Oxeegen search entry. |
 | `apps/shell/src/renderer/src/oxeegen-settings.tsx` | Settings pieces: region buttons, hints, hidden Account section, Settings button glyph, onboarding slide filter. |
-| `packages/ui/src/oxee-model-picker.tsx`, `oxee-mark.ts` | Model picker for the editors' AI panels, cross-tab settings refresh, the Oxee mark. |
+| `packages/ui/src/oxee-mark.tsx` | The Oxee mark (data URI and component) for AI buttons, panel headers and Oxeegen's provider logo. |
 | `README.md`, `PRIVACY.md` | Replaced outright with OxeeOffice versions (structure follows upstream's README). On an upstream merge, take ours and port any new upstream section worth having. The README uses upstream's app screenshots from `docs/assets/readme/` (Oxeegen's decision; they are credited to GenOffice), but not the hero banner or the translated READMEs. |
 | `NOTICE`, `CHANGELOG.md`, `CONTRIBUTING.md` | Upstream notice kept in full with an Oxeegen section appended; changelog is ours; contributing guide has a fork section prepended. |
 
@@ -126,9 +126,17 @@ test what ships.
   preload and left the shell a blank window — while every file-based check passed.
   That is why the release workflow now **launches** the packaged app
   (`smoke-launch.mjs`).
-- Docs, Sheets and Slides read AI settings once at mount (upstream behaviour), so a
-  model picked in another tab was ignored until reload. They re-read on focus and when
-  a picker saves (`useAiSettingsRefresh`).
+- Upstream's AI settings schema check (`ai-settings-guard.ts`, from 0.11.411) rebuilds
+  each provider config from known fields only, which silently dropped the per-request
+  `thinking: false` and put Slides back on slow reasoning. It now keeps `thinking` when
+  it is a boolean; a test in `oxeegen.test.ts` covers the round trip.
+
+**Retired in 0.11.411 because upstream shipped the same thing:** our header model
+picker (upstream's `AiModelPicker` chip in every composer lists each provider with a
+key, saves globally and reloads every editor on a settings-changed broadcast; Oxeegen
+only needed its logo in `packages/ui/src/provider-logos.tsx`), and our tab tear-off
+(upstream detaches every editor, by menu or by dragging the tab off the strip, and
+docks a window back by dragging it onto the strip).
 
 ## Hooks in upstream files
 
@@ -153,10 +161,9 @@ comment `OxeeOffice brand hook`.
 | `apps/shell/src/renderer/src/SettingsModal.tsx` | Account section hidden, opens on AI Model; US/EU region rows; no cloud-tools or analytics switch; Oxeegen and Brave hints. |
 | `apps/shell/src/renderer/src/{Home,Onboarding,provider-logos}.tsx` | Sidebar button is Settings; no GenTeam/credits slide or analytics notice; Oxeegen logo. |
 | `apps/shell/tests/privacy-doc.test.ts` | Asserts PRIVACY.md's no-analytics statement instead of an event list. |
-| AI panels of docs, sheets, slides, pdf, markdown, html | Model picker in place of the title; `GensparkMark` renders the Oxee mark. |
-| `apps/{docs,sheets,slides}/src/renderer/App.tsx` | Re-read AI settings on focus / picker change. |
-| `apps/{pdf,markdown,html}/src/{preload/index,shared/ipc}.ts` | `setAiSettings`, so their picker can save. |
-| `packages/ui/src/{index.ts,dropdown.css}` | Picker exports and sizing. |
+| AI panels and ribbon icons of docs, sheets, slides, pdf, markdown, html | `GensparkMark` renders the Oxee mark. |
+| `packages/ui/src/index.ts`, `provider-logos.tsx` | Oxee mark export; Oxeegen logo in the shared provider logos (model picker, Settings). |
+| `packages/ai-provider/src/ai-settings-guard.ts` | The settings schema check keeps the per-request reasoning switch. |
 | `apps/markdown/src/renderer/styles.css` | Page width 90% instead of 860px. |
 
 ## Releasing
@@ -245,7 +252,7 @@ bundles. Where that behaviour now lives in source:
 | Windows + Linux release workflow, package check, launch check | Done |
 | Oxeegen as the provider in AI Model and AI Media & Search, US/EU endpoints pre-filled; no Genspark sign-in, account page, credits, cloud tools or cloud projects | Done |
 | Brave search behind the Oxeegen search entry; OpenAI `gpt-image-2.5-flare` for images | Done |
-| Model picker in each AI panel (Max, Pro, Flash, Instant) | Done |
+| Model picker in each AI panel (Max, Pro, Flash, Instant) | Upstream's picker since 0.11.411 |
 | Native slide-deck building | Done — upstream builds decks locally when Genspark's cloud is off |
 | Markdown page width | Done |
 | Onboarding without GenTeam, credits or analytics claims | Done |
