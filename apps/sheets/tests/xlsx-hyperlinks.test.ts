@@ -93,6 +93,32 @@ describe('applyHyperlinkEdits', () => {
     expect(patch.relsXml).toContain('rId3')
   })
 
+  it('reclaims and allocates ids in a rels part that uses single quotes', () => {
+    // rId1 is taken by a drawing and rId3 by the link being replaced; both are
+    // spelled with single quotes, which the id scan used to miss entirely.
+    const singleQuoted = RELS.replace(
+      '<Relationship Id="rId3"',
+      "<Relationship Id='rId1' Type='drawing' Target='../drawings/drawing1.xml'/>" +
+        '<Relationship Id="rId3"',
+    ).replace(/="(rId\d+|https:[^"]*)"/g, "='$1'")
+    const withLink = WORKSHEET.replace(
+      '<pageMargins',
+      '<hyperlinks><hyperlink ref="A1" r:id="rId3"/></hyperlinks><pageMargins',
+    )
+    const patch = applyHyperlinkEdits(withLink, singleQuoted, [
+      { row: 0, column: 0, target: 'https://new.example' },
+    ])
+
+    // The stale rel is dropped and the new one takes the next free id — never
+    // rId1 again, which would duplicate the drawing's relationship.
+    expect(patch.relsXml).not.toContain('https://old.example')
+    expect(patch.worksheetXml).toContain('r:id="rId2"')
+    const ids = [...(patch.relsXml ?? '').matchAll(/\bId=["'](rId\d+)["']/g)].map(
+      (match) => match[1],
+    )
+    expect(ids).toEqual(['rId1', 'rId2'])
+  })
+
   it('appends before </worksheet> when no anchor element exists', () => {
     const bare = '<worksheet><sheetData/></worksheet>'
     const patch = applyHyperlinkEdits(bare, null, [{ row: 0, column: 0, target: '#Data!A1' }])

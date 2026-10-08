@@ -306,10 +306,16 @@ export function szAttr(pt: number): string {
 export function clampInt(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, Math.round(Number.isFinite(v) ? v : min)))
 }
-/** ST_Coordinate / ST_PositiveCoordinate ceiling (EMU). */
-const COORD_MAX = 27273042316900
-const emuAttr = (v: number) => String(clampInt(v, -COORD_MAX, COORD_MAX))
-const posEmuAttr = (v: number) => String(clampInt(v, 0, COORD_MAX))
+/** ST_Coordinate / ST_PositiveCoordinate ceiling (EMU). Exported so the read path
+ *  (parse.ts) can bound a group's child-to-parent scale by the same range the write
+ *  path emits coordinates in. */
+export const COORD_MAX = 27273042316900
+// The numeric clamps are exported so the insert builders size their grids from
+// the same bounds their a:off/a:ext attributes are written with.
+export const clampEmu = (v: number): number => clampInt(v, -COORD_MAX, COORD_MAX)
+export const clampPosEmu = (v: number): number => clampInt(v, 0, COORD_MAX)
+const emuAttr = (v: number) => String(clampEmu(v))
+const posEmuAttr = (v: number) => String(clampPosEmu(v))
 const angleAttr = (v: number) => String(clampInt(v, -2147483648, 2147483647))
 const spcPtsXml = (pt: number) => `<a:spcPts val="${clampInt(pt * 100, 0, 158400)}"/>`
 const spcPctXml = (pct: number) => `<a:spcPct val="${clampInt(pct * 1000, 0, 13200000)}"/>`

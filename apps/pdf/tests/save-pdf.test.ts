@@ -11,6 +11,7 @@ import {
   PDFHexString,
   PDFName,
   PDFRawStream,
+  PDFRef,
   decodePDFRawStream,
   degrees,
   rgb,
@@ -33,7 +34,10 @@ import {
   splitPdfBytes,
 } from '../src/main/save-pdf'
 import { VISUAL_SIGNATURE_CONTENT_PREFIX } from '../src/shared/ipc'
+import { PDFJS_ANNOT_TEXT } from '../src/renderer/note-threads'
 import type { SavePdfRequest } from '../src/shared/ipc'
+
+/** pdf.js AnnotationType.POPUP — a note's popup must never surface as its own entry */
 
 /** 1x1 red pixel PNG */
 const TINY_PNG =
@@ -656,6 +660,62 @@ describe('applySaveRequest', () => {
     )
     const out = await PDFDocument.load(saved)
     expect(pageAnnots(out, 0).map(subtypeOf)).toEqual(['Text', 'Ink', 'Square', 'Line'])
+  })
+
+  // A sticky note is the one annotation whose own entries are not enough for
+  // macOS Preview: without /AP it has no icon to draw, so the note reads as absent.
+  describe('sticky note interop (Preview / pdf.js)', () => {
+    const note = (over: Record<string, unknown> = {}) => ({
+      kind: 'note' as const,
+      pageIndex: 0,
+      color: [1, 0.9, 0.3] as [number, number, number],
+      at: [120, 700] as [number, number],
+      contents: 'hello note',
+      ...over,
+    })
+
+    async function saveNoteWith(drawing: ReturnType<typeof note>) {
+      const bytes = await makePdf([[612, 792]])
+      const saved = await apply(bytes, request({ drawings: [drawing] }))
+      const doc = await PDFDocument.load(saved)
+      const annots = doc.getPage(0).node.lookup(PDFName.of('Annots'), PDFArray)
+      return { doc, annots, noteRef: annots.lookup(0) as PDFRef }
+    }
+
+    it('writes an appearance stream for the note icon', async () => {
+      const { doc, noteRef } = await saveNoteWith(note())
+      const dict = doc.context.lookup(noteRef) as PDFDict
+      expect(dict.lookup(PDFName.of('AP'), PDFDict).has(PDFName.of('N'))).toBe(true)
+    })
+
+    it('gives the appearance form its own /Resources', async () => {
+      // A Form XObject with no /Resources key at all draws dark grey in Quartz
+      // and yellow in Poppler — the note appears in one viewer only. This is the
+      // difference that silently shipped, so it is asserted directly.
+      const { doc, noteRef } = await saveNoteWith(note())
+      const dict = doc.context.lookup(noteRef) as PDFDict
+      const apRef = dict.lookup(PDFName.of('AP'), PDFDict).lookup(PDFName.of('N')) as PDFRef
+      const ap = doc.context.lookup(apRef) as PDFRawStream
+      expect(ap.dict.lookup(PDFName.of('Subtype'), PDFName).decodeText()).toBe('Form')
+      expect(ap.dict.has(PDFName.of('Resources'))).toBe(true)
+    })
+
+    it('still reads back as exactly one note in pdf.js', async () => {
+      const bytes = await makePdf([[612, 792]])
+      const saved = await apply(
+        bytes,
+        request({ drawings: [note(), note({ at: [300, 400], contents: 'second' })] }),
+      )
+      const loadingTask = getDocument({ data: saved.slice() })
+      try {
+        const pdfJsDoc = await loadingTask.promise
+        const annos = await (await pdfJsDoc.getPage(1)).getAnnotations()
+        const texts = annos.filter((a) => a.annotationType === PDFJS_ANNOT_TEXT)
+        expect(texts.map((a) => a.contentsObj?.str)).toEqual(['hello note', 'second'])
+      } finally {
+        await loadingTask.destroy()
+      }
+    })
   })
 
   it('ignores markups and drawings addressing missing pages', async () => {

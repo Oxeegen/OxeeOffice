@@ -7,15 +7,21 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
-import { open, rename } from 'node:fs/promises'
+import { open, rename, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { atomicWriteFile, writeJsonAtomic } from '../src/atomic-write'
+import { atomicCopyFile, atomicWriteFile, writeJsonAtomic } from '../src/atomic-write'
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
-  return { ...actual, rename: vi.fn(actual.rename), open: vi.fn(actual.open) }
+  return {
+    ...actual,
+    rename: vi.fn(actual.rename),
+    open: vi.fn(actual.open),
+    writeFile: vi.fn(actual.writeFile),
+    copyFile: vi.fn(actual.copyFile),
+  }
 })
 
 vi.mock('node:fs', async (importOriginal) => {
@@ -93,6 +99,103 @@ describe('atomicWriteFile', () => {
     await atomicWriteFile(target, Buffer.from('new'))
     expect(readFileSync(target, 'utf8')).toBe('new')
     expect(readdirSync(dir)).toEqual(['a.docx'])
+  })
+
+  // A gvfs SMB share refuses rename-over-existing with EEXIST — outside the
+  // Windows retry set. The save must still land through the in-place fallback.
+  it('falls back to an in-place write when the mount refuses the rename', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'eu-aw-'))
+    const target = join(dir, 'a.docx')
+    writeFileSync(target, 'old')
+    vi.mocked(rename).mockRejectedValueOnce(errnoError('EEXIST'))
+    await atomicWriteFile(target, Buffer.from('new'))
+    expect(readFileSync(target, 'utf8')).toBe('new')
+    expect(readdirSync(dir)).toEqual(['a.docx'])
+  })
+
+  it('surfaces the fallback write failure and keeps the completed temp', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'eu-aw-'))
+    const target = join(dir, 'a.docx')
+    writeFileSync(target, 'old')
+    vi.mocked(rename).mockRejectedValueOnce(errnoError('EEXIST'))
+    const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
+    // call 1 writes the temp for real, call 2 is the in-place fallback (fails)
+    vi.mocked(writeFile).mockImplementationOnce((...args) =>
+      actual.writeFile(...(args as Parameters<typeof actual.writeFile>)),
+    )
+    vi.mocked(writeFile).mockRejectedValueOnce(errnoError('EACCES'))
+    await expect(atomicWriteFile(target, Buffer.from('new'))).rejects.toThrow('EACCES')
+    expect(readFileSync(target, 'utf8')).toBe('old')
+    // the fallback failed, so the completed temp is kept as the rescue copy
+    const leftovers = readdirSync(dir).sort()
+    expect(leftovers).toHaveLength(2)
+    expect(leftovers[0]).toMatch(/^\.a\.docx\..{12}\.tmp$/)
+    expect(leftovers[1]).toBe('a.docx')
+  })
+})
+
+describe('atomicCopyFile', () => {
+  it('fsyncs the copied temp file before the rename publishes it', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'eu-ac-'))
+    const source = join(dir, 'a.pdf')
+    const target = join(dir, 'b.pdf')
+    writeFileSync(source, 'pdf-bytes')
+    writeFileSync(target, 'old')
+    const order: string[] = []
+    const actual = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
+    vi.mocked(open).mockImplementationOnce(async (...args) => {
+      const handle = await actual.open(...(args as Parameters<typeof actual.open>))
+      const sync = handle.sync.bind(handle)
+      handle.sync = async () => {
+        order.push('sync')
+        await sync()
+      }
+      return handle
+    })
+    vi.mocked(rename).mockImplementationOnce(async (from, to) => {
+      order.push('rename')
+      await actual.rename(from, to)
+    })
+    await atomicCopyFile(source, target)
+    expect(order).toEqual(['sync', 'rename'])
+    expect(readFileSync(target, 'utf8')).toBe('pdf-bytes')
+    expect(readdirSync(dir).sort()).toEqual(['a.pdf', 'b.pdf'])
+  })
+
+  // the same tolerated-flush contract as atomicWriteFile
+  it('tolerates a refused flush and still publishes the copy', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'eu-ac-'))
+    const source = join(dir, 'a.pdf')
+    const target = join(dir, 'b.pdf')
+    writeFileSync(source, 'pdf-bytes')
+    writeFileSync(target, 'old')
+    vi.mocked(open).mockRejectedValueOnce(errnoError('EPERM'))
+    await atomicCopyFile(source, target)
+    expect(readFileSync(target, 'utf8')).toBe('pdf-bytes')
+    expect(readdirSync(dir).sort()).toEqual(['a.pdf', 'b.pdf'])
+  })
+
+  it('leaves the target intact and drops no temp when the source is missing', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'eu-ac-'))
+    const target = join(dir, 'b.pdf')
+    writeFileSync(target, 'old')
+    await expect(atomicCopyFile(join(dir, 'nope.pdf'), target)).rejects.toThrow()
+    expect(readFileSync(target, 'utf8')).toBe('old')
+    expect(readdirSync(dir)).toEqual(['b.pdf'])
+  })
+
+  // Same fallback contract as atomicWriteFile: a mount that refuses
+  // rename-over-existing still receives the copy, written in place.
+  it('falls back to an in-place copy when the mount refuses the rename', async () => {
+    dir = mkdtempSync(join(tmpdir(), 'eu-ac-'))
+    const source = join(dir, 'a.pdf')
+    const target = join(dir, 'b.pdf')
+    writeFileSync(source, 'pdf-bytes')
+    writeFileSync(target, 'old')
+    vi.mocked(rename).mockRejectedValueOnce(errnoError('EEXIST'))
+    await atomicCopyFile(source, target)
+    expect(readFileSync(target, 'utf8')).toBe('pdf-bytes')
+    expect(readdirSync(dir).sort()).toEqual(['a.pdf', 'b.pdf'])
   })
 })
 

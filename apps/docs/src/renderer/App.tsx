@@ -1,7 +1,5 @@
 import { scriptFontHtml } from './editor/script-fonts'
 import { DOC_CSS_COMMITTED_EVENT } from './editor/cjk-punct-shrink'
-// OxeeOffice brand hook: follow AI settings changes (model picker)
-import { useAiSettingsRefresh } from '@genoffice/ui'
 import { justifyShrinkPluginKey } from './editor/justify-shrink'
 import {
   useCallback,
@@ -18,7 +16,14 @@ import type { Editor } from '@tiptap/core'
 import { handleDocsControl, type ControlRequest } from './control'
 import { DOMParser as PmDOMParser, type Mark as PmMark, Slice as PmSlice } from '@tiptap/pm/model'
 import { NodeSelection, TextSelection, type Command, type Transaction } from '@tiptap/pm/state'
-import { Dropdown, ImageViewer, createZoomWheelClassifier, useAutoSavePref } from '@genoffice/ui'
+import {
+  Dropdown,
+  ImageViewer,
+  aiPanelInitiallyOpen,
+  rememberAiPanelOpen,
+  createZoomWheelClassifier,
+  useAutoSavePref,
+} from '@genoffice/ui'
 import { wordRangeAtCaret } from './editor/comments'
 import { setFieldInstr, toggleAllFieldCodes, type FieldRange } from './editor/field-codes'
 import { linkTarget } from './editor/link-actions'
@@ -102,7 +107,7 @@ import {
 } from './editor/hf-editor'
 import type { HfAction, HfEditingInfo } from './components/ribbon-hf-tab'
 import { hfCommitTarget, hfLinked, resolveHf, withHfLink, type HfSectionState } from './hf-sections'
-import { hfLayoutResolved, hfPhantomSpec, hfWithPhantom } from './hf-phantom'
+import { hfFooterLine, hfLayoutResolved, hfPhantomSpec, hfWithPhantom } from './hf-phantom'
 import { textColorValue } from './editor/text-color'
 import { textOutlineCssValue } from './editor/text-outline'
 import { AiAskPopover } from './components/AiAskPopover'
@@ -120,13 +125,14 @@ import { HeaderFooterArea } from './components/HeaderFooterArea'
 import { PageFootnotes, PageEndnotes } from './components/PageNoteAreas'
 import { noteMarkText, type NoteKind } from './note-format'
 import { PaginationPreview } from './components/PaginationPreview'
-import { paraPaginationMeta } from './editor/para-flags'
+import { paraPaginationMeta, tableWidowOff } from './editor/para-flags'
 import { PrintDialog } from './components/PrintDialog'
 import {
   appendEndnotesBlock,
   appendFloatSpillBlock,
   assignSections,
   bumpLineSampleFontEpoch,
+  carryStreamedSamples,
   endnotesAnchorY,
   createLineRectsCache,
   anchorElement,
@@ -191,6 +197,7 @@ import {
   setFloatVShifts,
   setOversizeClips,
   setPageGaps,
+  rowFillsSig,
   setRowFills,
   syncAnchorBands,
   syncCutOverlays,
@@ -337,7 +344,8 @@ import {
   revisionDisplayState,
 } from './editor/extensions'
 import { setDkColor } from './editor/dark-page'
-import { useUiThemeIsDark } from './ui-theme'
+import { resolveDarkPage, writeDarkPagePref } from './dark-page-pref'
+import { useDocThemeIsDark, useUiThemeIsDark } from './ui-theme'
 import { type InkAnnotation, type InkTool } from './editor/ink'
 import { InkOverlay } from './components/InkOverlay'
 import {
@@ -379,6 +387,7 @@ import {
 } from './file-actions'
 import { BlockIndex } from './pagination-index'
 import { isPhasedContentPending } from './phased-content'
+import { sameSectionInfos } from './pagination-sections'
 import {
   blocksKeepSlicing,
   firstChangedTopLevelIndex,
@@ -768,7 +777,7 @@ export function App() {
   } | null>(null)
   const [_recent, setRecent] = useState<string[]>([])
   const [settings, setSettings] = useState<AiSettings>(DEFAULT_SETTINGS)
-  const [showAi, setShowAi] = useState(() => localStorage.getItem('aidocs.showAi') !== '0')
+  const [showAi, setShowAi] = useState(() => aiPanelInitiallyOpen('aidocs.showAi'))
   const [spellcheck, setSpellcheck] = useState(spellcheckEnabled)
   const [largeDocSpellOff, setLargeDocSpellOff] = useState(false)
   const spellcheckActive = spellcheck && !largeDocSpellOff
@@ -782,12 +791,27 @@ export function App() {
   const [status, setStatus] = useState('')
   const [zoom, setZoom] = useState(100)
   const scrollContainerRef = useRef<HTMLElement>(null)
-  // Word-style dark page (editor/dark-page.ts): on by default in the dark theme,
-  // View ▸ Dark Mode flips it for the session (Word's Switch Modes); a theme
-  // switch drops the override and follows the new theme again
+  // Word-style dark page (editor/dark-page.ts): the shell's document-page-theme
+  // setting (genoffice#1811) decides which theme the page follows; a light
+  // page theme never shows a dark page, in the dark one it is on by default
+  // until the user switches it off, and that choice sticks (dark-page-pref.ts)
   const themeDark = useUiThemeIsDark()
-  const [darkPage, setDarkPage] = useState(themeDark)
-  useEffect(() => setDarkPage(themeDark), [themeDark])
+  const docThemeDark = useDocThemeIsDark()
+  const [darkPage, setDarkPage] = useState(() => resolveDarkPage(docThemeDark))
+  useEffect(() => {
+    setDarkPage(resolveDarkPage(docThemeDark))
+  }, [docThemeDark])
+  // for toggle-by-one in the menu path, whose closure is not re-created per render
+  const darkPageRef = useRef(darkPage)
+  darkPageRef.current = darkPage
+  /** View ▸ Dark Mode (menu and ribbon): remember the choice, then apply it */
+  const updateDarkPage = useCallback(
+    (next: boolean) => {
+      if (docThemeDark) writeDarkPagePref(next)
+      setDarkPage(next)
+    },
+    [docThemeDark],
+  )
   const [section, setSection] = useState<SectionSettings | null>(null)
   /** All sections (readSections): pagination/preview use per-section geometry; layout edits apply to the cursor's section */
   const [sections, setSections] = useState<SectionInfo[]>([])
@@ -815,13 +839,6 @@ export function App() {
   const [evenOddHfDirty, setEvenOddHfDirty] = useState(false)
   const [mirrorMargins, setMirrorMargins] = useState(false)
   const [mirrorMarginsDirty, setMirrorMarginsDirty] = useState(false)
-  const [hfView, setHfViewState] = useState<HfView>('default')
-  /** false until the user picks a variant (chip/toggle); resting areas then follow their page's variant instead */
-  const [hfViewTouched, setHfViewTouched] = useState(false)
-  const setHfView = (v: HfView) => {
-    setHfViewState(v)
-    setHfViewTouched(true)
-  }
   const [pageInfo, setPageInfo] = useState({ current: 1, total: 1 })
   // last page's number for the document-end footer: text for the page marker, num for
   // even/odd parity (section restarts / pageNumberFmt make both differ from the physical count)
@@ -865,18 +882,14 @@ export function App() {
     nonce: number
   } | null>(null)
   const multiHf = sections.length > 1
-  const effHfView: HfView =
-    (hfView === 'first' && !titlePg) || (hfView === 'even' && !evenOddHf) ? 'default' : hfView
-  /** Variant an on-canvas area shows/edits: explicit chip choice wins; at rest the header area is page 1 and the footer area the last page */
+  /** Variant an on-canvas edge area shows/edits: like Word, it follows its page — the header area is page 1 and the footer area the last page */
   const areaView = (kind: 'header' | 'footer'): HfView =>
-    hfViewTouched
-      ? effHfView
-      : restingHfAreaVariant(kind, {
-          titlePg,
-          evenOddHf,
-          pageCount: pageInfo.total,
-          ...(lastPageNo ? { lastPageNo: lastPageNo.num } : {}),
-        })
+    restingHfAreaVariant(kind, {
+      titlePg,
+      evenOddHf,
+      pageCount: pageInfo.total,
+      ...(lastPageNo ? { lastPageNo: lastPageNo.num } : {}),
+    })
   const headerAreaView = areaView('header')
   const footerAreaView = areaView('footer')
 
@@ -889,12 +902,11 @@ export function App() {
       next,
     )
   }
-  /** "Different first page" toggle, shared by the ribbon checkbox and the on-page chip */
+  /** "Different first page" toggle (ribbon checkbox); page 1's header/footer become the first-page variant, as in Word */
   const toggleTitlePg = (on: boolean) => {
     hfEditorRef.current?.exit()
     setTitlePg(on)
     setTitlePgDirty(true)
-    setHfView(on ? 'first' : 'default')
     setStatus(on ? t('appTitlePgOn') : t('appTitlePgOff'))
   }
   const [showMarks, setShowMarks] = useState(false)
@@ -1390,6 +1402,7 @@ export function App() {
   // section into the next, pending breaks are already in `sections`. Derived from the
   // document itself (not the paint-time measurement), so a strip edit lands in the right
   // slot even before the canvas has re-measured
+  const hfSectionsMemoRef = useRef<SectionInfo[] | null>(null)
   const hfSections = useMemo(() => {
     if (!editor || sections.length <= 1) return sections
     const present: Array<{ docxIndex: number }> = []
@@ -1397,7 +1410,15 @@ export function App() {
       const di = node.attrs?.docxIndex
       if (typeof di === 'number') present.push({ docxIndex: di })
     })
-    return liveSections(sections, present as BlockBox[], undefined, delSectBreaks)
+    const next = liveSections(sections, present as BlockBox[], undefined, delSectBreaks)
+    // every transaction re-runs this memo, and a streaming open appends a
+    // chunk per frame: a fresh array per chunk re-ran the pagination effect
+    // (a synchronous whole-document pass each) for every chunk. Unchanged
+    // content keeps the previous identity.
+    const prev = hfSectionsMemoRef.current
+    if (prev && sameSectionInfos(prev, next)) return prev
+    hfSectionsMemoRef.current = next
+    return next
     // docVersion: the doc identity is what changes, and it is not a React value
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, sections, delSectBreaks, docVersion])
@@ -1495,15 +1516,15 @@ export function App() {
 
   useEffect(() => {
     void window.desktop.getRecentFiles().then(setRecent)
-    void window.desktop.getAiSettings().then(setSettings)
+    const loadSettings = () => void window.desktop.getAiSettings().then(setSettings)
+    loadSettings()
+    return window.desktop.onAiSettingsChanged?.(loadSettings)
   }, [])
   // OxeeOffice brand hook: settings were read once at mount, so a model picked
   // in another tab or in Settings was ignored until reload
-  const refreshAiSettings = useCallback(() => void window.desktop.getAiSettings().then(setSettings), [])
-  useAiSettingsRefresh(refreshAiSettings)
 
   useEffect(() => {
-    localStorage.setItem('aidocs.showAi', showAi ? '1' : '0')
+    rememberAiPanelOpen('aidocs.showAi', showAi)
   }, [showAi])
 
   useEffect(() => {
@@ -1992,11 +2013,6 @@ export function App() {
     mirrorMarginsDirty,
     setMirrorMargins,
     setMirrorMarginsDirty,
-    // opening a document resets to the resting per-page variant selection
-    setHfView: (v: HfView) => {
-      setHfViewState(v)
-      setHfViewTouched(false)
-    },
     pgNumEdit,
     pgNumDirtySections,
     setPgNumEdit,
@@ -3060,12 +3076,29 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [footnotes, endnotes, noteStyleOf])
 
-  // display number of a note: the engine's body-order numbering (numStart / eachSect
-  // applied); notes added in this session are not in the map and count by list position
+  // the numbers the body shows right now: inserting or deleting a note renumbers
+  // its in-text marks in document order, and the note areas must say the same
+  const noteMarkNumbers = useMemo(() => {
+    const out = new Map<string, number>()
+    editorRef.current?.state.doc.descendants((node) => {
+      if (node.type.name !== 'docNoteRef') return true
+      const key = `${node.attrs.kind}:${node.attrs.id}`
+      if (!out.has(key)) out.set(key, Number(node.attrs.num))
+      return false
+    })
+    return out
+    // the lists change whenever marks are added or removed
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [footnotes, endnotes, doc])
+
+  // display number of a note: the mark in the body, else the engine's body-order
+  // numbering (numStart / eachSect applied), else the list position
   const noteNo = useCallback(
     (kind: 'footnote' | 'endnote', id: string, index: number): number =>
-      doc?.parsed.noteNumbers?.[`${kind}:${id}`] ?? index + 1,
-    [doc],
+      noteMarkNumbers.get(`${kind}:${id}`) ??
+      doc?.parsed.noteNumbers?.[`${kind}:${id}`] ??
+      index + 1,
+    [noteMarkNumbers, doc],
   )
 
   // page-bottom heights (px) reserved for footnote references inside a block, one per
@@ -3121,9 +3154,9 @@ export function App() {
     if (!section) return { headerPx: 0, footerPx: 0 }
     const contentW = twipsToPx(section.pageWidth - section.marginLeft - section.marginRight)
     const h = hfLayoutResolved('header', hfResolveAt(0, 'header', 'default'), hfPhantom)
-    const f = hfResolveAt(0, 'footer', 'default')
+    const f = hfLayoutResolved('footer', hfResolveAt(0, 'footer', 'default'), hfPhantom)
     const hFirst = hfLayoutResolved('header', hfResolveAt(0, 'header', 'first'), hfPhantom)
-    const fFirst = hfResolveAt(0, 'footer', 'first')
+    const fFirst = hfLayoutResolved('footer', hfResolveAt(0, 'footer', 'first'), hfPhantom)
     return {
       headerPx: hfReservedHeightPx('header', h.value, contentW, h.images, hfHeaderGeom(section)),
       footerPx: hfReservedHeightPx('footer', f.value, contentW, f.images),
@@ -3247,15 +3280,23 @@ export function App() {
           [...xml.matchAll(/<w:pStyle w:val="([^"]+)"/g)].some((m) => styleKeepNext(m[1]))
         const modern = (doc?.parsed.compatibilityMode ?? 0) >= 15
         if (!flagged && fnExtra === 0 && !modern) return undefined
+        const cellWidowOff =
+          modern &&
+          tableWidowOff(
+            xml,
+            defaultParaStyle?.display?.widowControl ?? doc?.parsed.docDefaults?.widowControl,
+            (id) => doc?.parsed.styles.get(id)?.display?.widowControl,
+          )
         return {
           ...(flagged ? { tableRowFlags: tableRowFlags(xml, styleKeepNext) } : {}),
           ...(modern ? { modernTableHeaders: true } : {}),
+          ...(cellWidowOff ? { cellWidowOff: true } : {}),
           ...(fnExtra > 0 ? { footnoteExtraPx: fnExtra, footnoteBands: fnBands } : {}),
         }
       }
       const styleDisplay = (b.styleId ? doc?.parsed.styles.get(b.styleId) : defaultParaStyle)
         ?.display
-      const flags = paraPaginationMeta(b.format, styleDisplay)
+      const flags = paraPaginationMeta(b.format, styleDisplay, doc?.parsed.docDefaults)
       const fnBands = footnoteBandsOf(b)
       const fnExtra = fnBands.reduce((s, band) => s + band.heightPx, 0)
       if (!flags && fnExtra === 0) return undefined
@@ -3505,18 +3546,23 @@ export function App() {
     let slices: PageSlice[] = []
     let timer: number | null = null
     let suppressSig = ''
+    let rowFillSig = ''
     // passes a pass schedules for itself (widths / suppression applied late);
     // a document whose column widths never settle must not paginate forever
     let followUps = 0
     let selfScheduled = false
     let retrigger: string[] = []
     // several reasons in one pass debounce into one follow-up: count passes, not reasons
-    const followUp = (why: string) => {
+    // decoration-only re-decisions (justify shrink, float flow) arrive after a
+    // pass and re-run it from the changed block: they count against the same
+    // cap, or a flip-flopping decision paginates forever
+    const followUpAt = (why: string, dirtyIndex: number | null) => {
       retrigger.push(why)
       if (followUps >= MAX_FOLLOW_UP_PASSES) return
       selfScheduled = true
-      onUpdate(null, null, true)
+      onUpdate(null, dirtyIndex, true)
     }
+    const followUp = (why: string) => followUpAt(why, null)
     let secWidthSig = ''
     let charSpaceSig = ''
     const colWidthPass = newWidthPassState()
@@ -3559,6 +3605,13 @@ export function App() {
     let lastPre: PageSlice[] = []
     let lastOut: SliceOutputs | null = null
     let lastSecSig = ''
+    /** top-level child count at the last pass: a streaming pass whose only
+     *  trigger is the appended tail (dirty ≥ this) may carry the prefix's
+     *  line/row samples; any user edit below the frontier (dirty < this)
+     *  disables the carry — a same-height edit would otherwise keep stale
+     *  line boxes that the height gate cannot see */
+    let lastPassChildCount = 0
+    let carriedSamples = 0
     /** first top-level index a transaction touched since the last pass; null once a trigger needs the whole document */
     let dirtyFrom: number | null = null
     let resumePasses = 0
@@ -3748,6 +3801,11 @@ export function App() {
         const { blocks, totalHeight, floats, sectBreaks } = measureBlocks(pm, origin, factor)
         if (hasVertical)
           for (const b of blocks) if (b.el && !b.floated) b.inlineExtraPx = blockInlineExtraPx(b.el)
+        carriedSamples += carryStreamedSamples(blocks, lastBlocks, {
+          pending: isPhasedContentPending(),
+          dirty,
+          lastPassChildCount,
+        })
         tMeasure = performance.now() - t0
         // multi-section: assign blocks to sections by docxIndex; each section has its own content height / forced breaks.
         // liveSections: when a section-break block is deleted, that section merges into the next in real time (effective before saving)
@@ -3850,6 +3908,7 @@ export function App() {
       } = measured
       slices = measured.s
       lastBlocks = blocks
+      lastPassChildCount = editor?.state.doc.childCount ?? lastPassChildCount
       pageLayoutRef.current = { blocks, slices, sections: secList ?? [] }
       if (mirrorMargins) locateCaretPageRef.current()
       const blockIndex = new BlockIndex(blocks)
@@ -3963,6 +4022,20 @@ export function App() {
             const resolved = resolveLive(si, kind, variant)
             return { value: resolved.value, ...split(resolved.images), section: si, variant }
           }
+          // Like Word there is no variant switcher: a header/footer part is edited on a
+          // page that shows it. The edge areas cover page 1's header and the last page's
+          // footer; a gap strip for any other (section, variant) pair is kept even while
+          // the part is empty so it still has a double-click target (an empty even-page
+          // header, a first-page footer on a multi-page document, ...)
+          const edgeHeaderHf = slices.length > 0 ? pageHfOf(0, 'header') : null
+          const edgeFooterHf = slices.length > 0 ? pageHfOf(slices.length - 1, 'footer') : null
+          const gapStripNeeded = (
+            gap: ReturnType<typeof pageHfOf>,
+            edge: ReturnType<typeof pageHfOf> | null,
+          ) =>
+            hfHasVisibleContent(gap.value, gap.images) ||
+            gap.variant !== edge?.variant ||
+            gap.section !== edge.section
           /** page geometry a page's floating header images position against */
           const floatBoxOf = (pageIdx: number): HfFloatBox => {
             const s = secList?.[slices[pageIdx].section]?.settings ?? section
@@ -4123,7 +4196,7 @@ export function App() {
             const gapFooter = pageHfOf(k, 'footer')
             const gapHeader = pageHfOf(k + 1, 'header')
             const hfEls: HTMLElement[] = []
-            if (hfHasVisibleContent(gapFooter.value, gapFooter.images)) {
+            if (gapStripNeeded(gapFooter, edgeFooterHf)) {
               const box = sectionPageBox(prevSec)
               const el = makeGapHfEl({
                 kind: 'footer',
@@ -4149,7 +4222,7 @@ export function App() {
               el.style.setProperty('--hf-ml', `${bodyLeftOf(prevSec, k)}px`)
               hfEls.push(el)
             }
-            if (hfHasVisibleContent(gapHeader.value, gapHeader.images)) {
+            if (gapStripNeeded(gapHeader, edgeHeaderHf)) {
               const box = sectionPageBox(nextSec)
               // the strip cannot start below the body top: a top margin under headerDist pins it higher
               const headerStripTop = Math.min(box.headerDist, metrics.marginTop)
@@ -4190,9 +4263,12 @@ export function App() {
                 ? {
                     hfEls,
                     // key must cover everything baked into the widgets (both pages'
-                    // formatted numbers + total count, both sections' strip geometry),
-                    // or stale PAGE/NUMPAGES / strip insets survive reuse
-                    hfKey: `${pageNoTextOf(k)}·${pageNoTextOf(k + 1)}·${visiblePages}·${hfSig(gapFooter.value)}·${hfSig(gapHeader.value)}·f${floatSig(gapHeader.floats)}·g${mixedWidths ? 1 : 0}:${stripGeomSig(prevSec, k)}:${stripGeomSig(nextSec, k + 1)}`,
+                    // formatted numbers + total count, both sections' strip geometry,
+                    // and the (section, variant) each strip edits — a Different First
+                    // Page / Odd & Even toggle can swap the variant behind identical
+                    // text), or stale PAGE/NUMPAGES / strip insets / edit targets
+                    // survive reuse
+                    hfKey: `${pageNoTextOf(k)}·${pageNoTextOf(k + 1)}·${visiblePages}·${gapFooter.section}${gapFooter.variant[0]}·${gapHeader.section}${gapHeader.variant[0]}·${hfSig(gapFooter.value)}·${hfSig(gapHeader.value)}·f${floatSig(gapHeader.floats)}·g${mixedWidths ? 1 : 0}:${stripGeomSig(prevSec, k)}:${stripGeomSig(nextSec, k + 1)}`,
                   }
                 : {}
             // previous page's footnotes: rendered into the top of the gap (page-bottom area), with the gap enlarged by the reserved height.
@@ -4723,6 +4799,12 @@ export function App() {
           suppressSig = sig
           followUp('suppress')
         }
+        // a fill just applied to a split row changed the table height under the slices
+        const fSig = rowFillsSig(rowFills)
+        if (fSig !== rowFillSig) {
+          rowFillSig = fSig
+          followUp('rowFills')
+        }
         // freshly applied wrap widths (section widths, unequal column widths,
         // vertical-text line lengths) change line breaks: one follow-up remeasure with them in the DOM
         const wSig = [...secWSpecs, ...colSpecs, ...vertSpecs]
@@ -4773,6 +4855,7 @@ export function App() {
           slices,
           fastPasses,
           fastReject,
+          carriedSamples,
           resumePasses,
           resumeReject,
           resumePage,
@@ -4873,7 +4956,12 @@ export function App() {
           : Math.min(EDIT_PASS_DEBOUNCE_MAX_MS, Math.max(300, lastPassMs * EDIT_PASS_DUTY)),
       )
     }
-    remeasure()
+    // while a phased open streams its tail, this effect re-runs as the section
+    // state fills in: a synchronous whole-document pass per run made a long
+    // open quadratic, so the paced scheduler takes it (the last chunk's update
+    // still lands a full pass once the tail has settled)
+    if (isPhasedContentPending()) onUpdate()
+    else remeasure()
     // async @font-face loading triggers a full reflow (line-break points change); pagination
     // must be remeasured, and cached line samples invalidated (block heights may not change)
     // header/footer strips probed under a fallback face re-measure too
@@ -4922,10 +5010,10 @@ export function App() {
         shrinkSig = next
         if (minPos === Infinity) return
         const { doc: pmDoc } = editor.state
-        onUpdate(null, pmDoc.resolve(Math.min(minPos, pmDoc.content.size)).index(0))
+        followUpAt('justify-shrink', pmDoc.resolve(Math.min(minPos, pmDoc.content.size)).index(0))
         return
       }
-      if (props.transaction.getMeta(floatFlowChangedMeta)) onUpdate()
+      if (props.transaction.getMeta(floatFlowChangedMeta)) followUp('float-flow')
     }
     editor?.on('transaction', onShrinkTr)
     return () => {
@@ -5470,7 +5558,7 @@ export function App() {
           setShowAi((v) => !v)
           break
         case 'toggle-dark':
-          setDarkPage((v) => !v)
+          updateDarkPage(!darkPageRef.current)
           break
         case 'insert-table':
           // Word semantics: the menu opens the Insert Table dialog (custom rows/cols)
@@ -5627,6 +5715,7 @@ export function App() {
     runAiProofread,
     toggleTableGridlines,
     tableSectionWidthPx,
+    updateDarkPage,
   ])
 
   // Resolve the bookmark anchor against the original block XML, fall back to
@@ -5855,7 +5944,6 @@ export function App() {
     hfEditorRef.current?.exit()
     setEvenOddHf(on)
     setEvenOddHfDirty(true)
-    setHfView(on ? 'even' : 'default')
     setStatus(on ? t('appEvenOddOn') : t('appEvenOddOff'))
   }
   const onHfAction = (action: HfAction) => {
@@ -6538,7 +6626,7 @@ export function App() {
     onZoom: setZoom,
     onZoomFit: zoomFit,
     onZoomDialog: () => setShowZoomDialog(true),
-    onDarkPage: setDarkPage,
+    onDarkPage: updateDarkPage,
     onAiPreset: (text: string) => {
       // Word's Editor / Translate start working as soon as they're clicked
       setShowAi(true)
@@ -7018,51 +7106,10 @@ export function App() {
                           {watermark}
                         </div>
                       )}
-                      {!readMode && (
-                        <div
-                          className={`hf-variant-chips${titlePg || evenOddHf ? '' : ' hf-chips-idle'}`}
-                        >
-                          {/* Always-available entry point: the ribbon checkbox alone was
-                          undiscoverable while editing the header, so the toggle also lives here
-                          (revealed on header hover until enabled) */}
-                          <button
-                            className={`hf-first-toggle${titlePg ? ' on' : ''}`}
-                            data-tip={t('ribbonDiffFirstPageTip')}
-                            onClick={() => toggleTitlePg(!titlePg)}
-                          >
-                            {titlePg ? '✓ ' : ''}
-                            {t('ribbonDiffFirstPage')}
-                          </button>
-                          {titlePg && (
-                            <button
-                              className={headerAreaView === 'first' ? 'on' : ''}
-                              onClick={() => setHfView('first')}
-                            >
-                              {t('appFirstPage')}
-                            </button>
-                          )}
-                          {(titlePg || evenOddHf) && (
-                            <button
-                              className={headerAreaView === 'default' ? 'on' : ''}
-                              onClick={() => setHfView('default')}
-                            >
-                              {evenOddHf ? t('appOddPage') : t('appDefaultPage')}
-                            </button>
-                          )}
-                          {evenOddHf && (
-                            <button
-                              className={headerAreaView === 'even' ? 'on' : ''}
-                              onClick={() => setHfView('even')}
-                            >
-                              {t('appEvenPage')}
-                            </button>
-                          )}
-                        </div>
-                      )}
                       {/* Boolean(): a trailing 0 (empty non-floating image list) must not render as a literal "0" text node */}
                       {Boolean(
                         multiHf ||
-                        (hfViewTouched && effHfView !== 'default') ||
+                        headerAreaView !== 'default' ||
                         hfAreaEditRequest?.kind === 'header' ||
                         hfHasVisibleContent(shownHeader, hfImagesOf('header')),
                       ) && (
@@ -7127,7 +7174,7 @@ export function App() {
                       />
                       {Boolean(
                         multiHf ||
-                        (hfViewTouched && effHfView !== 'default') ||
+                        footerAreaView !== 'default' ||
                         hfAreaEditRequest?.kind === 'footer' ||
                         hfHasVisibleContent(shownFooter, hfImagesOf('footer')),
                       ) && (
@@ -7580,10 +7627,12 @@ export function App() {
           colMode={viewMode === 'print' ? colMode : 'none'}
           hf={{
             header: hfPhantom ? hfWithPhantom(header, hfPhantom, doc.parsed.headerImages) : header,
-            footer,
+            footer: hfPhantom ? hfFooterLine(footer, hfPhantom) : footer,
             ...hfVariants,
             ...(hfPhantom
               ? {
+                  footerFirst: hfFooterLine(hfVariants.footerFirst, hfPhantom),
+                  footerEven: hfFooterLine(hfVariants.footerEven, hfPhantom),
                   headerFirst: hfWithPhantom(
                     hfVariants.headerFirst,
                     hfPhantom,

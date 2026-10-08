@@ -2,7 +2,7 @@
 /// External targets live as TargetMode="External" relationships referenced by
 /// r:id; internal anchors use the `location` attribute and need no rel.
 
-import { nextFreeRelationshipId } from './xlsx-sheets'
+import { escapeRegExp, nextFreeRelationshipId } from './xlsx-sheets'
 
 export { ensureRelationshipNamespace } from './xlsx-namespace'
 
@@ -48,7 +48,12 @@ export function applyHyperlinkEdits(
   }
   const dropUnusedRel = (relId: string): void => {
     if (rels === null || relIdsInUse().has(relId)) return
-    const next = rels.replace(new RegExp(`<Relationship\\b[^>]*\\bId="${relId}"[^>]*/>`), '')
+    // Quote-agnostic like the id scan in xlsx-sheets.ts: a single-quoted
+    // r:id is document-controlled; unescaped it could match every relationship.
+    const next = rels.replace(
+      new RegExp(`<Relationship\\b[^>]*\\bId=["']${escapeRegExp(relId)}["'][^>]*/>`),
+      '',
+    )
     if (next !== rels) {
       rels = next
       relsChanged = true

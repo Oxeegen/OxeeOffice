@@ -53,6 +53,22 @@ describe('buildSearchIndex', () => {
     expect(index[0]!.text).toBe('line1\n\nline2')
   })
 
+  it('keeps text from an item that carries no transform', async () => {
+    // Geometry is missing but the glyphs are real: dropping the text made the
+    // item unsearchable while its hasEOL newline still shifted the line breaks.
+    const doc = fakeDoc([
+      [{ str: 'invisible', width: 40, height: 12, hasEOL: true }, item('Visible', 10, 700, 60, 12)],
+    ])
+    const index = await buildSearchIndex(doc)
+
+    expect(index[0]!.text).toBe('invisible\nVisible')
+    expect(index[0]!.lower).toBe('invisible\nvisible')
+    // No box to highlight for the geometry-less item, but the following item's
+    // char range still accounts for the text that was kept.
+    expect(index[0]!.items).toEqual([{ start: 10, end: 17, x: 10, y: 700, w: 60, h: 12 }])
+    expect(searchInIndex(index, 'Visible')).toHaveLength(1)
+  })
+
   it('derives height from the transform when height is missing', async () => {
     const doc = fakeDoc([[{ str: 'x', transform: [1, 0, 3, 4, 0, 0], width: 5 }]])
     const index = await buildSearchIndex(doc)

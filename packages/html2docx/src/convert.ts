@@ -117,9 +117,10 @@ export function normalizeIr(raw: unknown): ValidatedIr[] {
       )
     }
     // Numeric geometry flows from page JS into division (renderer scale =
-    // maxPx / node.width) and image dimensions. Reject NaN/Infinity/negative
-    // here so a hostile page cannot produce corrupt-geometry docx.
-    for (const key of ['width', 'height', 'widthFrac', 'heightPx', 'xPx', 'yPx'] as const) {
+    // maxPx / node.width), image dimensions and a spacer's exact line height.
+    // Reject NaN/Infinity/negative here so a hostile page cannot produce
+    // corrupt-geometry docx.
+    for (const key of ['width', 'height', 'widthFrac', 'heightPx', 'xPx', 'yPx', 'px'] as const) {
       const v = candidate[key]
       if (v !== undefined && v !== null) {
         const n = Number(v)
@@ -580,7 +581,11 @@ export async function convertHtmlToDocx(
               backdrop.setAttribute('style', backdrop.getAttribute('data-h2d-old-style') || '')
               backdrop.removeAttribute('data-h2d-old-style')
             }
-            for (const child of document.body.children as HTMLCollectionOf<HTMLElement>) {
+            // Page JS may append body children between set and restore; only
+            // stamped nodes were touched.
+            for (const child of document.querySelectorAll<HTMLElement>(
+              '[data-h2d-old-visibility]',
+            )) {
               child.style.visibility = child.getAttribute('data-h2d-old-visibility') || ''
               child.removeAttribute('data-h2d-old-visibility')
             }

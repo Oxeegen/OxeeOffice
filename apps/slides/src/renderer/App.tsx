@@ -1,6 +1,4 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-// OxeeOffice brand hook: follow AI settings changes (model picker)
-import { useAiSettingsRefresh } from '@genoffice/ui'
 import type {
   GroupRenderNode,
   RenderFill,
@@ -11,6 +9,7 @@ import type {
   PictureRenderNode,
   TableRenderNode,
 } from '@genoffice/pptx-render'
+import { animGalleryKind } from './animation-play'
 import { handleSlidesControl, type ControlRequest } from './control'
 import type {
   AiSettings,
@@ -33,6 +32,7 @@ import type {
   SlideComment,
   TransitionKind,
 } from '../shared/ipc'
+import { baseName } from '../shared/base-name'
 import { SlideCanvas, selectionChromeColor, type SlideCanvasHandle } from './SlideCanvas'
 import { tableCellOverlayBox } from './table-hit'
 import { ZOOM_PREVIEW_EVENT } from './zoom-preview'
@@ -102,6 +102,8 @@ import {
   useAutoSavePref,
   type AiScopeQuoteData,
   type WordArtPreset,
+  aiPanelInitiallyOpen,
+  rememberAiPanelOpen,
 } from '@genoffice/ui'
 import type { ChartPresetDef, IconDef, SmartArtDef } from './insert-presets'
 import { GensparkMark, IconAiBeautify, IconAiFactCheck, IconAiImage } from './components/icons'
@@ -147,6 +149,14 @@ import * as tableActions from './table-actions'
 import * as styleActions from './style-actions'
 import { handleGlobalKeydown, slideRailHasFocus } from './keyboard-actions'
 import { clickSelection, currentAfterHistory, normalizeSelection } from '../shared/slide-selection'
+import {
+  notesBaselineAfterFlush,
+  notesDraftIndex,
+  retargetNotesDraft,
+  startNotesDraft,
+  type LoadedNotes,
+  type NotesDraft,
+} from '../shared/notes-draft'
 import { useEscOverlay, useEscOverlayOpen } from './esc-overlay'
 import { buildCtxItems } from './context-menu-items'
 import { isMac, nextSelection } from './platform-modifiers'
@@ -462,7 +472,7 @@ export function App() {
   useEffect(() => {
     window.slidesApi.setAutoSavePref?.(autoSave)
   }, [autoSave])
-  const [showAi, setShowAi] = useState(() => localStorage.getItem('ai-slides-show-ai') !== '0')
+  const [showAi, setShowAi] = useState(() => aiPanelInitiallyOpen('ai-slides-show-ai'))
   const [showFormat, setShowFormat] = useState(false)
   const [showBgFormat, setShowBgFormat] = useState(false)
   const [aiSettings, setAiSettings] = useState<AiSettings | null>(null)
@@ -552,7 +562,9 @@ export function App() {
   const [showNotes, setShowNotes] = useState(true)
   const [notesText, setNotesText] = useState('')
   /** Unsaved notes draft (flushed before page switch/save) */
-  const notesDraftRef = useRef<{ index: number; text: string } | null>(null)
+  const notesDraftRef = useRef<NotesDraft | null>(null)
+  /** Notes as last read from the document, so a draft knows what it started from */
+  const notesLoadedRef = useRef<LoadedNotes | null>(null)
   /** Notes pane height (px): default shows ~4 lines (PowerPoint-like), drag-resizable */
   const [notesHeight, setNotesHeight] = useState(100)
   const notesDragRef = useRef<{ startY: number; startH: number } | null>(null)
@@ -656,7 +668,12 @@ export function App() {
     if (!pending) return
     notesDraftRef.current = null
     const ok = await window.slidesApi.setNotes({ slideIndex: pending.index, text: pending.text })
-    if (ok) setDirty(true)
+    if (!ok) return
+    setDirty(true)
+    // read back: the document normalizes what it stores (trailing empty paragraphs), and the
+    // baseline must match what a later getNotes returns
+    const stored = await window.slidesApi.getNotes(pending.index)
+    notesLoadedRef.current = notesBaselineAfterFlush(notesLoadedRef.current, pending.index, stored)
   }, [])
 
   // Uncapped proportional fit ratio from the stage container's measured size
@@ -853,7 +870,7 @@ export function App() {
       setStatus(
         result.path
           ? t('appStatusOpened', {
-              name: result.path.split('/').pop()!,
+              name: baseName(result.path),
               count: result.slides.length,
             })
           : t('appStatusNewBlank'),
@@ -1250,12 +1267,12 @@ export function App() {
   )
 
   useEffect(() => {
-    void window.slidesApi.getAiSettings().then(setAiSettings)
+    const loadSettings = () => void window.slidesApi.getAiSettings().then(setAiSettings)
+    loadSettings()
+    return window.slidesApi.onAiSettingsChanged?.(loadSettings)
   }, [])
   // OxeeOffice brand hook: settings were read once at mount, so a model picked
   // in another tab or in Settings was ignored until reload
-  const refreshAiSettings = useCallback(() => void window.slidesApi.getAiSettings().then(setAiSettings), [])
-  useAiSettingsRefresh(refreshAiSettings)
 
   // Recent files for the start screen
   useEffect(() => {
@@ -1264,7 +1281,7 @@ export function App() {
 
   const toggleAi = useCallback(() => {
     setShowAi((v) => {
-      localStorage.setItem('ai-slides-show-ai', v ? '0' : '1')
+      rememberAiPanelOpen('ai-slides-show-ai', !v)
       return !v
     })
   }, [])
@@ -1279,7 +1296,7 @@ export function App() {
       scope?: AiScopeQuoteData,
     ) => {
       setShowAi(() => {
-        localStorage.setItem('ai-slides-show-ai', '1')
+        rememberAiPanelOpen('ai-slides-show-ai', true)
         return true
       })
       setAiPreset({
@@ -1419,7 +1436,7 @@ export function App() {
       })
       // The queue lives in the panel; annotating with it collapsed would look like nothing happened
       setShowAi(() => {
-        localStorage.setItem('ai-slides-show-ai', '1')
+        rememberAiPanelOpen('ai-slides-show-ai', true)
         return true
       })
     },
@@ -1519,11 +1536,25 @@ export function App() {
     setSelectedIds([])
     setEditing(null)
     setDirty(true)
-    // The deck is the new truth: drop an in-progress notes draft (same as undo) so a stale
-    // draft can't overwrite what the AI batch wrote via setNotes on the next flush, then
-    // re-fetch notes/comments, which aren't part of RenderSlide.
+    // Notes/comments aren't part of RenderSlide, so the re-fetch below reads them back. A
+    // notes draft the user is typing survives unless the batch rewrote that slide's notes
+    // (or removed the slide): park it while the stored text is compared, so the re-fetch's
+    // flush can't write a stale draft over what the batch wrote via setNotes.
+    const draft = notesDraftRef.current
     notesDraftRef.current = null
-    setAnnotationsNonce((n) => n + 1)
+    if (!draft) {
+      setAnnotationsNonce((n) => n + 1)
+      return
+    }
+    const index = notesDraftIndex(draft, all)
+    void (index < 0 ? Promise.resolve('') : window.slidesApi.getNotes(index)).then((stored) => {
+      const kept = retargetNotesDraft(draft, all, stored)
+      const typedSince = notesDraftRef.current
+      if (kept && (!typedSince || typedSince.index === draft.index)) {
+        notesDraftRef.current = typedSince ? { ...typedSince, index: kept.index } : kept
+      }
+      setAnnotationsNonce((n) => n + 1)
+    })
   }, [])
 
   const addSlide = useCallback(() => slideActions.addSlide(ctxRef.current), [])
@@ -1792,7 +1823,8 @@ export function App() {
   /** Selected shape's current animation effect (gallery highlight: first match). */
   const selectedAnimEffect = useMemo(() => {
     if (selectedIds.length === 0) return null
-    return animations.find((a) => a.sourceId === selectedIds[0])?.effect ?? null
+    const first = animations.find((a) => a.sourceId === selectedIds[0])
+    return first ? animGalleryKind(first) : null
   }, [selectedIds, animations])
 
   const toggleAnimPane = useCallback(() => {
@@ -1923,7 +1955,9 @@ export function App() {
     void flushNotes()
       .then(() => window.slidesApi.getNotes(current))
       .then((t) => {
-        if (!cancelled) setNotesText(t)
+        if (cancelled) return
+        notesLoadedRef.current = { index: current, text: t }
+        setNotesText(t)
       })
     return () => {
       cancelled = true
@@ -1933,7 +1967,13 @@ export function App() {
   const onNotesChange = useCallback(
     (text: string) => {
       setNotesText(text)
-      notesDraftRef.current = { index: current, text }
+      notesDraftRef.current = startNotesDraft(
+        notesDraftRef.current,
+        notesLoadedRef.current,
+        current,
+        text,
+        ctxRef.current.slides[current]?.partPath,
+      )
     },
     [current],
   )

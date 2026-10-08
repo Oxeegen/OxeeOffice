@@ -10,6 +10,12 @@ import type { AgentToolCall, AgentToolDef } from '../../shared/ipc'
 import { OP_GROUPS, opGuide, opGuideCatalog, opSignatureIndex } from '@genoffice/pptx-ops/op-docs'
 import { auditSlideLayout, formatAudit } from '@genoffice/pipelines/slides/layout-audit'
 import { runLayoutScript, type LayoutScriptElement } from './layout-script'
+import {
+  extractLayoutSkeleton,
+  formatSkeletonForPrompt,
+  skeletonRole,
+  type LayoutSkeleton,
+} from './layout-skeleton'
 // OxeeOffice brand hook: pages see the pages written before them
 import { pickReferencePages, type DeckPageSpec } from './oxee-deck-references'
 import { t } from '../i18n/locale'
@@ -145,6 +151,8 @@ export interface DeckAccess {
     topic?: string
     canvasW: number
     canvasH: number
+    /** Formatted template-chrome block (layout-skeleton.ts) for this page's role; absent without a template */
+    skeleton?: string
     signal?: AbortSignal
   }): Promise<{ ok: boolean; marker?: string; error?: string }>
   /**
@@ -166,6 +174,8 @@ export interface DeckAccess {
     topic?: string
     canvasW: number
     canvasH: number
+    /** Formatted template-chrome block (layout-skeleton.ts) for this page's role; absent without a template */
+    skeleton?: string
     signal?: AbortSignal
     /** OxeeOffice brand hook: specs of the pages already written, to match */
     references?: DeckPageSpec[]
@@ -211,21 +221,29 @@ export interface DeckAccess {
   saveSidecar?(data: { topic: string; styleSkill: string; createdAt: string }): Promise<void>
   /**
    * Save styleSkill into userData/style-templates/<name>.json for later reuse.
+   * `layout` is the deck's extracted chrome skeleton (title/brand-image slots,
+   * accents, backgrounds) — generation uses it to keep those elements consistent
+   * across pages (see layout-skeleton.ts).
    */
   saveStyleTemplate?(
     name: string,
-    data: { topic: string; styleSkill: string; createdAt: string },
+    data: { topic: string; styleSkill: string; createdAt: string; layout?: LayoutSkeleton },
   ): Promise<{ ok: boolean; error?: string }>
   /**
    * List saved Style templates (name + topic + createdAt).
    */
   listStyleTemplates?(): Promise<Array<{ name: string; topic: string; createdAt: string }>>
   /**
-   * Load the content of a given Style template.
+   * Load the content of a given Style template (styleSkill text plus, for
+   * templates saved by a build with skeleton support, the layout skeleton).
    */
-  loadStyleTemplate?(
-    name: string,
-  ): Promise<{ ok: boolean; styleSkill?: string; topic?: string; error?: string }>
+  loadStyleTemplate?(name: string): Promise<{
+    ok: boolean
+    styleSkill?: string
+    topic?: string
+    layout?: LayoutSkeleton
+    error?: string
+  }>
   fitWidthPx: number
   /** Base retry backoff in ms for single-page generation failures (default 2000; tests pass 0 to disable backoff) */
   retryBackoffMs?: number
@@ -631,7 +649,7 @@ const TOOLS: AgentToolDef[] = [
         style_template: {
           type: 'string',
           description:
-            "Optional: name of a saved style template (from list_style_templates); when passed, Step 0 is skipped and the template's styleSkill is used directly, no style regeneration",
+            "Optional: name of a saved style template (from list_style_templates); when passed, Step 0 is skipped and the template's styleSkill is used directly, no style regeneration. A template saved from a finished deck also carries its layout skeleton, which pins the title/brand-image geometry on every page for a consistent look",
         },
         dataSource: {
           type: 'string',
@@ -645,7 +663,7 @@ const TOOLS: AgentToolDef[] = [
   {
     name: 'save_style_template',
     description:
-      '[Save the current deck\'s style as a reusable template] Saves the current presentation\'s Style Skill (visual style guide) under the given name; next time you generate a deck, pass the style_template argument to reuse it directly and skip style generation. Call when the user says "save this style" / "save as template".',
+      '[Save the current deck\'s style as a reusable template] Saves the current presentation\'s Style Skill (visual style guide) under the given name, plus the deck\'s layout skeleton (recurring title box, brand-image slot, accent shapes and backgrounds). Next time you generate a deck, pass the style_template argument to reuse both directly and skip style generation. Call when the user says "save this style" / "save as template".',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1877,11 +1895,13 @@ async function executeTool(
       // When full pages+style are passed, respect the user's style (don't regenerate).
       // When style_template is passed, load the template directly and skip Step 0 (no LLM style generation).
       let styleSkill = ''
+      let templateSkeleton: LayoutSkeleton | undefined
       if (styleTemplateName && access.loadStyleTemplate) {
         // Preferred: load from a saved template (fail-open: on load failure continue normal generation)
         try {
           const tr = await access.loadStyleTemplate(styleTemplateName)
           if (tr.ok && tr.styleSkill) styleSkill = tr.styleSkill
+          if (tr.ok && tr.layout) templateSkeleton = tr.layout
         } catch {
           /* fail-open */
         }
@@ -2204,6 +2224,12 @@ async function executeTool(
               .map((x) => String(x))
               .filter((x) => /^https?:\/\//.test(x))
           : []
+        // The template's chrome block for this page's role (cover/content/closing):
+        // the exact boxes every page of the role must reuse for a consistent look
+        const skeleton = templateSkeleton
+          ? formatSkeletonForPrompt(templateSkeleton, skeletonRole(pageIndex - 1, total)) ||
+            undefined
+          : undefined
         const pageArgs = {
           pageIndex,
           totalPages: total,
@@ -2217,6 +2243,7 @@ async function executeTool(
           ...(topic ? { topic } : {}),
           canvasW,
           canvasH,
+          ...(skeleton ? { skeleton } : {}),
           ...(signal ? { signal } : {}),
           ...(PAGE_REFS ? { references: pickReferencePages(pageSpecs, pageIndex) } : {}), // OxeeOffice brand hook
         }
@@ -2595,14 +2622,18 @@ async function executeTool(
           t('aiFailSaveTemplate'),
           'The current deck has no Style Skill to save (generate a presentation with generate_deck first)',
         )
+      // Chrome skeleton from the current deck (title box, brand-image slot, accents,
+      // backgrounds) so pages generated from this template stay geometrically consistent
+      const layout = extractLayoutSkeleton(access.getSlides()) ?? undefined
       const r = await access.saveStyleTemplate(name, {
         topic: topicToSave,
         styleSkill: styleSkillToSave,
         createdAt: new Date().toISOString(),
+        ...(layout ? { layout } : {}),
       })
       if (!r.ok) return fail(t('aiFailSaveTemplate'), r.error ?? 'Save failed')
       return {
-        output: `Saved the style "${name}" as a template; next time pass style_template:"${name}" to reuse it directly.`,
+        output: `Saved the style "${name}" as a template${layout ? ' with its layout skeleton (title/brand-image geometry is pinned for future pages)' : ''}; next time pass style_template:"${name}" to reuse it directly.`,
         mutated: false,
         summary: t('aiSumSaveTemplate', { name }),
       }

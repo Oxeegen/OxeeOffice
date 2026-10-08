@@ -2036,10 +2036,18 @@ function ensureDefaultContentType(archive: PackageArchive, ext: string, contentT
   const ct = archive.readText(ctPath)
   if (!ct) return
   if (new RegExp(`<Default\\s[^>]*Extension="${ext}"`, 'i').test(ct)) return
-  // Insert the Default after the root <Types …> open tag (after the first >)
+  // Insert before </Types>. indexOf('>') finds the XML declaration's closing
+  // angle bracket first, so splicing there would put the Default between the
+  // declaration and <Types> — outside the root element — and every OPC reader
+  // would then reject the package (genoffice#1518).
   const def = `<Default Extension="${ext}" ContentType="${contentType}"/>`
-  const at = ct.indexOf('>') + 1
-  archive.entries.set(ctPath, Buffer.from(ct.slice(0, at) + def + ct.slice(at), 'utf8'))
+  archive.entries.set(
+    ctPath,
+    Buffer.from(
+      ct.replace('</Types>', () => `${def}</Types>`),
+      'utf8',
+    ),
+  )
 }
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -2247,10 +2255,10 @@ export function deleteSlide(opened: OpenedPptx, index: number): boolean {
   )?.id
   if (!rid) return false
 
-  const sldTag = new RegExp(`<p:sldId\\s[^>]*r:id="${rid}"[^>]*/>`).exec(pres)?.[0]
+  const sldTag = new RegExp(`<p:sldId\\s[^>]*r:id=["']${rid}["'][^>]*/>`).exec(pres)?.[0]
   if (!sldTag) return false
   archive.entries.set(presPath, Buffer.from(pres.replace(sldTag, ''), 'utf8'))
-  const relTag = new RegExp(`<Relationship\\s[^>]*Id="${rid}"[^>]*/>`).exec(presRels)?.[0]
+  const relTag = new RegExp(`<Relationship\\s[^>]*Id=["']${rid}["'][^>]*/>`).exec(presRels)?.[0]
   if (relTag) {
     archive.entries.set(presRelsPath, Buffer.from(presRels.replace(relTag, ''), 'utf8'))
   }
@@ -2494,7 +2502,7 @@ export function setSlideLayout(
     // ftr/sldNum/dt live outside the content-slot namespace (their idx 2/3/4 must not block body slots)
     if (m && !['ftr', 'sldNum', 'dt'].includes(type))
       taken.add(phSlotKey(type, /\bidx="([^"]*)"/.exec(m[1]!)?.[1] ?? ''))
-    for (const idm of xml.matchAll(/<p:cNvPr\s[^>]*\bid="(\d+)"/g))
+    for (const idm of xml.matchAll(/<p:cNvPr\s[^>]*\bid=["'](\d+)["']/g))
       maxId = Math.max(maxId, Number(idm[1]))
   }
   const missing = layoutPhs.filter((ph) => !taken.has(phSlotKey(ph.type, ph.idx)))
@@ -2834,12 +2842,12 @@ export function editChartElement(
   if (!rels) return false
 
   // Find the r:id in originalXml
-  const rIdInFrame = /r:id="([^"]+)"/.exec(el.anchor.originalXml)
+  const rIdInFrame = /r:id=["']([^"']+)["']/.exec(el.anchor.originalXml)
   if (!rIdInFrame) return false
   const rId = rIdInFrame[1]!
 
   // Find the chart part path in the rels
-  const relRe = new RegExp(`Id="${escapeRegex(rId)}"[^>]*Target="([^"]+)"`)
+  const relRe = new RegExp(`Id=["']${escapeRegex(rId)}["'][^>]*Target=["']([^"']+)["']`)
   const relMatch = relRe.exec(rels)
   if (!relMatch) return false
   const chartPath = resolveTarget(slide.path, relMatch[1]!)
@@ -4106,9 +4114,15 @@ export function pasteElements(
         rid = `rId${++maxRid}`
         const target = rel.external ? rel.target : relTargetFromSlide(landed)
         const mode = rel.external ? ' TargetMode="External"' : ''
+        // Replacement must be a function: a string replacement expands $&, $`,
+        // $' and $$, and an external target is a user-supplied URL, so a $& in
+        // it substituted the matched </Relationships> into the middle of the
+        // Target attribute and left the part malformed. Several other
+        // relationship writers here already pass a function.
         relsXml = relsXml.replace(
           '</Relationships>',
-          `<Relationship Id="${rid}" Type="${rel.type}" Target="${escapeXmlAttr(target)}"${mode}/></Relationships>`,
+          () =>
+            `<Relationship Id="${rid}" Type="${rel.type}" Target="${escapeXmlAttr(target)}"${mode}/></Relationships>`,
         )
         relsDirty = true
         byKey.set(key, rid)
@@ -4118,7 +4132,7 @@ export function pasteElements(
       }
     }
     xml = xml.replace(
-      /(<p:cNvPr\s[^>]*\bid=")\d+(")/g,
+      /(<p:cNvPr\s[^>]*\bid=["'])\d+(["'])/g,
       (_a, pre: string, post: string) => `${pre}${nextId++}${post}`,
     )
     // Pasted elements are new identities: mint fresh creationIds so durable ids

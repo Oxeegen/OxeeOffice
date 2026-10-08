@@ -140,13 +140,23 @@ async function serve(args: Parameters<CommandDef['run']>[0], ctx: CommandContext
       { reason: 'invalid_argument' },
     )
   }
+  const hostFlag = flagString(args, 'host')
+  // an empty host skips the loopback default and binds every interface
+  if (hostFlag !== undefined && hostFlag.trim() === '') {
+    throw new CliError(
+      EXIT.usage,
+      '--host needs a non-empty value (omit the flag to bind 127.0.0.1)',
+      undefined,
+      { reason: 'invalid_argument' },
+    )
+  }
   const { serveHttp } = await import('../mcp/http')
   await serveHttp({
     cwd: ctx.cwd,
     env: ctx.env,
     log: ctx.log,
     port,
-    host: flagString(args, 'host'),
+    host: hostFlag,
     token: tokenFlag ?? (ctx.env.GENOFFICE_MCP_TOKEN?.trim() || undefined),
     compactSchemas,
   })

@@ -12,8 +12,10 @@ import {
   gskSlideGenerate,
   MAX_SLIDE_ARTIFACT_BYTES,
   MAX_TOOL_CLI_NDJSON_BYTES,
+  summarizeGskFailure,
 } from '../src/gsk'
 import { ResponseTooLargeError } from '@genoffice/electron-utils/remote-image'
+import { AiTimeoutError } from '@genoffice/ai-provider'
 
 describe('parseGskOutput', () => {
   it('parses clean JSON', () => {
@@ -93,6 +95,32 @@ describe('parseGskOutput', () => {
     // the previous nested slice-and-reparse scan needed minutes at this size
     expect(elapsed).toBeLessThan(5_000)
   })
+
+  it('gives up on a hostile response in bounded time', () => {
+    // Every line opens a block that never closes, so each candidate re-scans the
+    // rest of the output: N lines of length L cost N x L. gsk output is
+    // model-controlled and capped only by MAX_BUFFER, so the recovery scan has
+    // to be bounded rather than quadratic.
+    const out = Array.from(
+      { length: 16_000 },
+      (_, i) => `{"step":${i},"msg":"still rendering`,
+    ).join('\n')
+    const started = performance.now()
+    expect(() => parseGskOutput(out)).toThrow(/No JSON found/)
+    const elapsed = performance.now() - started
+    // the unbounded scan needed ~25s at this size
+    expect(elapsed).toBeLessThan(1_000)
+  })
+
+  it('still finds a payload buried behind unclosed log lines', () => {
+    const out = [
+      '{"msg":"still rendering',
+      '{"msg":"still rendering',
+      '{"status":"ok","data":{"n":7}}',
+      '[INFO] done',
+    ].join('\n')
+    expect(parseGskOutput(out)).toEqual({ status: 'ok', data: { n: 7 } })
+  })
 })
 
 describe('gskChildEnv', () => {
@@ -170,6 +198,16 @@ describe('parseGskWebSearch', () => {
     expect(parseGskWebSearch({ status: 'ok' }, 5).results).toEqual([])
   })
 
+  it('preserves full urls instead of clipping them to the snippet cap', () => {
+    const long = `https://a.com/${'x'.repeat(3000)}`
+    const raw = { data: { organic_results: [{ title: 'A', link: long, snippet: 's' }] } }
+    const r = parseGskWebSearch(raw, 5)
+    expect(r.results[0]!.url).toBe(long)
+    const huge = `https://a.com/${'x'.repeat(20_000)}`
+    const r2 = parseGskWebSearch({ data: { organic_results: [{ link: huge }] } }, 5)
+    expect(r2.results[0]!.url).toHaveLength(8_192)
+  })
+
   it('clamps maxResults and truncates long fields', () => {
     const big = 'x'.repeat(5000)
     const raw = {
@@ -220,6 +258,18 @@ describe('parseGskImageSearch', () => {
     }
     const images = parseGskImageSearch(raw, 8)
     expect(images.map((i) => i.title)).toEqual(['ok'])
+  })
+
+  it('clamps maxResults like the web parser', () => {
+    const entries = Array.from({ length: 25 }, (_, i) => ({
+      image_url: `https://ok.com/${i}.jpg`,
+      title: `t${i}`,
+    }))
+    const raw = { data: entries }
+    expect(parseGskImageSearch(raw, NaN)).toHaveLength(6)
+    expect(parseGskImageSearch(raw, 1e9)).toHaveLength(20)
+    expect(parseGskImageSearch(raw, 0)).toHaveLength(1)
+    expect(parseGskImageSearch(raw, -3)).toHaveLength(1)
   })
 
   it('keeps benign images whose path or query merely mentions a stock host', () => {
@@ -362,16 +412,17 @@ describe('gskSlideGenerate response caps', () => {
     status: 'ok',
     data: { pptx_url: 'https://www.genspark.ai/api/files/deck.pptx', model: 'claude-opus-4-7' },
   })
+  // a public address literal, so the download path needs no DNS in tests
   const downloadResult = JSON.stringify({
     status: 'ok',
-    data: { download_url: 'https://cdn.example/deck.pptx' },
+    data: { download_url: 'https://8.8.8.8/deck.pptx' },
   })
 
-  function stubSlideGenerate(artifact: () => Response) {
+  function stubSlideGenerate(artifact: () => Response, downloadResultBody = downloadResult) {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(ndjsonResponse(slideResult))
-      .mockResolvedValueOnce(ndjsonResponse(downloadResult))
+      .mockResolvedValueOnce(ndjsonResponse(downloadResultBody))
       .mockImplementationOnce(() => Promise.resolve(artifact()))
     vi.stubGlobal('fetch', fetchMock)
     return fetchMock
@@ -465,6 +516,37 @@ describe('gskSlideGenerate response caps', () => {
       ResponseTooLargeError,
     )
   })
+
+  // The download_url comes from the cloud response, so a compromised or spoofed
+  // endpoint decides which host the main process dials. It must pass the same
+  // SSRF gate as every other model-influenced download.
+  it('never requests a cloud download URL that points at a private address', async () => {
+    process.env.GSK_API_KEY = 'test-key'
+    const fetchMock = stubSlideGenerate(
+      () => new Response(new Uint8Array([1, 2, 3])),
+      JSON.stringify({
+        status: 'ok',
+        data: { download_url: 'http://169.254.169.254/latest/meta-data/iam/security-credentials/' },
+      }),
+    )
+    await expect(gskSlideGenerate({ brief: 'a title slide' })).rejects.toThrow(/blocked/i)
+    const requested = fetchMock.mock.calls.map(([u]) => String(u))
+    expect(requested.some((u) => u.includes('169.254.169.254'))).toBe(false)
+  })
+
+  it('revalidates every redirect hop of a cloud download URL', async () => {
+    process.env.GSK_API_KEY = 'test-key'
+    const fetchMock = stubSlideGenerate(
+      () =>
+        new Response(null, {
+          status: 302,
+          headers: { location: 'http://127.0.0.1:8080/internal.pptx' },
+        }),
+    )
+    await expect(gskSlideGenerate({ brief: 'a title slide' })).rejects.toThrow(/blocked/i)
+    const requested = fetchMock.mock.calls.map(([u]) => String(u))
+    expect(requested.some((u) => u.includes('127.0.0.1'))).toBe(false)
+  })
 })
 
 describe('parseToolCliNdjson', () => {
@@ -488,5 +570,123 @@ describe('parseToolCliNdjson', () => {
 
   it('throws when no result line exists', () => {
     expect(() => parseToolCliNdjson('{"heartbeat":1}\nnot json')).toThrow(/No result line/)
+  })
+})
+
+describe('summarizeGskFailure', () => {
+  // trimmed version of the gateway page Genspark serves for refused calls
+  const HTML_403 = `<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>Genspark</title>
+  </head>
+  <body>
+    <div class="tt">Service unavailable. Please check your internet connection.</div>
+    <form id="codeForm">
+      <input type="text" id="codeInput" maxlength="8" />
+      <button type="submit" class="submit-button">Submit</button>
+    </form>
+  </body>
+  <script>function setCookie(event) { location.reload() }</script>
+</html>`
+
+  it('distills an HTML error page to its status and visible text', () => {
+    const s = summarizeGskFailure(`HTTP 403: ${HTML_403}`)
+    expect(s).toBe(
+      'HTTP 403 (HTML error page): Service unavailable. Please check your internet connection.',
+    )
+    expect(s).not.toContain('<')
+  })
+
+  it('labels an HTML page that carries no status', () => {
+    expect(summarizeGskFailure(HTML_403)).toBe(
+      'an HTML error page: Service unavailable. Please check your internet connection.',
+    )
+  })
+
+  it('keeps a short plain message as it is', () => {
+    expect(summarizeGskFailure('HTTP 500: internal error')).toBe('HTTP 500: internal error')
+    expect(summarizeGskFailure('deck_context must be an object')).toBe(
+      'deck_context must be an object',
+    )
+  })
+
+  it('keeps the [ERROR] lines, drops [INFO] chatter and crash noise', () => {
+    const s = summarizeGskFailure(
+      '[INFO] Uploading a.png...\n[INFO] Calling /file/upload_url...\n[ERROR] Failed to get upload URL: HTTP 403: Forbidden\nAssertion failed: !(handle->flags)',
+    )
+    expect(s).toBe('[ERROR] Failed to get upload URL: HTTP 403: Forbidden')
+  })
+
+  it('collapses multi-line plain text to one line', () => {
+    expect(summarizeGskFailure('first line\nsecond line')).toBe('first line second line')
+  })
+
+  it('clips a long plain message', () => {
+    const s = summarizeGskFailure('x'.repeat(400))
+    expect(s.length).toBe(301)
+    expect(s.endsWith('…')).toBe(true)
+  })
+
+  it('falls back on empty input and stringifies non-strings', () => {
+    expect(summarizeGskFailure(undefined)).toBe('unknown error')
+    expect(summarizeGskFailure(null, '')).toBe('')
+    expect(summarizeGskFailure(404)).toBe('404')
+  })
+
+  it('never returns an empty string when the page has no readable text', () => {
+    expect(summarizeGskFailure('HTTP 502: <html><body><script>x()</script></body></html>')).toBe(
+      'HTTP 502 (HTML error page)',
+    )
+  })
+})
+
+describe('gskSlideGenerate cancellation and timeout', () => {
+  const realFetch = globalThis.fetch
+  afterEach(() => {
+    globalThis.fetch = realFetch
+    delete process.env.GSK_API_KEY
+    vi.useRealTimers()
+  })
+
+  it('refuses an already-aborted signal before issuing the billed POST', async () => {
+    process.env.GSK_API_KEY = 'test-key'
+    let called = 0
+    globalThis.fetch = vi.fn(async () => {
+      called++
+      return new Response('{}', { status: 500 })
+    }) as unknown as typeof fetch
+
+    const already = AbortSignal.abort()
+    expect(already.aborted).toBe(true)
+    await expect(gskSlideGenerate({ brief: 'x', signal: already })).rejects.toThrow(/abort/i)
+    expect(called).toBe(0)
+  })
+
+  it('surfaces its own deadline as AiTimeoutError, not a bare abort', async () => {
+    process.env.GSK_API_KEY = 'test-key'
+    let sawAbort = false
+    globalThis.fetch = vi.fn(
+      (_url: unknown, init?: { signal?: AbortSignal }) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            sawAbort = true
+            reject(new DOMException('The operation was aborted', 'AbortError'))
+          })
+        }),
+    ) as unknown as typeof fetch
+
+    vi.useFakeTimers()
+    const call = gskSlideGenerate({ brief: 'x' }).then(
+      () => null,
+      (e: unknown) => e,
+    )
+    await vi.advanceTimersByTimeAsync(240_000)
+    const err = await call
+    vi.useRealTimers()
+
+    expect(sawAbort).toBe(true)
+    expect(err).toBeInstanceOf(AiTimeoutError)
+    expect((err as Error).message).toMatch(/timed out/i)
   })
 })

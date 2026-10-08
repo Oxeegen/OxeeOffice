@@ -79,29 +79,19 @@ const HOOKS = [
     ],
   },
   {
-    file: 'apps/shell/src/main/index.ts',
-    why: 'every editor tab can be detached, not just docs and sheets',
-    must: ["if (tab && tab.kind !== 'home') detachTabToWindow(id)"],
+    file: 'packages/ai-provider/src/ai-settings-guard.ts',
+    why: "the settings schema check keeps the per-request reasoning switch",
+    must: ["if (typeof raw.thinking === 'boolean') config.thinking = raw.thinking"],
+  },
+  {
+    file: 'packages/ui/src/provider-logos.tsx',
+    why: 'Oxeegen logo in the shared provider logos (model picker, Settings)',
+    must: ["import { OXEE_MARK_DATA_URI } from './oxee-mark'", 'oxeegen: ('],
   },
   {
     file: 'apps/shell/src/main/default-app.ts',
     why: 'the Linux default-app check and claim use our desktop entry',
     must: [`oxeegenLayerEnabled() ? '${brand.linux.desktopName}' : 'genoffice.desktop'`],
-  },
-  {
-    file: 'apps/shell/src/main/detached-windows.ts',
-    why: 'detached-window sizes for the editors upstream did not detach',
-    must: ['slides: { width: 1440, height: 900 }', 'pdf: { width: 1200, height: 940 }'],
-  },
-  {
-    file: 'apps/shell/src/renderer/src/TabBar.tsx',
-    why: 'drag a tab below the strip to detach it',
-    must: [
-      "import { isTearOff } from './oxee-tab-tearoff'",
-      'drag.tearOff = isTearOff(event.clientY - drag.startY, drag.kind)',
-      'void window.aiOfficeTabs.detach(drag.id)',
-      'oxee-tear-off',
-    ],
   },
   {
     file: 'packages/agent-core/src/types.ts',
@@ -171,7 +161,7 @@ const HOOKS = [
   {
     file: 'packages/ai-provider/src/search-settings.ts',
     why: 'Oxeegen (Brave) search entry and defaults',
-    must: ['= withOxeegenSearch([', 'return withOxeegenSearchDefaults({', "['serper', 'serply', 'tavily', 'parallel', 'oxeegen']"],
+    must: ['= withOxeegenSearch([', 'return withOxeegenSearchDefaults({', "['serper', 'serply', 'tavily', 'parallel', 'exa', 'firecrawl', 'oxeegen']"],
   },
   {
     file: 'packages/ai-provider/src/index.ts',
@@ -206,7 +196,7 @@ const HOOKS = [
   {
     file: 'apps/shell/src/renderer/src/SettingsModal.tsx',
     why: 'no Account page, region buttons, no cloud-tools switch, Brave hint',
-    must: ["initialSettingsSection(target?.section ?? 'account')", 'visibleSettingsSections(SECTIONS)', 'id="set-ai-region"', 'id={`set-ai-${cap}-region`}', '{!oxeegenLayerEnabled() && (', '? OXEEGEN_SEARCH_HINT', '? OXEEGEN_CHAT_HINT', "{provider !== 'oxeegen' && ("],
+    must: ["initialSettingsSection(target?.section ?? 'account')", 'setSection(initialSettingsSection(target.section))', 'visibleSettingsSections(SECTIONS)', 'id="set-ai-region"', 'id={`set-ai-${cap}-region`}', '{!oxeegenLayerEnabled() && (', '? OXEEGEN_SEARCH_HINT', '? OXEEGEN_CHAT_HINT', "{provider !== 'oxeegen' && ("],
   },
   {
     file: 'apps/shell/src/renderer/src/Onboarding.tsx',
@@ -224,38 +214,16 @@ const HOOKS = [
     must: ['const settingsOnly = oxeegenLayerEnabled()', '<SettingsGlyph />'],
   },
   {
-    file: 'apps/shell/src/renderer/src/provider-logos.tsx',
-    why: 'Oxeegen provider logo',
-    must: ['oxeegen: ('],
-  },
-  {
     file: 'apps/shell/tests/privacy-doc.test.ts',
     why: 'privacy test asserts the no-analytics statement',
     must: ['sends no usage analytics'],
   },
-  // ── Model picker and Oxee mark in the editors (packages/ui/src/oxee-model-picker.tsx) ──
+  // ── Oxee mark in the editors (packages/ui/src/oxee-mark.tsx); the model picker is upstream's ──
   {
     file: 'packages/ui/src/index.ts',
-    why: 'picker and mark exported',
-    must: ["} from './oxee-model-picker'", "export { OXEE_MARK_DATA_URI } from './oxee-mark'"],
+    why: 'Oxee mark exported',
+    must: ["export { OXEE_MARK_DATA_URI, OxeeMark } from './oxee-mark'"],
   },
-  {
-    file: 'packages/ui/src/dropdown.css',
-    why: 'picker sizing',
-    must: ['.oxee-model-picker {'],
-  },
-  ...[
-    ['apps/docs/src/renderer/ai/AiPanel.tsx', 'desktop'],
-    ['apps/sheets/src/renderer/ai/AiChatPanel.tsx', 'desktopApi'],
-    ['apps/slides/src/renderer/ai/AiPanel.tsx', 'slidesApi'],
-    ['apps/pdf/src/renderer/ai/AiPanel.tsx', 'pdfApi'],
-    ['apps/markdown/src/renderer/ai/AiPanel.tsx', 'markdownApi'],
-    ['apps/html/src/renderer/ai/AiPanel.tsx', 'htmlApi'],
-  ].map(([file, api]) => ({
-    file,
-    why: 'model picker in the AI panel header',
-    must: ['<OxeeModelPicker', `save={(s) => window.${api}.setAiSettings(`],
-  })),
   ...[
     'apps/docs/src/renderer/components/icons.tsx',
     'apps/sheets/src/renderer/ribbon-icons.tsx',
@@ -264,11 +232,6 @@ const HOOKS = [
     'apps/markdown/src/renderer/ai/AiPanel.tsx',
     'apps/html/src/renderer/ai/AiPanel.tsx',
   ].map((file) => ({ file, why: 'Oxee mark in place of the Genspark mark', must: ['if (oxeegenLayerEnabled()) return <OxeeMark size={size} />'] })),
-  ...['apps/docs/src/renderer/App.tsx', 'apps/sheets/src/renderer/App.tsx', 'apps/slides/src/renderer/App.tsx'].map((file) => ({
-    file,
-    why: 'follow model changes made in other tabs',
-    must: ['useAiSettingsRefresh(refreshAiSettings)'],
-  })),
   ...[
     ['apps/docs/src/renderer/ai/AiPanel.tsx', 'settingsRef.current', 'streamText({\n        transport: writerTransportRef.current!'],
     ['apps/markdown/src/renderer/ai/AiPanel.tsx', 'settingsRef.current!', 'streamText({\n        transport: writerTransportRef.current!'],
@@ -278,10 +241,6 @@ const HOOKS = [
     why: 'writer runs with reasoning off',
     must: [`oxeegenRoleSettings(${settings}, 'writer') ?? ${settings}`, call],
   })),
-  ...['pdf', 'markdown', 'html'].flatMap((app) => [
-    { file: `apps/${app}/src/preload/index.ts`, why: 'picker can save', must: ["setAiSettings: (settings: unknown) => ipcRenderer.invoke('ai:set-settings', settings)"] },
-    { file: `apps/${app}/src/shared/ipc.ts`, why: 'picker can save (type)', must: ['setAiSettings(settings: unknown): Promise<void>'] },
-  ]),
   {
     file: 'apps/slides/src/renderer/ai/AiPanel.tsx',
     why: 'style/outline with reasoning; pages and layout check with reasoning off; pages see earlier pages',
@@ -323,13 +282,10 @@ const FORK_FILES = [
   'packages/agent-core/tests/oxee-compaction-purpose.test.ts',
   'apps/slides/tests/oxee-page-concurrency.test.ts',
   'apps/slides/src/renderer/ai/oxee-deck-references.ts',
-  'apps/shell/src/renderer/src/oxee-tab-tearoff.ts',
-  'apps/shell/tests/oxee-tab-tearoff.test.ts',
   'packages/ai-search/src/brave.ts',
   'packages/ai-search/tests/oxeegen-search.test.ts',
   'apps/shell/src/renderer/src/oxeegen-settings.tsx',
-  'packages/ui/src/oxee-model-picker.tsx',
-  'packages/ui/src/oxee-mark.ts',
+  'packages/ui/src/oxee-mark.tsx',
   'apps/shell/electron-builder.brand.cjs',
 ]
 

@@ -87,6 +87,13 @@ export async function printPdf(doc: PDFDocumentProxy, pages?: number[]): Promise
           .filter((n) => Number.isInteger(n) && n >= 1 && n <= doc.numPages)
           .sort((a, b) => a - b)
       : Array.from({ length: doc.numPages }, (_x, i) => i + 1)
+  // A caller-supplied range that filters to nothing used to print an empty document:
+  // both loops no-op and window.print() runs against an empty root. Refuse instead.
+  if (pages && pages.length > 0 && targets.length === 0) {
+    throw new Error(
+      `none of the requested pages (${pages.join(', ')}) exist in this ${doc.numPages}-page document`,
+    )
+  }
   // First pass: measure each page at unit scale to budget the shared scale.
   // Stream one page at a time so no PDFPageProxy outlives its render — the
   // previous two-pass held all pages alive plus 2× viewports.

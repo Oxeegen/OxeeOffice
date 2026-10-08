@@ -224,14 +224,17 @@ export function getFontIndex(): FontIndex {
 // bold toggle on an italic run wants both tokens; an atomic token would score zero).
 // "oblique" folds into "italic": families like Helvetica name their slanted faces
 // Oblique, and an italic want must still count them as hits.
+// "demibold"/"demi" fold the same way and must precede "bold": otherwise 'demibold'
+// contains 'bold' and a Demibold face tokenizes as Bold, tying it on a bold want.
 export const styleTokens = (ps: string): string[] =>
   (
     norm(ps).match(
-      /semibold|extrabold|bold|italic|oblique|light|thin|medium|heavy|black|regular|w\d/g,
+      /semibold|extrabold|demibold|demi|bold|italic|oblique|light|thin|medium|heavy|black|regular|w\d/g,
     ) ?? []
-  ).map((t) => (t === 'oblique' ? 'italic' : t))
+  ).map((t) => (t === 'oblique' ? 'italic' : t === 'demi' ? 'demibold' : t))
 
 const REGULARISH = ['regular', 'medium', 'w3', 'w4']
+const BOLDISH = ['bold', 'semibold', 'demibold', 'extrabold']
 
 /**
  * Token-level style score of a face against wanted tokens, not substring: a
@@ -246,7 +249,16 @@ export function styleScore(face: FaceRef, want: string[]): number {
   const have = styleTokens(face.style)
   const wanted = want.length > 0 ? want : REGULARISH
   const hits = want.filter((t) => have.includes(t)).length
-  const extras = have.filter((t) => !wanted.includes(t)).length
+  // A heavier-than-regular want with no exact face still prefers a neighbouring
+  // weight (Demibold want -> Bold face) over falling all the way back to Regular.
+  const nearWeight =
+    want.some((t) => BOLDISH.includes(t) && !have.includes(t)) &&
+    have.some((t) => BOLDISH.includes(t) && !want.includes(t))
+      ? 1
+      : 0
+  const extras = have.filter(
+    (t) => !wanted.includes(t) && !(nearWeight && BOLDISH.includes(t)),
+  ).length
   const regularBonus = want.length === 0 && have.some((t) => REGULARISH.includes(t)) ? 1 : 0
-  return hits * 4 - extras + regularBonus
+  return hits * 4 + nearWeight * 2 - extras + regularBonus
 }

@@ -82,6 +82,26 @@ pub(crate) fn read_zip_string(
     Ok(value)
 }
 
+/// `ZipFile::size()` is only the declared length and zip bounds just the
+/// compressed input, so an entry may inflate past its claim; reading one byte
+/// past `min(declared, cap)` catches that (same rule as `@genoffice/zip-gate`,
+/// genoffice#781 / genoffice#1386).
+pub(crate) fn copy_entry_bounded<R: Read, W: Write>(
+    entry: &mut R,
+    declared: u64,
+    cap: u64,
+    out: &mut W,
+) -> Result<u64, SidecarError> {
+    let allowance = declared.min(cap);
+    let copied = std::io::copy(&mut entry.take(allowance.saturating_add(1)), out)?;
+    if copied > allowance {
+        return Err(SidecarError::Workbook(
+            "ZIP entry inflates past the size it declares.".into(),
+        ));
+    }
+    Ok(copied)
+}
+
 pub(crate) fn attribute_value<R: std::io::BufRead>(
     reader: &Reader<R>,
     element: &BytesStart<'_>,

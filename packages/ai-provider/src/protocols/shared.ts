@@ -37,14 +37,24 @@ export class ResponseBodyTooLargeError extends Error {
   }
 }
 
+export interface CappedReadOptions {
+  maxBytes?: number
+  onBytes?: () => void
+  /** `truncate` keeps what fit under the cap and never throws (error-body diagnostics). */
+  onOverflow?: 'throw' | 'truncate'
+}
+
 export async function readCappedResponseText(
   response: Response,
-  onBytes?: () => void,
+  options: (() => void) | CappedReadOptions = {},
 ): Promise<string> {
+  const opts = typeof options === 'function' ? { onBytes: options } : options
+  const maxBytes = opts.maxBytes ?? MAX_RESPONSE_BODY_BYTES
+  const truncate = opts.onOverflow === 'truncate'
   const declaredBytes = Number(response.headers.get('content-length'))
-  if (Number.isFinite(declaredBytes) && declaredBytes > MAX_RESPONSE_BODY_BYTES) {
+  if (!truncate && Number.isFinite(declaredBytes) && declaredBytes > maxBytes) {
     if (response.body) await response.body.cancel().catch(() => undefined)
-    throw new ResponseBodyTooLargeError(declaredBytes, MAX_RESPONSE_BODY_BYTES)
+    throw new ResponseBodyTooLargeError(declaredBytes, maxBytes)
   }
   if (!response.body) return ''
 
@@ -56,18 +66,39 @@ export async function readCappedResponseText(
     for (;;) {
       const { done, value } = await reader.read()
       if (done) break
-      onBytes?.()
-      bytes += value.byteLength
-      if (bytes > MAX_RESPONSE_BODY_BYTES) {
-        throw new ResponseBodyTooLargeError(bytes, MAX_RESPONSE_BODY_BYTES)
+      opts.onBytes?.()
+      const total = bytes + value.byteLength
+      if (truncate && total >= maxBytes) {
+        text += decoder.decode(value.subarray(0, maxBytes - bytes), { stream: true })
+        break
       }
+      if (total > maxBytes) throw new ResponseBodyTooLargeError(total, maxBytes)
+      bytes += value.byteLength
       text += decoder.decode(value, { stream: true })
     }
+    return text + decoder.decode()
+  } catch (err) {
+    // truncate mode reports whatever arrived: the caller is already reporting the status
+    if (!truncate) throw err
     return text + decoder.decode()
   } finally {
     await reader.cancel().catch(() => undefined)
     reader.releaseLock()
   }
+}
+
+/** Flatten an OpenAI `content` field to text: gateways may answer with a string or an array of parts. */
+export function openAiContentText(content: unknown): string {
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        const text = (part as { text?: unknown } | null)?.text
+        return typeof text === 'string' ? text : ''
+      })
+      .join('')
+  }
+  return ''
 }
 
 export async function* sseLines(
@@ -124,6 +155,75 @@ export async function* sseLines(
  * cancels the underlying stream on the way out.
  */
 export const MAX_TOOL_JSON_CHARS = 512_000
+
+export interface SseDataEvent {
+  raw: string
+  /** Parsed JSON body, undefined for a non-JSON payload such as `[DONE]` or a keep-alive. */
+  json: unknown
+}
+
+/**
+ * Frames the `data:` payloads of an SSE stream into whole events.
+ *
+ * A server may split one JSON body across several `data:` lines (one event, joined
+ * with a newline), or close every event with a single newline and no blank line at
+ * all. So a value that already parses as JSON is dispatched on its own and only
+ * fragments are held back and joined. The parsed body rides along so callers do
+ * not parse twice. `[DONE]` counts as whole: holding it back as a fragment left a
+ * newline-only stream that keeps its socket open waiting forever.
+ */
+export async function* sseDataEvents(
+  body: NodeJS.ReadableStream | ReadableStream<Uint8Array>,
+  onBytes?: () => void,
+): AsyncGenerator<SseDataEvent> {
+  let parts: string[] = []
+  const flush = (): SseDataEvent | undefined => {
+    if (!parts.length) return undefined
+    const raw = parts.join('\n')
+    parts = []
+    return { raw, json: parseJson(raw) }
+  }
+  for await (const line of sseLines(body, onBytes)) {
+    if (!line.startsWith('data:')) {
+      const held = flush()
+      if (held) yield held
+      continue
+    }
+    const raw = line.slice(5).trim()
+    if (!raw) continue
+    const json = parseJson(raw)
+    if (raw === '[DONE]' || json !== undefined) {
+      const held = flush()
+      if (held) yield held
+      yield { raw, json }
+      continue
+    }
+    // Only a JSON opener starts a fragment; anything else alone is a keep-alive.
+    if (!parts.length && !/^[[{]/.test(raw)) {
+      yield { raw, json }
+      continue
+    }
+    parts.push(raw)
+    // Dispatch as soon as the joined fragments form a body, so a later keep-alive
+    // is not glued onto it.
+    const joined = parts.join('\n')
+    const whole = parseJson(joined)
+    if (whole !== undefined) {
+      parts = []
+      yield { raw: joined, json: whole }
+    }
+  }
+  const held = flush()
+  if (held) yield held
+}
+
+function parseJson(value: string): unknown {
+  try {
+    return JSON.parse(value) as unknown
+  } catch {
+    return undefined
+  }
+}
 
 export function throwIfToolJsonOverBudget(jsonLength: number, provider: string): void {
   if (jsonLength > MAX_TOOL_JSON_CHARS) {

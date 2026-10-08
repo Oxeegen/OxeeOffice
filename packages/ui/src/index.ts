@@ -15,7 +15,13 @@ export {
   type AiPanelPrefs,
   type AiPanelSide,
 } from './ai-panel-prefs'
-export { applyAiPanelPrefs, useAiPanelPrefs, aiPanelWidthAtPointer } from './ai-panel-prefs-store'
+export {
+  applyAiPanelPrefs,
+  aiPanelInitiallyOpen,
+  rememberAiPanelOpen,
+  useAiPanelPrefs,
+  aiPanelWidthAtPointer,
+} from './ai-panel-prefs-store'
 export {
   ColorPicker,
   THEME_COLORS,
@@ -43,17 +49,26 @@ export {
   useRibbonCollapse,
   RibbonCollapseButton,
   RibbonExpandButton,
+  isRibbonCompactShortcut,
   isRibbonToggleShortcut,
   readRibbonCollapsed,
+  readRibbonDensity,
+  RIBBON_COMPACT_SHORTCUT,
   RIBBON_TOGGLE_SHORTCUT,
   type RibbonCollapse,
   type RibbonCollapseLabels,
+  type RibbonDensity,
 } from './ribbon-collapse'
 export { AiTypingIndicator } from './AiTypingIndicator'
 export { IconSend, IconStop, type IconProps } from './icons'
 export { Markdown, type MarkdownNav } from './Markdown'
 export { isSymbolFontFamily } from './symbol-fonts'
-export { BUILTIN_FONT_FAMILIES, fontFamiliesFor } from './font-list'
+export {
+  BUILTIN_FONT_FAMILIES,
+  fontFamiliesFor,
+  partitionFontFamilies,
+  systemFamiliesBesidesCandidates,
+} from './font-list'
 export {
   WORDART_PRESETS,
   wordArtSolidColor,
@@ -103,17 +118,8 @@ export {
   type AutoSaveDefault,
   type AutoSaveDefaultApi,
 } from './auto-save-pref'
-// OxeeOffice brand hook: model picker and Oxee mark (fork-owned files)
-export {
-  modelDisplayName,
-  OXEE_AI_SETTINGS_CHANGED,
-  OxeeMark,
-  OxeeModelPicker,
-  useAiSettingsRefresh,
-  type PickerCatalogEntry,
-  type PickerSettings,
-} from './oxee-model-picker'
-export { OXEE_MARK_DATA_URI } from './oxee-mark'
+// OxeeOffice brand hook: the Oxee mark (fork-owned file)
+export { OXEE_MARK_DATA_URI, OxeeMark } from './oxee-mark'
 export {
   NOTCH,
   clampZoom,
@@ -122,3 +128,12 @@ export {
   notchStep,
   type ZoomWheelIntent,
 } from './wheel-zoom'
+export { AiModelPicker, type AiModelPickerBridge } from './AiModelPicker'
+export {
+  aiModelPickerGroups,
+  aiModelPickerSelection,
+  withAiModelSelection,
+  type AiModelPickerGroup,
+  type AiModelPickerSelection,
+} from './ai-model-picker-options'
+export { ProviderLogo } from './provider-logos'

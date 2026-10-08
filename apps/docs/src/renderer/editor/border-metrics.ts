@@ -65,3 +65,30 @@ export function borderCssStyle(style: string): string {
   if (DASHED.has(style)) return 'dashed'
   return style in COMPOUND_PT ? 'double' : 'solid'
 }
+
+/** One cell diagonal as a CSS background layer, for w:tl2br / w:tr2bl.
+ *
+ *  CSS "magic corner" keywords angle the gradient so its 50% line passes
+ *  through the two corners it does NOT point at, at ANY cell aspect ratio (a
+ *  plain `45deg` gradient would not): `to top right` bands along top-left to
+ *  bottom-right, `to bottom right` along the other one. Band stops are px
+ *  offsets along the gradient axis, whose perpendicular distance is the drawn width.
+ *
+ *  Only the weight and color carry over; a gradient cannot express the dashed
+ *  and compound families, so those draw solid, as Word's own preview does. */
+export function cellDiagonalCss(
+  b: { style: string; szEighths?: number; color?: string } | undefined | null,
+  which: 'tl2br' | 'tr2bl',
+): string | null {
+  if (!isDrawnBorder(b)) return null
+  const half = borderDrawnPx(b) / 2
+  const color = b.color && b.color !== 'auto' ? `#${b.color}` : '#000'
+  const dir = which === 'tl2br' ? 'to top right' : 'to bottom right'
+  const stops = [
+    `transparent calc(50% - ${half}px)`,
+    `${color} calc(50% - ${half}px)`,
+    `${color} calc(50% + ${half}px)`,
+    `transparent calc(50% + ${half}px)`,
+  ]
+  return `linear-gradient(${dir},${stops.join(',')})`
+}

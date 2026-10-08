@@ -15,6 +15,7 @@ use zip::ZipArchive;
 
 pub mod archive;
 pub mod convert;
+pub mod find;
 pub mod recalc;
 mod richdata;
 mod shared_formulas;
@@ -62,6 +63,10 @@ pub enum SidecarError {
     InvalidRequest(String),
     Io(String),
     Workbook(String),
+    /// A cancel that landed after the request was already executing. Kept
+    /// apart from a failure so the host can tell an abandoned open from a
+    /// workbook it could not read.
+    Cancelled,
 }
 
 impl std::fmt::Display for SidecarError {
@@ -70,7 +75,15 @@ impl std::fmt::Display for SidecarError {
             Self::InvalidRequest(message) | Self::Io(message) | Self::Workbook(message) => {
                 formatter.write_str(message)
             }
+            Self::Cancelled => formatter.write_str("Request was cancelled by the client."),
         }
+    }
+}
+
+impl SidecarError {
+    /// The cooperative abort an in-flight request reports.
+    pub fn cancelled() -> Self {
+        Self::Cancelled
     }
 }
 
@@ -100,6 +113,60 @@ impl From<serde_json::Error> for SidecarError {
     }
 }
 
+/// Owns an open's cache directory from the moment it is created until the
+/// open commits it to a session. Drop-based so every exit after creation — a
+/// cooperative cancel, a failed read, a panic — reclaims the directory; only
+/// `commit` lets it outlive the open, and a committed one is removed by
+/// `WorkbookSession::close`.
+#[derive(Debug)]
+struct CacheDirectory {
+    path: PathBuf,
+    committed: bool,
+}
+
+impl CacheDirectory {
+    fn create(path: PathBuf) -> Result<Self, SidecarError> {
+        fs::create_dir(&path)?;
+        Ok(Self {
+            path,
+            committed: false,
+        })
+    }
+
+    fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// Hands the directory over to a session; only now may it outlive the open.
+    fn commit(&mut self) {
+        self.committed = true;
+    }
+}
+
+impl Drop for CacheDirectory {
+    fn drop(&mut self) {
+        if !self.committed && self.path.exists() {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+}
+
+/// Creates the cache directory an open needs. This is the one boundary where
+/// the open touches the filesystem, so it is the one abort that happens after
+/// the directory exists: returning here drops the guard, which reclaims it,
+/// making the cancel path as clean as the success path.
+fn create_cache_directory(
+    session_id: &str,
+    cancelled: &AtomicBool,
+) -> Result<CacheDirectory, SidecarError> {
+    let path = std::env::temp_dir().join(format!("genspark-ai-excel-{session_id}"));
+    let directory = CacheDirectory::create(path)?;
+    if cancelled.load(Ordering::Acquire) {
+        return Err(SidecarError::cancelled());
+    }
+    Ok(directory)
+}
+
 pub struct WorkbookSessions {
     sessions: HashMap<String, WorkbookSession>,
 }
@@ -111,20 +178,42 @@ impl WorkbookSessions {
         }
     }
 
-    pub fn open(&mut self, path: &Path) -> Result<WorkbookMetadata, SidecarError> {
-        self.open_with_locale(path, "zh", None)
+    #[cfg(test)]
+    /// Sessions currently registered. A cancelled open must leave none, or a
+    /// later read-range would hit a session the host never opened.
+    fn session_count(&self) -> usize {
+        self.sessions.len()
     }
 
+    pub fn open(&mut self, path: &Path) -> Result<WorkbookMetadata, SidecarError> {
+        self.open_with_locale(path, "zh", None, &AtomicBool::new(false))
+    }
+
+    /// Opens a workbook, polling `cancelled` at stage boundaries so a cancel
+    /// that lands once the host has already dequeued this request still
+    /// abandons the open instead of running it to completion for a result
+    /// nobody will read. A cancel arriving past the last boundary lets the
+    /// open finish, as before.
     pub fn open_with_locale(
         &mut self,
         path: &Path,
         locale: &str,
         short_date_format: Option<&str>,
+        cancelled: &AtomicBool,
     ) -> Result<WorkbookMetadata, SidecarError> {
+        // Before any work: the host may have cancelled before this ran at all.
+        if cancelled.load(Ordering::Acquire) {
+            return Err(SidecarError::cancelled());
+        }
         let canonical_path = path.canonicalize()?;
         let file = File::open(&canonical_path)?;
         let mut archive = ZipArchive::new(file)?;
         archive::validate_entries(&mut archive)?;
+        // The archive is open and validated and nothing has been written to
+        // disk yet, so abandoning here costs only the parse already done.
+        if cancelled.load(Ordering::Acquire) {
+            return Err(SidecarError::cancelled());
+        }
         let entry_count = archive.len();
         let mut color_context = visuals::read_theme_palette(&mut archive)?;
         visuals::read_indexed_palette(&mut archive, &mut color_context)?;
@@ -149,8 +238,15 @@ impl WorkbookSessions {
         let mut runtimes = Vec::with_capacity(declarations.len());
         let mut visual_sources = Vec::with_capacity(declarations.len());
         let mut sheet_names = Vec::with_capacity(declarations.len());
+        let mut stored_cell_budget = STORED_CELL_COUNT_BUDGET;
 
         for declaration in declarations {
+            // One poll per worksheet rather than between reads: a
+            // many-sheet workbook spends most of its open in this loop, and
+            // a poll per statement would cost more than it saves.
+            if cancelled.load(Ordering::Acquire) {
+                return Err(SidecarError::cancelled());
+            }
             let target = relationships
                 .get(&declaration.relationship_id)
                 .ok_or_else(|| {
@@ -161,7 +257,12 @@ impl WorkbookSessions {
                 })?;
             let worksheet_path = normalize_worksheet_path(target)?;
             let source_xml_bytes = zip_entry(&mut archive, &worksheet_path)?.size();
-            let dimensions = read_sheet_dimensions(&mut archive, &worksheet_path, &color_context)?;
+            let dimensions = read_sheet_dimensions(
+                &mut archive,
+                &worksheet_path,
+                &color_context,
+                &mut stored_cell_budget,
+            )?;
             let tables = read_sheet_tables(
                 &mut archive,
                 &worksheet_path,
@@ -170,7 +271,7 @@ impl WorkbookSessions {
             )?;
             let comments = visuals::read_comments(&mut archive, &worksheet_path)?
                 .into_iter()
-                .filter_map(|(reference, author, text)| {
+                .filter_map(|(reference, author, text, thread)| {
                     let anchor = reference.split(':').next().unwrap_or(&reference);
                     let (row, column) = parse_address(&anchor.replace('$', "")).ok()?;
                     Some(CommentInfo {
@@ -178,6 +279,7 @@ impl WorkbookSessions {
                         column,
                         author,
                         text,
+                        thread,
                     })
                 })
                 .collect();
@@ -239,6 +341,7 @@ impl WorkbookSessions {
                 row_count,
                 column_count,
                 source_xml_bytes,
+                stored_cell_count: dimensions.stored_cell_count,
                 column_widths: dimensions.column_widths,
                 default_row_height: dimensions.default_row_height,
                 default_row_height_fixed: dimensions.default_row_height_fixed,
@@ -246,12 +349,17 @@ impl WorkbookSessions {
                 base_column_width: dimensions.base_column_width,
                 freeze: dimensions.freeze,
                 hidden: declaration.hidden,
+                very_hidden: declaration.very_hidden,
                 tab_color: dimensions.tab_color,
                 show_grid_lines: dimensions.show_grid_lines,
                 show_formulas: dimensions.show_formulas,
                 show_row_col_headers: dimensions.show_row_col_headers,
                 right_to_left: dimensions.right_to_left,
                 zoom_scale: dimensions.zoom_scale,
+                outline_level_row: dimensions.outline_level_row,
+                outline_level_col: dimensions.outline_level_col,
+                outline_summary_below: dimensions.outline_summary_below,
+                outline_summary_right: dimensions.outline_summary_right,
                 tables,
                 comments,
                 pivot_ranges,
@@ -299,9 +407,13 @@ impl WorkbookSessions {
             sheet.has_scoped_defined_names = scoped_sheets.contains(&sheet_index);
         }
 
+        // Last boundary before the open touches the filesystem; past here the
+        // only way to stop it is create_cache_directory's own poll.
+        if cancelled.load(Ordering::Acquire) {
+            return Err(SidecarError::cancelled());
+        }
         let session_id = Uuid::new_v4().to_string();
-        let cache_directory = std::env::temp_dir().join(format!("genspark-ai-excel-{session_id}"));
-        fs::create_dir(&cache_directory)?;
+        let mut cache_directory = create_cache_directory(&session_id, cancelled)?;
         let name = canonical_path
             .file_name()
             .and_then(|value| value.to_str())
@@ -317,10 +429,14 @@ impl WorkbookSessions {
                 styled_xfs,
                 color_context: Arc::new(color_context),
                 visuals: visual_objects.clone(),
-                cache_directory,
+                cache_directory: cache_directory.path().to_path_buf(),
                 cancelled: Arc::new(AtomicBool::new(false)),
             },
         );
+        // The session now owns the directory; Close reclaims it. Committing
+        // only after the insert keeps the two in lockstep, so a directory
+        // that survives the open always has a session behind it.
+        cache_directory.commit();
         Ok(WorkbookMetadata {
             session_id,
             name,
@@ -376,6 +492,24 @@ impl WorkbookSessions {
             .ok_or_else(|| SidecarError::InvalidRequest("Unknown worksheet.".into()))?;
         session.ensure_parser(sheet_index)?;
         session.read_formula_cells(sheet_index)
+    }
+
+    pub fn read_row_outline(
+        &mut self,
+        session_id: &str,
+        sheet_id: &str,
+    ) -> Result<RowOutlineResult, SidecarError> {
+        let session = self
+            .sessions
+            .get_mut(session_id)
+            .ok_or_else(|| SidecarError::InvalidRequest("Unknown workbook session.".into()))?;
+        let sheet_index = session
+            .sheets
+            .iter()
+            .position(|sheet| sheet.id == sheet_id)
+            .ok_or_else(|| SidecarError::InvalidRequest("Unknown worksheet.".into()))?;
+        session.ensure_parser(sheet_index)?;
+        session.read_row_outline(sheet_index)
     }
 
     pub fn close(&mut self, session_id: &str) -> Result<(), SidecarError> {
@@ -601,7 +735,7 @@ impl WorkbookSession {
             Vec::new()
         };
         let sheet_protection = if indexing_complete {
-            index.sheet_protection
+            index.sheet_protection.clone()
         } else {
             None
         };
@@ -689,8 +823,30 @@ impl WorkbookSession {
         }
         Ok(FormulaCellsResult {
             cells: index.formula_cells.clone(),
+            // A truncated list is unusable anyway; the groups alone could
+            // exceed the response cap.
+            shared_groups: if index.formula_truncated {
+                Vec::new()
+            } else {
+                index.shared_formula_groups.clone()
+            },
             indexing_complete: index.complete,
             truncated: index.formula_truncated,
+        })
+    }
+
+    fn read_row_outline(&self, sheet_index: usize) -> Result<RowOutlineResult, SidecarError> {
+        let runtime = &self.runtimes[sheet_index];
+        let (lock, _) = &*runtime.state;
+        let index = lock
+            .lock()
+            .map_err(|_| SidecarError::Io("Worksheet index lock was poisoned.".into()))?;
+        if let Some(error) = &index.error {
+            return Err(SidecarError::Workbook(error.clone()));
+        }
+        Ok(RowOutlineResult {
+            rows: index.outline_rows.clone(),
+            indexing_complete: index.complete,
         })
     }
 
@@ -746,8 +902,12 @@ struct SheetIndex {
     protected_ranges: Vec<ProtectedRangeInfo>,
     page_setup: Option<PagePrintInfo>,
     /// Formula cells collected while indexing, capped at MAX_FORMULA_CELLS.
+    /// Shared-formula followers are not counted: they live in
+    /// `shared_formula_groups`, published once indexing completes.
     formula_cells: Vec<CellRecord>,
     formula_truncated: bool,
+    shared_formula_groups: Vec<SharedFormulaGroup>,
+    outline_rows: Vec<RowOutlineEntry>,
 }
 
 #[derive(Debug)]
@@ -756,4 +916,5 @@ struct SheetDeclaration {
     sheet_id: String,
     relationship_id: String,
     hidden: bool,
+    very_hidden: bool,
 }

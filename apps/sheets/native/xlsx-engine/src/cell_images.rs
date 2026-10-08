@@ -118,7 +118,7 @@ pub(crate) fn read_sheet_cell_images(
                 if element.local_name().as_ref() == b"c" =>
             {
                 let (row, column) = match attribute_value(&reader, &element, b"r")? {
-                    Some(address) => parse_address(&address)?,
+                    Some(address) => parse_address(&address).unwrap_or((current_row, next_column)),
                     None => (current_row, next_column),
                 };
                 next_column = column + 1;

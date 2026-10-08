@@ -1,7 +1,12 @@
-// OxeeOffice brand hook: model picker and Oxee mark
-import { AI_PROVIDERS, oxeegenLayerEnabled, oxeegenRoleSettings } from '@genoffice/ai-provider/browser'
-import { OxeeMark, OxeeModelPicker } from '@genoffice/ui'
-import { aiPanelWidthAtPointer, AiPanelSideButton } from '@genoffice/ui'
+// OxeeOffice brand hook: Oxee mark and the writer's reasoning switch
+import { oxeegenLayerEnabled, oxeegenRoleSettings } from '@genoffice/ai-provider/browser'
+import { OxeeMark } from '@genoffice/ui'
+import {
+  aiPanelWidthAtPointer,
+  AiPanelSideButton,
+  AiModelPicker,
+  type AiModelPickerBridge,
+} from '@genoffice/ui'
 import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactElement, ReactNode } from 'react'
 import { AgentLoop, composeSkills, streamText } from '@genoffice/agent-core'
@@ -131,6 +136,14 @@ export interface MarkdownAiDeps {
   restoreSnapshot(snapshot: DocSnapshot): void
   /** fired when a run with at least one mutation finishes (auto-save hook) */
   onRunDone(mutated: boolean): void
+}
+
+const MODEL_BRIDGE: AiModelPickerBridge = {
+  getSettings: () => window.markdownApi.getAiSettings(),
+  setSettings: (settings) => window.markdownApi.setAiSettings(settings),
+  onSettingsChanged: (handler) => window.markdownApi.onAiSettingsChanged(handler),
+  gskLoggedIn: () => window.markdownApi.aiGskStatus().then((s) => !!s?.loggedIn),
+  openModelSettings: () => window.markdownApi.openAiModelSettings().catch(() => {}),
 }
 
 export function AiPanel({
@@ -775,14 +788,7 @@ export function AiPanel({
       <header className="ai-panel-header">
         <span className="ai-panel-title">
           <GensparkMark size={22} />
-          {/* OxeeOffice brand hook: model picker in place of the title */}
-          <OxeeModelPicker
-            enabled={oxeegenLayerEnabled()}
-            catalog={AI_PROVIDERS}
-            load={() => window.markdownApi.getAiSettings()}
-            save={(s) => window.markdownApi.setAiSettings(s as never)}
-            fallback={'Genspark'}
-          />
+          Genspark
         </span>
         <div className="ai-panel-header-actions">
           <AiPanelSideButton
@@ -1051,6 +1057,7 @@ export function AiPanel({
           sendLabel={t('aiSend')}
           stopLabel={t('aiStop')}
           iconOnly
+          footerStart={<AiModelPicker bridge={MODEL_BRIDGE} lang={lang} />}
           sendIconEnabled={<img src={sendEnterOn} alt="" aria-hidden />}
           sendIconDisabled={<img src={sendEnterOff} alt="" aria-hidden />}
           stopIcon={<img src={sendStop} alt="" aria-hidden />}

@@ -318,6 +318,7 @@ export function parseChartXml(
   } catch {
     return null
   }
+  tailPaddingLeft = MAX_TAIL_PADDING
   const date1904Node = doc['c:chartSpace']?.['c:date1904']
   const date1904Raw =
     typeof date1904Node === 'object' && date1904Node !== null
@@ -697,8 +698,11 @@ export function parseChartXml(
   if (kind === 'bar') {
     const dir = plot['c:barDir']?.['@_val']
     model.barDir = dir === 'bar' ? 'bar' : 'col'
-    const gap = plot['c:gapWidth']?.['@_val']
-    model.gapWidthPct = gap != null ? parseInt(gap, 10) : 150
+    // A malformed c:gapWidth (val="abc", an empty element, ...) parses to NaN, which
+    // would flow into the chart geometry and into Math.round on write-back and make
+    // every bar disappear. Guard it like the up/down-bar and chartEx gapWidths do.
+    const gap = parseInt(plot['c:gapWidth']?.['@_val'], 10)
+    model.gapWidthPct = Number.isFinite(gap) ? gap : 150
     const ov = plot['c:overlap']?.['@_val']
     if (ov != null) model.overlapPct = parseInt(ov, 10) || 0
   }
@@ -1196,6 +1200,11 @@ function formatDateSerial(serial: number, fmt: string, date1904: boolean): strin
 /** c:pt list → value array ordered by idx. */
 /** Largest point count honored: a hostile ptCount must not allocate the array. */
 const MAX_CHART_POINTS = 1_048_576
+/** Empty slots a chart's declared counts may add past their real points, in total.
+ *  One series may still be padded to MAX_CHART_POINTS (a chart over a mostly empty
+ *  range); 256 hostile series declaring a million each share this one budget. */
+const MAX_TAIL_PADDING = MAX_CHART_POINTS
+let tailPaddingLeft = MAX_TAIL_PADDING
 /** Largest series count honored: bounds the series spreads and per-series work. */
 const MAX_CHART_SERIES = 256
 
@@ -1203,16 +1212,22 @@ function readPoints(cache: any): Array<string | null> {
   const ptsRaw = cache?.['c:pt']
   const pts: any[] = Array.isArray(ptsRaw) ? ptsRaw : ptsRaw ? [ptsRaw] : []
   const count = cache?.['c:ptCount']?.['@_val']
-  const parsed = count != null ? parseInt(count, 10) : pts.length
-  const n = Number.isFinite(parsed) ? Math.min(Math.max(0, parsed), MAX_CHART_POINTS) : pts.length
-  const out: Array<string | null> = new Array(
-    Math.max(n, Math.min(pts.length, MAX_CHART_POINTS)),
-  ).fill(null)
+  // Allocation follows the data, not the declaration alone: the declared count
+  // may only pad past the real points while the chart-wide budget lasts.
+  const declaredRaw = count != null ? parseInt(count, 10) : pts.length
+  const declared = Number.isFinite(declaredRaw) ? Math.max(0, declaredRaw) : pts.length
+  const maxIdx = pts.reduce(
+    (m: number, pt: any) => Math.max(m, parseInt(pt?.['@_idx'], 10) || 0),
+    -1,
+  )
+  const n = Math.min(Math.max(declared, maxIdx + 1), maxIdx + 1 + tailPaddingLeft, MAX_CHART_POINTS)
+  tailPaddingLeft -= Math.max(0, n - (maxIdx + 1))
+  const out: Array<string | null> = new Array(n).fill(null)
   for (const pt of pts) {
     const idx = parseInt(pt['@_idx'], 10) || 0
     // A sparse hostile idx would grow the array without bound: ignore
     // out-of-range entries instead.
-    if (idx < 0 || idx >= out.length) continue
+    if (idx < 0 || idx >= n) continue
     const v = pt['c:v']
     out[idx] = typeof v === 'string' ? v : v != null ? String(v['#text'] ?? v) : null
   }

@@ -21,6 +21,18 @@ export interface IndexerSources {
 }
 
 const RESCAN_DEBOUNCE_MS = 1500
+/**
+ * a worker request left unanswered this long means a wedged parse or a stalled
+ * walk: the request fails as an extraction error and the worker is recycled,
+ * so one bad file cannot stall indexing (and search with it) for good
+ */
+const WORKER_REQUEST_TIMEOUT_MS = 120_000
+/**
+ * heap cap for the extraction worker: without resourceLimits a parse that
+ * exhausts V8's heap is a process-wide fatal OOM and takes the whole app down
+ * with it; with one, only the worker dies and the file is recorded as an error
+ */
+const WORKER_HEAP_LIMIT_MB = 1024
 
 /**
  * Keeps the store in step with the disk: a scan diffs mtime/size against the
@@ -45,6 +57,8 @@ export class FileIndexer {
     private readonly store: FileIndexStore,
     private readonly workerPath: string,
     private readonly sources: IndexerSources,
+    private readonly requestTimeoutMs = WORKER_REQUEST_TIMEOUT_MS,
+    private readonly workerHeapLimitMb = WORKER_HEAP_LIMIT_MB,
   ) {}
 
   progress(): IndexProgress {
@@ -76,13 +90,16 @@ export class FileIndexer {
     try {
       const seen = new Map<string, ScannedFile>()
       let walked = true
+      let complete = true
       for (const root of this.sources.roots()) {
         const res = await this.ask({ id: 0, type: 'scan', root })
         // a crashed worker answers with an extract error; dropping the index on that would empty search
-        if (res.type === 'scan') for (const f of res.files) seen.set(f.path, f)
-        else walked = false
+        if (res.type === 'scan') {
+          for (const f of res.files) seen.set(f.path, f)
+          if (res.truncated) complete = false
+        } else walked = false
       }
-      if (walked) this.diff(seen)
+      if (walked) this.diff(seen, complete)
     } finally {
       this.scanning = false
     }
@@ -94,21 +111,25 @@ export class FileIndexer {
   }
 
   /** bring the store in step with what the walk saw; extra paths are stat-ed here */
-  private diff(seen: Map<string, ScannedFile>): void {
+  // a budget-capped walk cannot tell a vanished file from one it never reached,
+  // so entries are only removed when every root was walked to the end
+  private diff(seen: Map<string, ScannedFile>, complete: boolean): void {
     for (const p of this.sources.extraPaths()) {
       if (seen.has(p) || !isSupportedTreeFile(p)) continue
       const st = statOrNull(p)
       if (st) seen.set(p, st)
     }
     const known = this.store.listAll()
-    const gone: string[] = []
-    for (const path of known.keys()) if (!seen.has(path)) gone.push(path)
-    this.store.remove(gone)
+    if (complete) {
+      const gone: string[] = []
+      for (const path of known.keys()) if (!seen.has(path)) gone.push(path)
+      this.store.remove(gone)
+    }
     for (const f of seen.values()) {
+      // an unchanged file that already failed is not retried: a parse that
+      // kills the worker would otherwise be re-run on every scan
       const k = known.get(f.path)
-      if (k && k.status !== 'error' && k.mtimeMs === f.mtimeMs && k.sizeBytes === f.sizeBytes) {
-        continue
-      }
+      if (k && k.mtimeMs === f.mtimeMs && k.sizeBytes === f.sizeBytes) continue
       this.enqueue(f)
     }
     this.lastScanAt = Date.now()
@@ -155,20 +176,52 @@ export class FileIndexer {
 
   private ask(req: WorkerRequest): Promise<WorkerResponse> {
     const id = this.nextId++
-    return new Promise((resolve, reject) => {
-      this.waiting.set(id, resolve)
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        // a wedged worker never answers: fail this request the way a crashed
+        // worker's requests fail, and retire the worker so later requests get a
+        // fresh one instead of hanging too
+        this.waiting.delete(id)
+        this.recycleWorker()
+        resolve({
+          id,
+          type: 'extract',
+          result: { kind: 'error', error: 'worker request timed out' },
+        })
+      }, this.requestTimeoutMs)
+      this.waiting.set(id, (r: WorkerResponse) => {
+        clearTimeout(timer)
+        resolve(r)
+      })
       try {
         this.ensureWorker().postMessage({ ...req, id })
       } catch (e) {
+        // a failed post must not reject into the void-ed callers: answer as an
+        // extraction error, exactly like the drop handler does for a crash
+        clearTimeout(timer)
         this.waiting.delete(id)
-        reject(e)
+        resolve({
+          id,
+          type: 'extract',
+          result: { kind: 'error', error: e instanceof Error ? e.message : String(e) },
+        })
       }
     })
   }
 
+  /** retire the current worker; 'exit' fails any other in-flight request via drop */
+  private recycleWorker(): void {
+    const w = this.worker
+    if (!w) return
+    this.worker = null
+    void w.terminate()
+  }
+
   private ensureWorker(): Worker {
     if (this.worker) return this.worker
-    const w = new Worker(this.workerPath)
+    const w = new Worker(this.workerPath, {
+      resourceLimits: { maxOldGenerationSizeMb: this.workerHeapLimitMb },
+    })
     w.on('message', (msg: WorkerResponse) => {
       const cb = this.waiting.get(msg.id)
       if (!cb) return

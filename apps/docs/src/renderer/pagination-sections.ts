@@ -817,6 +817,25 @@ export function liveSections(
   return changed ? out : sections
 }
 
+/**
+ * Same section list by content: entries are identical objects, or (the merged
+ * ones liveSections re-creates) objects whose own fields are all identical.
+ * Lets a per-transaction memo keep its identity while a document streams in.
+ */
+export function sameSectionInfos(a: readonly SectionInfo[], b: readonly SectionInfo[]): boolean {
+  if (a === b) return true
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i]!
+    const y = b[i]!
+    if (x === y) continue
+    const keys = Object.keys(x) as Array<keyof SectionInfo>
+    if (keys.length !== Object.keys(y).length) return false
+    for (const k of keys) if (x[k] !== y[k]) return false
+  }
+  return true
+}
+
 /** Tag each block's owning section by the sections' block ranges (lastBlockIndex); new blocks without docxIndex inherit from the previous block */
 export function assignSections(blocks: BlockBox[], sections: SectionInfo[]): void {
   const ends = sections.map((s) => s.lastBlockIndex)
@@ -829,5 +848,29 @@ export function assignSections(blocks: BlockBox[], sections: SectionInfo[]): voi
     }
     block.section = s
     prev = s
+  }
+  foldSectionStartSpaceBefore(blocks, sectionGeoms(sections))
+}
+
+/**
+ * Word keeps a paragraph's space-before when it opens a forced section start
+ * (unlike a paragraph that merely flowed to a page top, where the margin is
+ * folded into the previous block's space-after and dropped with it).
+ */
+export function foldSectionStartSpaceBefore(blocks: BlockBox[], geoms: SectionGeom[]): void {
+  for (let i = 1; i < blocks.length; i++) {
+    const block = blocks[i]
+    const prev = blocks[i - 1]
+    const sec = block.section ?? 0
+    if (!block.el || sec === (prev.section ?? sec) || !geoms[sec]?.forceBreak) continue
+    const after = prev.spaceAfterPx ?? 0
+    const sb = Math.min(parseFloat(getComputedStyle(block.el).marginTop) || 0, after)
+    if (sb <= 0.5) continue
+    prev.spaceAfterPx = after - sb
+    prev.height -= sb
+    block.top -= sb
+    block.height += sb
+    block.spaceBeforePx = (block.spaceBeforePx ?? 0) + sb
+    block.leadFoldPx = (block.leadFoldPx ?? 0) + sb
   }
 }

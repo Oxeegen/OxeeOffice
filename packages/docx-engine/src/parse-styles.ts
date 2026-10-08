@@ -96,10 +96,18 @@ export async function parseStyles(
     const rPr = findChild(findChild(defaultsNode, 'w:rPrDefault') ?? {}, 'w:rPr')
     const sz = rPr ? attrsOf(findChild(rPr, 'w:sz') ?? {})['w:val'] : undefined
     if (sz) dd.sizeHalfPoints = parseInt(sz, 10) || undefined
-    const ddRf = themedRFonts(rPr ? attrsOf(findChild(rPr, 'w:rFonts') ?? {}) : {}, themeFonts)
+    const rfAttrs = rPr ? attrsOf(findChild(rPr, 'w:rFonts') ?? {}) : {}
+    const ddRf = themedRFonts(rfAttrs, themeFonts)
     if (ddRf.ascii ?? ddRf.hAnsi) dd.asciiFont = ddRf.ascii ?? ddRf.hAnsi
+    // no Latin slot at all and no theme to take it from (docx-npm output):
+    // Word falls back to its legacy Times New Roman, not the Office theme body face
+    else if (!themeFonts?.minor && !rfAttrs['w:asciiTheme'] && !rfAttrs['w:hAnsiTheme']) {
+      dd.asciiFont = 'Times New Roman'
+      if (!sz) dd.sizeHalfPoints = 20
+    }
     // docDefaults keeps the lang-based backfill below for the empty-slot case
     if (ddRf.eastAsia && !ddRf.eaSlotEmpty) dd.eastAsiaFont = ddRf.eastAsia
+    if (ddRf.cs) dd.csFont = ddRf.cs
     // Empty EA slot + w:lang w:eastAsia backfill: when the backfill would fire,
     // a face settings.xml themeFontLang resolves (script table / probed locale
     // defaults) outranks the often-stale docDefaults w:lang. Without a firing
@@ -123,14 +131,8 @@ export async function parseStyles(
       }
     }
     if (rPr) {
-      const onFlag = (tag: string) => {
-        const node = findChild(rPr, tag)
-        if (!node) return undefined
-        const val = attrsOf(node)['w:val']
-        return val === '0' || val === 'false' ? undefined : true
-      }
-      if (onFlag('w:b')) dd.bold = true
-      if (onFlag('w:i')) dd.italic = true
+      if (onOffOf(rPr, 'w:b')) dd.bold = true
+      if (onOffOf(rPr, 'w:i')) dd.italic = true
       const color = colorFrom(rPr, theme)
       if (color) dd.color = color
       const kern = attrsOf(findChild(rPr, 'w:kern') ?? {})['w:val']
@@ -165,6 +167,9 @@ export async function parseStyles(
       dd.spaceAfterAuto =
         spacingAttrs['w:afterAutospacing'] === '1' || spacingAttrs['w:afterAutospacing'] === 'true'
     if (pPr && onOffOf(pPr, 'w:suppressAutoHyphens')) dd.suppressAutoHyphens = true
+    if (pPr && onOffOf(pPr, 'w:widowControl') === false) dd.widowControl = false
+    const ddBorders = pPr ? paraBorderSidesOf(pPr, theme) : undefined
+    if (ddBorders) dd.borderSides = ddBorders
     if (Object.keys(dd).length > 0) docDefaults = dd
   }
 
@@ -198,12 +203,6 @@ export async function parseStyles(
     if (basedOn) basedOnIds.set(styleId, basedOn)
     const link = attrsOf(findChild(styleNode, 'w:link') ?? {})['w:val']
     if (link) linkedIds.set(styleId, link)
-    const onFlag = (tag: string): boolean | undefined => {
-      const node = findChild(styleNode, tag)
-      if (!node) return undefined
-      const val = attrsOf(node)['w:val']
-      return val === '0' || val === 'false' ? undefined : true
-    }
     const uiPriorityRaw = attrsOf(findChild(styleNode, 'w:uiPriority') ?? {})['w:val']
     const uiPriority =
       uiPriorityRaw !== undefined && /^\d+$/.test(uiPriorityRaw)
@@ -229,10 +228,10 @@ export async function parseStyles(
       headingLevel,
       headingOutlineOff: outlineOffIds.has(styleId) ? true : undefined,
       basedOn,
-      semiHidden: onFlag('w:semiHidden'),
-      qFormat: onFlag('w:qFormat'),
+      semiHidden: onOffOf(styleNode, 'w:semiHidden'),
+      qFormat: onOffOf(styleNode, 'w:qFormat'),
       uiPriority,
-      unhideWhenUsed: onFlag('w:unhideWhenUsed'),
+      unhideWhenUsed: onOffOf(styleNode, 'w:unhideWhenUsed'),
       custom:
         attrs['w:customStyle'] === '1' || attrs['w:customStyle'] === 'true' ? true : undefined,
       display: type === 'table' ? undefined : styleDisplayOf(styleNode, theme, themeFonts),
@@ -317,6 +316,15 @@ export async function parseStyles(
     return info
   }
   for (const styleId of styles.keys()) resolve(styleId, new Set())
+  if (docDefaults?.borderSides) {
+    for (const info of styles.values()) {
+      if (info.type !== 'paragraph') continue
+      info.display = {
+        ...info.display,
+        borderSides: { ...docDefaults.borderSides, ...info.display?.borderSides },
+      }
+    }
+  }
 
   // linkedStyle (w:link): a paragraph style and a character style form one unit (Word
   // "linked styles"). Fill in run-level display properties in both directions (never

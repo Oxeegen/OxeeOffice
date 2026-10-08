@@ -39,6 +39,7 @@ import {
   webContents,
 } from 'electron'
 import {
+  abortOnDestroyed,
   appMenuLabels,
   buildPrintableHtml,
   configuredDefaultSaveDir,
@@ -94,6 +95,8 @@ import {
   type AiSearchProviderId,
   resolveAiSettings,
   maxOutputTokensOf,
+  sanitizeAiSettings,
+  sanitizeCliPath,
   setAiUserAgent,
   setRescueFetch,
   streamForProvider,
@@ -118,6 +121,7 @@ import {
   webSearchTool,
   imageSearchTool,
   analyzeMediaTool,
+  documentMediaRoots,
 } from '@genoffice/ai-search'
 import type {
   AiDocContent,
@@ -169,7 +173,7 @@ import {
 } from './docx-encryption'
 import { isExternallyModified, type DiskFileState } from './external-change'
 import { copyImageDisplaySize, validCopyImageDataUrl } from './copy-image-guard'
-import { printScaleOption, validPrintDim, validPrintScale } from './print-args'
+import { printScaleOption, validPrintGeometry } from './print-args'
 import { initDocsAutoUpdater } from './updater'
 import { registerZoteroIpc, teardownZoteroIpc } from './zotero-ipc'
 
@@ -509,8 +513,10 @@ const tMain = createI18n({
     menuPaste: 'Dán',
     menuPasteMatch: 'Dán và khớp kiểu định dạng',
     menuFindReplace: 'Tìm kiếm và thay thế…',
+    menuGoTo: 'Đi tới…',
     menuSelectAll: 'Chọn tất cả',
     menuView: 'Xem',
+    menuZoom: 'Thu phóng',
     menuZoomIn: 'Phóng to',
     menuZoomOut: 'Thu nhỏ',
     menuZoom100: 'Kích thước thực tế (100%)',
@@ -520,7 +526,7 @@ const tMain = createI18n({
     menuDarkMode: 'Chế độ tối',
     menuFullscreen: 'Vào chế độ toàn màn hình',
     menuInsert: 'Chèn',
-    menuInsertTable: 'Bảng (3×3)',
+    menuInsertTable: 'Bảng…',
     menuInsertImage: 'Hình ảnh…',
     menuInsertPageBreak: 'Ngắt trang',
     menuInsertLink: 'Siêu liên kết…',
@@ -538,7 +544,38 @@ const tMain = createI18n({
     menuFont: 'Phông chữ…',
     menuParagraph: 'Đoạn văn…',
     menuTools: 'Công cụ',
+    menuTable: 'Bảng',
+    menuTableInsert: 'Chèn',
+    menuTableInsertTable: 'Bảng…',
+    menuTableColsLeft: 'Chèn cột bên trái',
+    menuTableColsRight: 'Chèn cột bên phải',
+    menuTableRowsAbove: 'Chèn hàng phía trên',
+    menuTableRowsBelow: 'Chèn hàng phía dưới',
+    menuTableCells: 'Ô…',
+    menuTableDelete: 'Xóa',
+    menuTableDeleteTable: 'Bảng',
+    menuTableDeleteColumns: 'Cột',
+    menuTableDeleteRows: 'Hàng',
+    menuTableSelect: 'Chọn',
+    menuTableSelectCell: 'Ô',
+    menuTableSelectColumn: 'Cột',
+    menuTableSelectRow: 'Hàng',
+    menuTableSelectTable: 'Bảng',
+    menuTableMergeCells: 'Hợp nhất các ô',
+    menuTableSplitCells: 'Tách ô…',
+    menuTableSplitTable: 'Tách bảng',
+    menuTableAutoFit: 'Tự động điều chỉnh',
+    menuTableAutoFitContents: 'Tự động điều chỉnh theo nội dung',
+    menuTableAutoFitWindow: 'Tự động điều chỉnh theo cửa sổ',
+    menuTableFixedWidth: 'Chiều rộng cột cố định',
+    menuTableDistributeRows: 'Phân bố hàng đều nhau',
+    menuTableDistributeColumns: 'Phân bố cột đều nhau',
+    menuTableRepeatHeader: 'Lặp lại hàng tiêu đề',
+    menuTableGridlines: 'Xem đường lưới',
+    menuTableProperties: 'Thuộc tính bảng…',
     menuWordCount: 'Đếm từ…',
+    menuAutoCorrect: 'Tùy chọn tự sửa lỗi…',
+    menuPreferences: 'Tùy chọn…',
     menuAiProofread: 'Hiệu đính bằng AI',
     menuWindow: 'Cửa sổ',
     menuHelp: 'Trợ giúp',
@@ -3155,6 +3192,7 @@ export function docsFileRenamed(wc: WebContents, oldPath: string, newPath: strin
   // keep the save allowlist in sync so docs:save accepts the renamed path
   docWritablePaths.get(wc.id)?.delete(oldPath)
   allowDocWrite(wc.id, newPath)
+  rememberOpenDoc(wc.id, newPath)
   const states = docDiskStates.get(wc.id)
   const recorded = states?.get(oldPath)
   if (states && recorded) {
@@ -3267,6 +3305,17 @@ const docWritablePaths = new Map<number, Set<string>>()
 const pdfWritablePaths = new Map<number, Set<string>>()
 const tornDownWcIds = new Set<number>()
 
+// per renderer, kept current on open/save/save-as/rename; only the local-media allowlist reads it
+const openDocByWc = new Map<number, string>()
+
+function rememberOpenDoc(wcId: number, filePath: string): void {
+  openDocByWc.set(wcId, filePath)
+}
+
+function docsMediaRoots(wcId: number): string[] {
+  return documentMediaRoots(openDocByWc.get(wcId), join(app.getPath('temp'), 'genoffice-pasted'))
+}
+
 function allowDocWrite(wcId: number, filePath: string): void {
   const set = docWritablePaths.get(wcId) ?? new Set<string>()
   set.add(filePath)
@@ -3331,6 +3380,7 @@ function dropDocWriter(wcId: number): void {
   releaseSpellIgnores(wcId)
   docWritablePaths.delete(wcId)
   pdfWritablePaths.delete(wcId)
+  openDocByWc.delete(wcId)
   for (const p of imageExportTemps.get(wcId) ?? []) void rm(p, { force: true })
   imageExportTemps.delete(wcId)
   imageExportDirs.delete(wcId)
@@ -3523,6 +3573,7 @@ async function loadDocx(
   if (recovered) await adoptLazyMediaHashes(bytes, filePath, wcId)
   pushRecent(filePath)
   allowDocWrite(wcId, filePath)
+  rememberOpenDoc(wcId, filePath)
   if (fileOpenedHook) fileOpenedHook(wcId, filePath)
   markDiskEncrypted(wcId, filePath, encrypted)
   // record the on-disk file, not the recovery copy: what matters is what save would overwrite
@@ -3711,6 +3762,13 @@ const SETTINGS_PATH = () => userDataPath('ai-settings.json')
 
 const activeAiStreams = new Map<string, AbortController>()
 
+/** every renderer (tabs, home) re-reads ai-settings.json — the composer chip and
+ *  the settings page edit the same file from different windows */
+function broadcastAiSettingsChanged(): void {
+  for (const wc of webContents.getAllWebContents())
+    if (!wc.isDestroyed()) wc.send('ai:settings-changed')
+}
+
 /**
  * AI settings + chat/stream proxy handlers. Split out so the shell can
  * register them exactly once for all window types (docs, sheets, home) —
@@ -3751,18 +3809,41 @@ export function registerAiIpc(): void {
   })
 
   ipcMain.handle('ai:set-settings', (_event, settings: AiSettings) => {
-    writeJsonAtomic(SETTINGS_PATH(), settings)
+    // SECURITY.md: payloads are schema-checked in the main process. The settings
+    // file feeds cliPath into spawn() and baseUrl receives the gsk bearer token,
+    // so the renderer's copy is sanitized before it touches disk.
+    const sanitized = sanitizeAiSettings(settings)
+    if (!sanitized) {
+      console.warn('[ai] rejected invalid ai:set-settings payload')
+      return
+    }
+    writeJsonAtomic(SETTINGS_PATH(), sanitized)
+    broadcastAiSettingsChanged()
   })
 
   ipcMain.handle('ai:codex-models', async (_event, cliPath: unknown) => {
-    return listCodexModels(typeof cliPath === 'string' ? cliPath : undefined)
+    // the probe spawns the path directly, so it gets the same metacharacter and
+    // existence check as the stored setting (anything else: auto-detect)
+    return listCodexModels(sanitizeCliPath(cliPath))
   })
 
   ipcMain.handle('ai:custom-models', (_event, input: unknown) => listCustomModelsForIpc(input))
 
   ipcMain.handle('ai:stream', async (event, request: AiStreamRequest) => {
     request = oxeegenRouteStreamRequest(request) // OxeeOffice brand hook: compaction on Oxee-instant
-    const { requestId, settings, system, messages } = request
+    // per-request settings get the same schema check as the persisted ones: a
+    // compromised renderer could otherwise hand cliPath/baseUrl straight to
+    // the provider layer without ever touching the settings file
+    const settings = sanitizeAiSettings(request.settings)
+    if (!settings) {
+      event.sender.send('ai:stream-chunk', {
+        requestId: request.requestId,
+        type: 'error',
+        error: 'invalid AI settings payload',
+      } satisfies AiStreamChunk)
+      return
+    }
+    const { requestId, system, messages } = request
     const tools = request.tools ?? []
     const maxTokens = request.maxTokens ?? maxOutputTokensOf(settings)
     const provider = settings.provider
@@ -3788,6 +3869,7 @@ export function registerAiIpc(): void {
     }
     const controller = new AbortController()
     activeAiStreams.set(requestId, controller)
+    const unwatchSender = abortOnDestroyed(event.sender, controller)
     // wire-activity keepalive: lets the renderer's silence watchdog tell a slow turn from a dead one
     let lastPing = 0
     const ping = () => {
@@ -3830,6 +3912,7 @@ export function registerAiIpc(): void {
         })
       }
     } finally {
+      unwatchSender()
       activeAiStreams.delete(requestId)
     }
   })
@@ -3867,7 +3950,7 @@ export function registerAiIpc(): void {
   // docs-prefixed: slides registers its own ai:analyze-media in the same shell process.
   ipcMain.handle(
     'docs:analyze-media',
-    async (_event, op: { mediaUrls: string[]; requirements: string }) => {
+    async (event, op: { mediaUrls: string[]; requirements: string }) => {
       const mediaUrls = (op.mediaUrls ?? []).map(String).filter(Boolean)
       // a picture opened lazily from a large docx is only addressable by its main-process
       // store; hand its bytes over as a data URL so the loader can read them like any other
@@ -3876,10 +3959,14 @@ export function registerAiIpc(): void {
         const lazy = await readLazyMedia(url).catch(() => null)
         resolved.push(lazy ? `data:${lazy.mime};base64,${lazy.body.toString('base64')}` : url)
       }
-      return analyzeMediaTool(SETTINGS_PATH(), {
-        mediaUrls: resolved,
-        requirements: String(op.requirements ?? ''),
-      })
+      return analyzeMediaTool(
+        SETTINGS_PATH(),
+        {
+          mediaUrls: resolved,
+          requirements: String(op.requirements ?? ''),
+        },
+        { mediaRoots: docsMediaRoots(event.sender.id) },
+      )
     },
   )
 
@@ -3912,11 +3999,15 @@ export function registerAiIpc(): void {
   // registered once a slides view exists, so docs needs its own channel
   ipcMain.handle(
     'docs:ai-generate-image',
-    (_event, op: { prompt?: unknown; aspectRatio?: unknown }) =>
-      generateImageTool(SETTINGS_PATH(), {
-        prompt: String(op?.prompt ?? ''),
-        aspectRatio: op?.aspectRatio ? String(op.aspectRatio) : undefined,
-      }),
+    (event, op: { prompt?: unknown; aspectRatio?: unknown }) =>
+      generateImageTool(
+        SETTINGS_PATH(),
+        {
+          prompt: String(op?.prompt ?? ''),
+          aspectRatio: op?.aspectRatio ? String(op.aspectRatio) : undefined,
+        },
+        { mediaRoots: docsMediaRoots(event.sender.id) },
+      ),
   )
 
   ipcMain.handle('ai:search-test', (_event, input: unknown) => {
@@ -3941,7 +4032,11 @@ export function registerAiIpc(): void {
   })
 
   ipcMain.handle('ai:chat', async (_event, request: AiChatRequest) => {
-    const { settings, system, user } = request
+    // same schema check as ai:stream: one-shot requests would otherwise act on
+    // the renderer's settings copy verbatim
+    const settings = sanitizeAiSettings(request.settings)
+    if (!settings) return { ok: false, error: 'invalid AI settings payload' }
+    const { system, user } = request
     const provider = settings.provider
     let config = settings.providers?.[provider]
     if (provider === 'genspark' && config && !config.apiKey) {
@@ -4158,6 +4253,9 @@ export function registerProjectIpc(): void {
 /** A4 at 96dpi, as the HTML app exports */
 const ALT_CHUNK_VIEWPORT = { width: 794, height: 1123, deviceScaleFactor: 2 }
 const ALT_CHUNK_HTML_MAX_CHARS = 64 * 1024 * 1024
+// An AI-generated page whose scripts never yield must not strand the hidden
+// conversion window; the slides export path uses the same shape.
+const ALT_CHUNK_TIMEOUT_MS = 120_000
 
 /** an encrypted save leaves no plain file to serve lazy pictures from: the
  *  renderer takes the materialized document back and leaves lazy mode */
@@ -4213,9 +4311,26 @@ export function registerDocsIpc(): void {
       // the BOM outranks a stale <meta charset> left in the decoded markup
       await writeFile(htmlPath, `\ufeff${html}`, 'utf8')
       driver = await ElectronBrowserDriver.create(ALT_CHUNK_VIEWPORT)
-      const { docx } = await convertHtmlToDocx({ url: pathToFileURL(htmlPath).href }, driver, {
+      // The markup is an unsanitised AI artifact: a script that never yields
+      // would otherwise keep executeJavaScript pending forever, and the
+      // finally below would never run (the hidden window and workDir leak for
+      // good). Race a watchdog and destroy the window on timeout, matching
+      // the slides export guard.
+      const conversion = convertHtmlToDocx({ url: pathToFileURL(htmlPath).href }, driver, {
         naturalTableWidth: true,
-      })
+      }).then(({ docx }) => docx)
+      let watchdog: ReturnType<typeof setTimeout> | undefined
+      const docx = await Promise.race([
+        conversion,
+        new Promise<null>((resolve) => {
+          watchdog = setTimeout(() => {
+            if (driver && !driver.isWindowDestroyed()) driver.destroyNow()
+            driver = null
+            console.warn('[docs] altChunk conversion timed out; window destroyed')
+            resolve(null)
+          }, ALT_CHUNK_TIMEOUT_MS)
+        }),
+      ]).finally(() => clearTimeout(watchdog))
       return docx
     } catch (err) {
       console.warn('[docs] altChunk conversion failed:', err)
@@ -4591,6 +4706,7 @@ export function registerDocsIpc(): void {
         await atomicWriteFile(result.filePath, bytes)
         if (tornDownWcIds.has(event.sender.id)) return { ok: false }
         allowDocWrite(event.sender.id, result.filePath)
+        rememberOpenDoc(event.sender.id, result.filePath)
         await rememberDiskState(event.sender.id, result.filePath, sha256Hex(bytes))
         pointLazyMediaAt(
           hashes,
@@ -4637,6 +4753,7 @@ export function registerDocsIpc(): void {
         return { ok: false }
       }
       allowDocWrite(event.sender.id, filePath)
+      rememberOpenDoc(event.sender.id, filePath)
       await rememberDiskState(event.sender.id, filePath, sha256Hex(bytes))
       pointLazyMediaAt(
         hashes,
@@ -4720,6 +4837,7 @@ export function registerDocsIpc(): void {
           filePath,
         )
         pushRecent(filePath)
+        rememberOpenDoc(event.sender.id, filePath)
         notifyFileSaved(event.sender, filePath)
         return {
           ok: true,
@@ -4913,6 +5031,13 @@ export function registerDocsIpc(): void {
       outPath?: string,
       scale?: number,
     ) => {
+      // Renderer-supplied page geometry reaches Chromium printToPDF verbatim:
+      // reject non-finite/out-of-range sizes (0.1in..50in) and scales (0.1..5),
+      // same guard as docs:print-pdf-buffer (a malformed w:pgSz in a doc would
+      // otherwise hand Chromium a page thousands of inches wide).
+      if (!validPrintGeometry(pageWidthTwips, pageHeightTwips, scale)) {
+        return { ok: false, error: 'invalid page size or scale' }
+      }
       // renderer-supplied outPath is only honored when a save dialog authorized it before
       let filePath = outPath ?? null
       if (filePath && !canPdfWrite(event.sender.id, filePath)) {
@@ -5051,11 +5176,7 @@ export function registerDocsIpc(): void {
     async (event, pageWidthTwips: number, pageHeightTwips: number, scale?: number) => {
       // Renderer-supplied page geometry reaches Chromium printToPDF verbatim:
       // reject non-finite/out-of-range sizes (0.5in..50in) and scales (0.1..5).
-      if (
-        !validPrintDim(pageWidthTwips) ||
-        !validPrintDim(pageHeightTwips) ||
-        !validPrintScale(scale)
-      ) {
+      if (!validPrintGeometry(pageWidthTwips, pageHeightTwips, scale)) {
         return { ok: false, error: 'invalid page size or scale' }
       }
       try {

@@ -17,6 +17,7 @@ import {
 import { inspectCliLink } from '@genoffice/cli/install'
 import { readAppSettings, writeAppSetting } from './app-settings'
 import { isEphemeralInstall } from './cli-link'
+import { isInstallableSkillDir } from './skill-target'
 import {
   INTEGRATIONS_CHANNELS,
   type AgentId,
@@ -41,6 +42,12 @@ export function registerIntegrationsIpc(deps: IntegrationsDeps): void {
   const bundled = (): BundledSkill => bundledSkillFrom(readFileSync(deps.skillPath))
   const ledger = (): SkillLedger => ledgerFromSettings(readAppSettings(deps.settingsPath()))
   const saveLedger = (l: SkillLedger) => writeAppSetting(deps.settingsPath(), LEDGER_KEY, l)
+  // the only non-agent directory installSkill may write to is the one the user just picked
+  let pickedSkillDir: string | null = null
+  const vouchedSkillDirs = (): string[] => [
+    ...detectAgents().map((a) => a.skillsDir),
+    ...(pickedSkillDir ? [pickedSkillDir] : []),
+  ]
   const stateOf = (skillsDir: string): SkillInstallState =>
     readInstallState(skillsDir, bundled(), ledger())
 
@@ -66,6 +73,9 @@ export function registerIntegrationsIpc(deps: IntegrationsDeps): void {
     (_e, target: { agentId?: AgentId; dir?: string }): SkillInstallState => {
       const skillsDir = target.dir ?? agentTarget(target.agentId!)?.skillsDir
       if (!skillsDir) throw new Error('unknown skill target')
+      if (target.dir && !isInstallableSkillDir(skillsDir, vouchedSkillDirs())) {
+        throw new Error('unknown skill target')
+      }
       const l = ledger()
       installSkill(skillsDir, bundled(), l)
       saveLedger(l)
@@ -94,7 +104,9 @@ export function registerIntegrationsIpc(deps: IntegrationsDeps): void {
       }
       const win = deps.window()
       const r = await (win ? dialog.showOpenDialog(win, opts) : dialog.showOpenDialog(opts))
-      return r.canceled ? null : (r.filePaths[0] ?? null)
+      const picked = r.canceled ? null : (r.filePaths[0] ?? null)
+      pickedSkillDir = picked
+      return picked
     },
   )
 

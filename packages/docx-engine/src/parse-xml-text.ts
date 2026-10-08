@@ -56,6 +56,24 @@ export function onOffOf(parent: XNode, name: string): boolean | undefined {
   return !['0', 'false', 'none', 'off'].includes(val.toLowerCase())
 }
 
+/**
+ * onOffOf for a caller that only has the raw XML of a run's rPr rather than a
+ * parsed tree. Reads the toggle off the element's start tag, so both the
+ * self-closing and the paired spelling are seen, and an explicit off value is
+ * honoured whichever quote style wrote it. Callers that used to sniff this
+ * with their own regex silently read a paired element as "not set" and a
+ * single-quoted w:val="0" as set.
+ */
+export function onOffTagIn(xml: string, name: string): boolean | undefined {
+  // case-insensitive, as the per-site regexes it replaces were
+  const tag = new RegExp(`<${name}(?=[\\s/>])[^>]*>`, 'i').exec(xml)?.[0]
+  if (tag === undefined) return undefined
+  const val = /\bw:val=(?:"([^"]*)"|'([^']*)')/i.exec(tag)
+  const raw = val?.[1] ?? val?.[2]
+  if (raw === undefined) return true
+  return !['0', 'false', 'none', 'off'].includes(raw.toLowerCase())
+}
+
 export function plainText(xml: string): string {
   const texts: string[] = []
   // a space at cell boundaries keeps table text from gluing together

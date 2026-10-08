@@ -90,6 +90,17 @@ describe('printPdf', () => {
     expect(window.print).toHaveBeenCalledTimes(1)
   })
 
+  it('refuses to open the print dialog when every requested page is out of range', async () => {
+    const { doc, getPage } = fakeDoc(5)
+
+    // Printing an empty document silently is worse than telling the caller
+    // their selection no longer exists.
+    await expect(printPdf(doc, [0])).rejects.toThrow('none of the requested pages')
+    await expect(printPdf(doc, [999])).rejects.toThrow('none of the requested pages')
+    expect(getPage).not.toHaveBeenCalled()
+    expect(window.print).not.toHaveBeenCalled()
+  })
+
   it('waits for afterprint before resolving', async () => {
     const { doc } = fakeDoc(1)
     let fireAfterPrint: () => void = () => {}

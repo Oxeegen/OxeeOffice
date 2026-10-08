@@ -30,49 +30,66 @@ const lineModel: ChartModel = {
 }
 
 describe('buildChartNode', () => {
-  it('renders a valid 130,000-point line series with its full value range', () => {
-    const values = Array<number>(130_000).fill(10)
-    values[0] = -5
-    values[values.length - 1] = 30
-    const model: ChartModel = {
-      kind: 'line',
-      categories: Array<string>(values.length).fill(''),
-      series: [{ values, marker: false }],
-      catAxis: { tickLblHidden: true },
-    }
-    const node = buildChartNode('large', 'large', model, box, vp, metrics)!
-    const points = node.polylines[0]!.points
-    expect(points).toHaveLength(values.length * 2)
-    expect(points[1]).toBeGreaterThan(points[points.length - 1]!)
-    expect(node.labels.some((label) => label.text === '30')).toBe(true)
-  })
+  // 130,000-element series are real CPU work (up to ~5 s on a loaded CI
+  // runner), so vitest's default 5 s budget flakes; this matches the 60 s
+  // budget of build-chart-series-bounds.test.ts for the same workload
+  const TIMEOUT = 60_000
 
-  it('renders 130,000 horizontal bars without spreading their values', () => {
-    const values = Array<number>(130_000).fill(10)
-    const model: ChartModel = {
-      kind: 'bar',
-      barDir: 'bar',
-      categories: Array<string>(values.length).fill(''),
-      series: [{ values }],
-      catAxis: { tickLblHidden: true },
-    }
-    expect(buildChartNode('large-bars', 'large-bars', model, box, vp, metrics)?.bars).toHaveLength(
-      values.length,
-    )
-  })
+  it(
+    'renders a valid 130,000-point line series with its full value range',
+    () => {
+      const values = Array<number>(130_000).fill(10)
+      values[0] = -5
+      values[values.length - 1] = 30
+      const model: ChartModel = {
+        kind: 'line',
+        categories: Array<string>(values.length).fill(''),
+        series: [{ values, marker: false }],
+        catAxis: { tickLblHidden: true },
+      }
+      const node = buildChartNode('large', 'large', model, box, vp, metrics)!
+      const points = node.polylines[0]!.points
+      expect(points).toHaveLength(values.length * 2)
+      expect(points[1]).toBeGreaterThan(points[points.length - 1]!)
+      expect(node.labels.some((label) => label.text === '30')).toBe(true)
+    },
+    TIMEOUT,
+  )
 
-  it('renders 130,000 scatter points without spreading axis values', () => {
-    const values = Array<number>(130_000).fill(10)
-    const model: ChartModel = {
-      kind: 'scatter',
-      scatterStyle: 'marker',
-      categories: [],
-      series: [{ values }],
-    }
-    expect(
-      buildChartNode('large-scatter', 'large-scatter', model, box, vp, metrics)?.markers,
-    ).toHaveLength(values.length)
-  })
+  it(
+    'renders 130,000 horizontal bars without spreading their values',
+    () => {
+      const values = Array<number>(130_000).fill(10)
+      const model: ChartModel = {
+        kind: 'bar',
+        barDir: 'bar',
+        categories: Array<string>(values.length).fill(''),
+        series: [{ values }],
+        catAxis: { tickLblHidden: true },
+      }
+      expect(
+        buildChartNode('large-bars', 'large-bars', model, box, vp, metrics)?.bars,
+      ).toHaveLength(values.length)
+    },
+    TIMEOUT,
+  )
+
+  it(
+    'renders 130,000 scatter points without spreading axis values',
+    () => {
+      const values = Array<number>(130_000).fill(10)
+      const model: ChartModel = {
+        kind: 'scatter',
+        scatterStyle: 'marker',
+        categories: [],
+        series: [{ values }],
+      }
+      expect(
+        buildChartNode('large-scatter', 'large-scatter', model, box, vp, metrics)?.markers,
+      ).toHaveLength(values.length)
+    },
+    TIMEOUT,
+  )
 
   it('builds line chart: polylines within plot, markers, gridlines, legend', () => {
     const node = buildChartNode('r_1', 'el1', lineModel, box, vp, metrics)!

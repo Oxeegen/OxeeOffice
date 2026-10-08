@@ -13,7 +13,7 @@
  */
 import { deflateSync } from 'node:zlib'
 import type { EmuRect, Slide } from './types'
-import { creationIdXml, escapeXmlAttr, maxRelationshipIdNumber } from './xml-utils'
+import { creationIdXml, escapeXmlAttr, hasDefaultFor, maxRelationshipIdNumber } from './xml-utils'
 import { relsPathFor } from './zip'
 import { appendRawElements, type OpenedPptx } from './index'
 import { nextCNvPrId } from './insert'
@@ -99,7 +99,7 @@ export function solidPng(w: number, h: number, rgb: [number, number, number]): B
 function ensureDefaultContentType(opened: OpenedPptx, ext: string, mime: string): void {
   const ctPath = '[Content_Types].xml'
   const ct = opened.archive.readText(ctPath)
-  if (ct && !new RegExp(`<Default Extension="${ext}"`).test(ct)) {
+  if (ct && !hasDefaultFor(ct, ext)) {
     const dflt = `<Default Extension="${ext}" ContentType="${mime}"/>`
     opened.archive.entries.set(
       ctPath,

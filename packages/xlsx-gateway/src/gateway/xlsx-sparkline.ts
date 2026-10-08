@@ -1,6 +1,9 @@
 /// x14 sparkline writer: appends sparkline groups to a worksheet's extLst
 /// (creating extLst / the x14 ext as needed). Existing groups stay verbatim.
 
+import { parseAddress } from '../domain/cell-address'
+import { MAX_GRID_COLUMNS, MAX_GRID_ROWS } from '../shared/grid-bounds'
+
 export class SparklineAddError extends Error {}
 
 export interface SparklineCellAdd {
@@ -24,7 +27,6 @@ const X14_NS = 'http://schemas.microsoft.com/office/spreadsheetml/2009/9/main'
 const XM_NS = 'http://schemas.microsoft.com/office/excel/2006/main'
 const DEFAULT_SERIES_ARGB = 'FF376092'
 const NEGATIVE_ARGB = 'FFD00000'
-
 function escapeXml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
@@ -37,13 +39,23 @@ function toArgb(color: string | undefined): string {
   return `FF${color.slice(1).toUpperCase()}`
 }
 
+/// Backstop for the proposal-time check in the renderer: a host past XFD or
+/// row 1048576 would make Excel repair the file.
+function toSqref(cell: string): string {
+  const bounds = parseAddress(cell)
+  if (bounds.row + 1 > MAX_GRID_ROWS || bounds.column + 1 > MAX_GRID_COLUMNS) {
+    throw new SparklineAddError(`"${cell}" is outside the worksheet grid.`)
+  }
+  return cell
+}
+
 function buildGroupXml(group: SparklineGroupAdd): string {
   const typeAttribute = group.type === 'line' ? '' : ` type="${group.type}"`
   const sparklines = group.cells
     .map(
       (cell) =>
         `<x14:sparkline><xm:f>${escapeXml(cell.sourceRef)}</xm:f>` +
-        `<xm:sqref>${cell.cell}</xm:sqref></x14:sparkline>`,
+        `<xm:sqref>${toSqref(cell.cell)}</xm:sqref></x14:sparkline>`,
     )
     .join('')
   return (

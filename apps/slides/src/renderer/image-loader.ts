@@ -57,6 +57,7 @@ async function rasterizeMetafile(url: string): Promise<string | null> {
 export function createImageLoader(apply: ApplyImages, batchSize = 16, delayMs = 100) {
   const loaded = new Map<string, HTMLImageElement>()
   const loading = new Set<string>()
+  const failed = new Set<string>()
   const buf = new Map<string, HTMLImageElement>()
   let timer: ReturnType<typeof setTimeout> | null = null
   let disposed = false
@@ -79,7 +80,7 @@ export function createImageLoader(apply: ApplyImages, batchSize = 16, delayMs = 
     },
     load(urls: Iterable<string>) {
       for (const u of urls) {
-        if (loaded.has(u) || loading.has(u)) continue
+        if (loaded.has(u) || loading.has(u) || failed.has(u)) continue
         loading.add(u)
         const img = new Image()
         const done = (ok: boolean) => {
@@ -87,7 +88,7 @@ export function createImageLoader(apply: ApplyImages, batchSize = 16, delayMs = 
           if (ok) {
             loaded.set(u, img)
             if (!disposed) buf.set(u, img)
-          }
+          } else failed.add(u)
           if (buf.size >= batchSize || loading.size === 0) flush()
           else if (!timer && buf.size > 0) timer = setTimeout(flush, delayMs)
         }

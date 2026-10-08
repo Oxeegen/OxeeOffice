@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { app, dialog, shell } from 'electron'
 import type { BrowserWindow } from 'electron'
-import { autoUpdater } from 'electron-updater'
+import { autoUpdater, CancellationToken } from 'electron-updater'
+import { installResumeDownload } from './update-resume'
 import type { UpdateInfo } from 'electron-updater'
 import { createI18n, getUiLang, htmlLang } from '@genoffice/i18n'
 import type {
@@ -12,9 +13,11 @@ import type {
   UpdateUiStrings,
 } from '../shared/update-api'
 import {
+  clearUpdateState,
   closeUpdateWindow,
   isUpdateWindowOpen,
   pushUpdateState,
+  setUpdateParentWindow,
   showUpdateWindow,
 } from './update-window'
 
@@ -46,7 +49,7 @@ const tUpd = createI18n({
     updHeadline: '发现新版本',
     updDesc: '新版本包含性能改进与问题修复，建议立即更新。',
     updDownload: '立即更新',
-    updLater: '稍后再说',
+    updLater: '最小化',
     updInstall: '立即重启安装',
     updDownloading: '正在下载更新…',
     updFailed: '更新下载失败，请检查网络后重试。',
@@ -62,7 +65,7 @@ const tUpd = createI18n({
     updDesc:
       'This update includes performance improvements and bug fixes. We recommend updating now.',
     updDownload: 'Update Now',
-    updLater: 'Remind me later',
+    updLater: 'Minimize',
     updInstall: 'Restart & Install',
     updDownloading: 'Downloading update…',
     updFailed: 'Update download failed. Check your network and try again.',
@@ -79,7 +82,7 @@ const tUpd = createI18n({
     updDesc:
       'Bản cập nhật này bao gồm các cải tiến hiệu suất và sửa lỗi. Chúng tôi khuyên bạn nên cập nhật ngay bây giờ.',
     updDownload: 'Cập nhật ngay',
-    updLater: 'Nhắc tôi sau',
+    updLater: 'Thu nhỏ',
     updInstall: 'Khởi động lại & Cài đặt',
     updDownloading: 'Đang tải xuống bản cập nhật…',
     updFailed: 'Tải xuống bản cập nhật thất bại. Kiểm tra mạng của bạn và thử lại.',
@@ -96,7 +99,7 @@ const tUpd = createI18n({
     updDesc:
       'このアップデートにはパフォーマンス改善とバグ修正が含まれます。今すぐの更新をおすすめします。',
     updDownload: '今すぐ更新',
-    updLater: '後で通知',
+    updLater: '最小化',
     updInstall: '再起動してインストール',
     updDownloading: 'アップデートをダウンロード中…',
     updFailed: 'ダウンロードに失敗しました。ネットワークを確認して再試行してください。',
@@ -113,7 +116,7 @@ const tUpd = createI18n({
     updDesc:
       '이 업데이트에는 성능 개선과 버그 수정이 포함되어 있습니다. 지금 업데이트하는 것을 권장합니다.',
     updDownload: '지금 업데이트',
-    updLater: '나중에 알림',
+    updLater: '최소화',
     updInstall: '다시 시작 및 설치',
     updDownloading: '업데이트 다운로드 중…',
     updFailed: '업데이트 다운로드에 실패했습니다. 네트워크를 확인한 후 다시 시도하세요.',
@@ -130,7 +133,7 @@ const tUpd = createI18n({
     updDesc:
       'Cette mise à jour apporte des améliorations de performances et des corrections de bogues. Nous vous recommandons de mettre à jour maintenant.',
     updDownload: 'Mettre à jour',
-    updLater: 'Plus tard',
+    updLater: 'Réduire',
     updInstall: 'Redémarrer et installer',
     updDownloading: 'Téléchargement de la mise à jour…',
     updFailed: 'Échec du téléchargement. Vérifiez votre réseau et réessayez.',
@@ -148,7 +151,7 @@ const tUpd = createI18n({
     updDesc:
       'Dieses Update enthält Leistungsverbesserungen und Fehlerbehebungen. Wir empfehlen, jetzt zu aktualisieren.',
     updDownload: 'Jetzt aktualisieren',
-    updLater: 'Später erinnern',
+    updLater: 'Minimieren',
     updInstall: 'Neu starten und installieren',
     updDownloading: 'Update wird heruntergeladen…',
     updFailed:
@@ -167,7 +170,7 @@ const tUpd = createI18n({
     updDesc:
       'Esta actualización incluye mejoras de rendimiento y correcciones de errores. Recomendamos actualizar ahora.',
     updDownload: 'Actualizar ahora',
-    updLater: 'Recordar más tarde',
+    updLater: 'Minimizar',
     updInstall: 'Reiniciar e instalar',
     updDownloading: 'Descargando la actualización…',
     updFailed: 'Error al descargar. Compruebe su red e inténtelo de nuevo.',
@@ -183,7 +186,7 @@ const tUpd = createI18n({
     updHeadline: 'มีเวอร์ชันใหม่พร้อมใช้งาน',
     updDesc: 'การอัปเดตนี้มีการปรับปรุงประสิทธิภาพและแก้ไขข้อบกพร่อง แนะนำให้อัปเดตทันที',
     updDownload: 'อัปเดตเลย',
-    updLater: 'เตือนภายหลัง',
+    updLater: 'ย่อเก็บ',
     updInstall: 'รีสตาร์ทและติดตั้ง',
     updDownloading: 'กำลังดาวน์โหลดอัปเดต…',
     updFailed: 'ดาวน์โหลดไม่สำเร็จ โปรดตรวจสอบเครือข่ายแล้วลองอีกครั้ง',
@@ -200,7 +203,7 @@ const tUpd = createI18n({
     updDesc:
       'Pembaruan ini mencakup peningkatan kinerja dan perbaikan bug. Kami menyarankan untuk memperbarui sekarang.',
     updDownload: 'Perbarui Sekarang',
-    updLater: 'Ingatkan nanti',
+    updLater: 'Minimalkan',
     updInstall: 'Mulai Ulang & Pasang',
     updDownloading: 'Mengunduh pembaruan…',
     updFailed: 'Unduhan gagal. Periksa jaringan Anda dan coba lagi.',
@@ -217,7 +220,7 @@ const tUpd = createI18n({
     updDesc:
       'Это обновление содержит улучшения производительности и исправления ошибок. Рекомендуем обновиться сейчас.',
     updDownload: 'Обновить сейчас',
-    updLater: 'Напомнить позже',
+    updLater: 'Свернуть',
     updInstall: 'Перезапустить и установить',
     updDownloading: 'Загрузка обновления…',
     updFailed: 'Не удалось загрузить обновление. Проверьте сеть и повторите попытку.',
@@ -233,7 +236,7 @@ const tUpd = createI18n({
     updHeadline: 'يتوفر إصدار جديد',
     updDesc: 'يتضمن هذا التحديث تحسينات في الأداء وإصلاحات للأخطاء. نوصي بالتحديث الآن.',
     updDownload: 'التحديث الآن',
-    updLater: 'ذكّرني لاحقًا',
+    updLater: 'تصغير',
     updInstall: 'إعادة التشغيل والتثبيت',
     updDownloading: 'جارٍ تنزيل التحديث…',
     updFailed: 'فشل تنزيل التحديث. تحقق من الشبكة وحاول مرة أخرى.',
@@ -249,7 +252,7 @@ const tUpd = createI18n({
     updDesc:
       'Esta atualização inclui melhorias de desempenho e correções de erros. Recomendamos atualizar agora.',
     updDownload: 'Atualizar agora',
-    updLater: 'Lembrar mais tarde',
+    updLater: 'Minimizar',
     updInstall: 'Reiniciar e instalar',
     updDownloading: 'Baixando a atualização…',
     updFailed: 'Falha no download. Verifique sua rede e tente novamente.',
@@ -266,7 +269,7 @@ const tUpd = createI18n({
     updDesc:
       'Questo aggiornamento include miglioramenti delle prestazioni e correzioni di bug. Consigliamo di aggiornare subito.',
     updDownload: 'Aggiorna ora',
-    updLater: 'Ricordamelo più tardi',
+    updLater: 'Riduci a icona',
     updInstall: 'Riavvia e installa',
     updDownloading: "Download dell'aggiornamento…",
     updFailed: 'Download non riuscito. Controlla la rete e riprova.',
@@ -283,7 +286,7 @@ const tUpd = createI18n({
     updDesc:
       'Ta aktualizacja zawiera ulepszenia wydajności i poprawki błędów. Zalecamy aktualizację teraz.',
     updDownload: 'Aktualizuj teraz',
-    updLater: 'Przypomnij później',
+    updLater: 'Zminimalizuj',
     updInstall: 'Uruchom ponownie i zainstaluj',
     updDownloading: 'Pobieranie aktualizacji…',
     updFailed: 'Pobieranie nie powiodło się. Sprawdź sieć i spróbuj ponownie.',
@@ -300,7 +303,7 @@ const tUpd = createI18n({
     updDesc:
       'Tato aktualizace obsahuje vylepšení výkonu a opravy chyb. Doporučujeme aktualizovat hned.',
     updDownload: 'Aktualizovat nyní',
-    updLater: 'Připomenout později',
+    updLater: 'Minimalizovat',
     updInstall: 'Restartovat a nainstalovat',
     updDownloading: 'Stahování aktualizace…',
     updFailed: 'Stažení aktualizace se nezdařilo. Zkontrolujte síť a zkuste to znovu.',
@@ -317,7 +320,7 @@ const tUpd = createI18n({
     updDesc:
       'Deze update bevat prestatieverbeteringen en foutoplossingen. We raden aan nu bij te werken.',
     updDownload: 'Nu bijwerken',
-    updLater: 'Later herinneren',
+    updLater: 'Minimaliseren',
     updInstall: 'Opnieuw starten en installeren',
     updDownloading: 'Update wordt gedownload…',
     updFailed: 'Download mislukt. Controleer uw netwerk en probeer het opnieuw.',
@@ -335,7 +338,7 @@ const tUpd = createI18n({
     updDesc:
       'Kemas kini ini merangkumi penambahbaikan prestasi dan pembetulan pepijat. Kami syorkan kemas kini sekarang.',
     updDownload: 'Kemas Kini Sekarang',
-    updLater: 'Ingatkan kemudian',
+    updLater: 'Minimumkan',
     updInstall: 'Mula Semula & Pasang',
     updDownloading: 'Memuat turun kemas kini…',
     updFailed: 'Muat turun gagal. Semak rangkaian anda dan cuba lagi.',
@@ -351,7 +354,7 @@ const tUpd = createI18n({
     updHeadline: 'גרסה חדשה זמינה',
     updDesc: 'עדכון זה כולל שיפורי ביצועים ותיקוני באגים. מומלץ לעדכן עכשיו.',
     updDownload: 'עדכן עכשיו',
-    updLater: 'הזכר לי מאוחר יותר',
+    updLater: 'מזער',
     updInstall: 'הפעל מחדש והתקן',
     updDownloading: 'מוריד את העדכון…',
     updFailed: 'ההורדה נכשלה. בדוק את הרשת ונסה שוב.',
@@ -367,7 +370,7 @@ const tUpd = createI18n({
     updDesc:
       'इस अपडेट में प्रदर्शन सुधार और बग फ़िक्स शामिल हैं। हम अभी अपडेट करने की सलाह देते हैं।',
     updDownload: 'अभी अपडेट करें',
-    updLater: 'बाद में याद दिलाएँ',
+    updLater: 'छोटा करें',
     updInstall: 'पुनरारंभ करें और इंस्टॉल करें',
     updDownloading: 'अपडेट डाउनलोड हो रहा है…',
     updFailed: 'डाउनलोड विफल रहा। अपना नेटवर्क जाँचें और पुनः प्रयास करें।',
@@ -383,7 +386,7 @@ const tUpd = createI18n({
     updHeadline: '發現新版本',
     updDesc: '新版本包含效能改進與問題修復，建議立即更新。',
     updDownload: '立即更新',
-    updLater: '稍後再說',
+    updLater: '最小化',
     updInstall: '立即重新啟動安裝',
     updDownloading: '正在下載更新…',
     updFailed: '更新下載失敗，請檢查網路後重試。',
@@ -475,6 +478,8 @@ let dismissedVersion: string | null = null
 // exercisable in dev runs too
 let fakeShowAgain: (() => void) | null = null
 let manualCheckInFlight = false
+// set by initAutoUpdater; drops the download state of the channel being left
+let resetDownloadFlow: (() => void) | null = null
 
 // electron-updater feed name per user-facing channel. The platform suffix is
 // appended by electron-updater itself: 'beta' resolves to beta.yml on
@@ -522,6 +527,7 @@ function initialState(version: string): UpdateUiState {
 
 export function applyUpdateChannel(channel: UpdateChannel): void {
   if (!updaterActive) return
+  resetDownloadFlow?.()
   autoUpdater.channel = CHANNEL_FEED[channel]
   // the channel setter unconditionally flips allowDowngrade to true; force it
   // back off since a beta user switching to stable must not downgrade
@@ -597,6 +603,7 @@ export function initAutoUpdater(
 ): void {
   if (started) return
   started = true
+  setUpdateParentWindow(getWindow)
 
   // dev preview of the update window with a simulated download
   if (!app.isPackaged && process.env.GENOFFICE_FAKE_UPDATE) {
@@ -625,6 +632,7 @@ export function initAutoUpdater(
   // full-package policy: never attempt blockmap differential downloads
   // (CI does not publish .blockmap files)
   autoUpdater.disableDifferentialDownload = true
+  installResumeDownload(autoUpdater as unknown as Parameters<typeof installResumeDownload>[0])
 
   let latestSeenVersion: string | null = null
   // CDN installer link for latestSeenVersion (channel/track/arch-correct);
@@ -641,6 +649,10 @@ export function initAutoUpdater(
   // "Update Now" over a download that is running or already finished
   let phase: UpdatePhase = 'available'
   let percent = 0
+  // the running download's token plus a generation stamp, so a channel switch
+  // can cancel the request and its late rejection cannot fail the next one
+  let downloadToken: CancellationToken | null = null
+  let downloadGen = 0
 
   const setPhase = (patch: { phase: UpdatePhase; percent?: number }): void => {
     phase = patch.phase
@@ -655,18 +667,42 @@ export function initAutoUpdater(
     setPhase({ phase: failedAttempts >= MANUAL_FALLBACK_AFTER ? 'manual' : 'error' })
   }
 
+  // electron-updater cannot discard a finished download, so a package from
+  // the previous channel is made stale instead: it is never installed (not on
+  // quit, not via the window) and the next channel's update-available starts
+  // the flow over from 'available'
+  resetDownloadFlow = () => {
+    if (latestSeenVersion === null) return
+    log('channel switch: dropping', latestSeenVersion, 'in phase', phase)
+    autoUpdater.autoInstallOnAppQuit = false
+    downloadToken?.cancel()
+    downloadToken = null
+    downloadGen += 1
+    latestSeenVersion = null
+    manualDownloadUrl = null
+    failedAttempts = 0
+    downloadInFlight = false
+    phase = 'available'
+    percent = 0
+    clearUpdateState()
+  }
+
   const actions = {
     onDownload: () => {
       if (phase === 'downloading' || phase === 'downloaded') return
       downloadInFlight = true
       setPhase({ phase: 'downloading', percent: 0 })
-      autoUpdater.downloadUpdate().catch((err) => {
+      const gen = ++downloadGen
+      downloadToken = new CancellationToken()
+      autoUpdater.downloadUpdate(downloadToken).catch((err) => {
+        if (gen !== downloadGen) return
         log('download failed:', err?.message ?? err)
         failDownload()
       })
     },
     onInstall: () => {
       closeUpdateWindow()
+      if (latestSeenVersion === null) return
       // let the window fully close before tearing the app down
       setImmediate(() => autoUpdater.quitAndInstall(true, true))
     },
@@ -720,11 +756,17 @@ export function initAutoUpdater(
   })
 
   autoUpdater.on('download-progress', (progress) => {
+    if (!downloadInFlight) return
     setPhase({ phase: 'downloading', percent: progress.percent })
   })
 
   autoUpdater.on('update-downloaded', (info: UpdateInfo) => {
+    if (info.version !== latestSeenVersion) {
+      log('downloaded:', info.version, 'ignored (stale after channel switch)')
+      return
+    }
     log('downloaded:', info.version)
+    autoUpdater.autoInstallOnAppQuit = true
     downloadInFlight = false
     failedAttempts = 0
     setPhase({ phase: 'downloaded', percent: 100 })

@@ -6,15 +6,17 @@ vi.mock('../src/gsk', () => ({
   hasGskAuth: vi.fn(() => true),
 }))
 
-import { generateImageTool, GSK_RMBG_MODEL } from '../src/media-tools'
-import { gskGenerateImage } from '../src/gsk'
+import { generateImageTool, analyzeMediaTool, GSK_RMBG_MODEL } from '../src/media-tools'
+import { gskGenerateImage, gskAnalyzeMedia } from '../src/gsk'
 
 const gskGen = vi.mocked(gskGenerateImage)
+const gskAnalyze = vi.mocked(gskAnalyzeMedia)
 // nonexistent settings file → defaults: no BYOK media provider, cloud tools on → Genspark route
 const SETTINGS = '/nonexistent/ai-settings.json'
 
 beforeEach(() => {
   gskGen.mockReset()
+  gskAnalyze.mockReset()
 })
 
 describe('generateImageTool transparentBackground (Genspark route)', () => {
@@ -92,5 +94,17 @@ describe('generateImageTool reference budget (Genspark route)', () => {
     const r = await generateImageTool(SETTINGS, { prompt: 'red podcast icon', referenceImageUrls })
     expect(r).toEqual({ url: 'https://cdn/x/out.png' })
     expect(gskGen).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('analyzeMediaTool media budget (Genspark route)', () => {
+  it('rejects too many media URLs with the BYOK wording, before calling the CLI', async () => {
+    gskAnalyze.mockResolvedValueOnce('done')
+    const mediaUrls = Array.from({ length: 13 }, (_, i) => `https://cdn/x/${i}.png`)
+    const r = await analyzeMediaTool(SETTINGS, { mediaUrls, requirements: 'describe these' })
+    expect(r).toEqual({
+      error: 'Too many media items in one request (13, limit 12); analyze them in smaller batches',
+    })
+    expect(gskAnalyze).not.toHaveBeenCalled()
   })
 })

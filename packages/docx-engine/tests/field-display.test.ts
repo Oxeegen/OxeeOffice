@@ -136,6 +136,34 @@ describe('field paragraph display model', () => {
     expect(doc.blocks[0].fieldDisplay).toMatchObject({ kind: 'tocLine', leader: 'dot' })
   })
 
+  it('a TOC entry reads single-quoted pStyle, spacing, indent and size like double-quoted ones', async () => {
+    // the pPr / run metrics were read with double-quote-only patterns, so a
+    // single-quoted entry lost its style (no tocLine at all) and ran together
+    const entry = (q: '"' | "'") =>
+      `<w:p><w:pPr><w:pStyle w:val=${q}TOC1${q}/>` +
+      `<w:tabs><w:tab w:val=${q}right${q} w:leader=${q}dot${q} w:pos=${q}9350${q}/></w:tabs>` +
+      `<w:spacing w:before=${q}120${q} w:after=${q}0${q} w:line=${q}360${q} w:lineRule=${q}auto${q}/>` +
+      `<w:ind w:left=${q}420${q} w:right=${q}0${q}/></w:pPr>` +
+      `<w:r><w:rPr><w:sz w:val=${q}20${q}/></w:rPr><w:t>Title</w:t></w:r>` +
+      '<w:r><w:tab/></w:r><w:r><w:t>7</w:t></w:r></w:p>'
+    for (const q of ['"', "'"] as const) {
+      const doc = await parseDocx(await buildDocx({ bodyXml: entry(q) }))
+      expect(doc.blocks[0].fieldDisplay).toMatchObject({
+        kind: 'tocLine',
+        left: 'Title',
+        right: '7',
+        level: 1,
+        leader: 'dot',
+        szHalfPoints: 20,
+        lineRule: 'auto',
+        lineRawTwips: 360,
+        lineSpacing: 1.5,
+        spaceBeforeTwips: 120,
+        spaceAfterTwips: 0,
+      })
+    }
+  })
+
   it('a TOC entry carries the leading result run face and weight (Word draws the entry with its runs)', async () => {
     const entry = (rPr: string) =>
       '<w:p><w:pPr><w:pStyle w:val="TOC2"/><w:tabs><w:tab w:val="right" w:pos="8786"/></w:tabs>' +

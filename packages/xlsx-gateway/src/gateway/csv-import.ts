@@ -93,8 +93,10 @@ export function decodeCsvBuffer(bytes: Uint8Array, preferred?: string): string {
 
   let best = decode(bytes, 'utf-8') ?? ''
   let bestScore = score(best)
+  const utf16 = ['utf-16le', 'utf-16be'] as const
   const candidates = preferred ? [preferred, ...LEGACY_CHARSETS] : LEGACY_CHARSETS
-  for (const charset of candidates) {
+  // CJK-only UTF-16 carries too few NUL bytes for the sniffer above; let the scorer pick.
+  for (const charset of [...utf16, ...candidates]) {
     const candidate = decode(bytes, charset)
     if (candidate === null) continue
     const candidateScore = score(candidate)

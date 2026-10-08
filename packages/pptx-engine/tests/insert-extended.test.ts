@@ -566,6 +566,48 @@ describe('setElementLink / getElementLink', () => {
     })
   })
 
+  it('url link tooltip round-trips through save and reopen', async () => {
+    const opened = await openPptx(fx('01_standard_business.pptx'))
+    const slide = opened.deck.slides[0]!
+    const el = addElement(slide, { kind: 'rect', offset: { ...OFF } })
+    const fresh = setElementLink(opened, 0, el.id, {
+      kind: 'url',
+      url: 'https://example.com/tip',
+      tooltip: 'See notes',
+    })!
+    expect(getElementLink(opened, 0, fresh.elements.at(-1)!.id)).toEqual({
+      kind: 'url',
+      url: 'https://example.com/tip',
+      tooltip: 'See notes',
+    })
+    const reopened = await openPptx(await savePptx(opened))
+    expect(getElementLink(reopened, 0, reopened.deck.slides[0]!.elements.at(-1)!.id)).toEqual({
+      kind: 'url',
+      url: 'https://example.com/tip',
+      tooltip: 'See notes',
+    })
+  })
+
+  it('re-setting a link without a tooltip keeps the existing ScreenTip', async () => {
+    const opened = await openPptx(fx('01_standard_business.pptx'))
+    const slide = opened.deck.slides[0]!
+    const el = addElement(slide, { kind: 'rect', offset: { ...OFF } })
+    const first = setElementLink(opened, 0, el.id, {
+      kind: 'url',
+      url: 'https://example.com/one',
+      tooltip: 'Keep "A & B" <me>',
+    })!
+    const second = setElementLink(opened, 0, first.elements.at(-1)!.id, {
+      kind: 'url',
+      url: 'https://example.com/two',
+    })!
+    expect(getElementLink(opened, 0, second.elements.at(-1)!.id)).toEqual({
+      kind: 'url',
+      url: 'https://example.com/two',
+      tooltip: 'Keep "A & B" <me>',
+    })
+  })
+
   it('slide jump link resolves to target slide index', async () => {
     const opened = await openPptx(fx('01_standard_business.pptx'))
     duplicateSlide(opened, 0) // ensure at least 2 slides
@@ -694,6 +736,28 @@ describe('setElementLink / getElementLink', () => {
     expect(links[0]!.elementId).not.toBe(grouped.groupId)
     const group = grouped.slide.elements.find((e) => e.id === grouped.groupId) as GroupElement
     expect(group.children.some((c) => c.id === links[0]!.elementId)).toBe(true)
+  })
+
+  it('getSlideLinks keeps a group own link when its header carries attributes', async () => {
+    const opened = await openPptx(fx('01_standard_business.pptx'))
+    const slide = opened.deck.slides[0]!
+    const a = addElement(slide, { kind: 'rect', offset: { ...OFF } })
+    const b = addElement(slide, { kind: 'ellipse', offset: { ...OFF, x: 5486400 } })
+    const grouped = groupElements(opened, 0, [a.id, b.id])!
+    const linked = setElementLink(opened, 0, grouped.groupId, {
+      kind: 'url',
+      url: 'https://group.dev',
+    })!
+    const group = linked.elements.find((e) => e.type === 'group') as GroupElement
+    // Producers may put attributes on the group's non-visual header
+    group.anchor.originalXml = group.anchor.originalXml.replace(
+      '<p:nvGrpSpPr>',
+      '<p:nvGrpSpPr foo="1">',
+    )
+
+    expect(getSlideLinks(opened, 0)).toEqual([
+      { elementId: group.id, target: { kind: 'url', url: 'https://group.dev' } },
+    ])
   })
 })
 

@@ -21,13 +21,31 @@ export interface GskLoginProgress {
   phase: 'url' | 'success' | 'error'
   url?: string
   expiresInSec?: number
-  /** 'network' | 'expired' | raw error text */
+  /** 'network' | 'expired' | 'auth_url_rejected' | raw error text */
   error?: string
 }
 
 const APP_TYPE = 'genoffice'
 const KEY_NAME = 'genoffice'
 const HTTP_TIMEOUT_MS = 30_000
+
+/** https on the endpoint's registrable domain only; IP literals and single-label
+ *  hosts have no subdomain tree (`evil.127.0.0.1` is a public DNS name). */
+export function isAllowedAuthUrl(raw: string, origin: string): URL | null {
+  try {
+    const url = new URL(raw)
+    if (url.protocol !== 'https:') return null
+    const endpointHost = new URL(origin).hostname
+    const registrable = endpointHost.replace(/^www\./, '')
+    const flatHost =
+      endpointHost.startsWith('[') || /^[\d.]+$/.test(endpointHost) || !registrable.includes('.')
+    if (flatHost) return url.hostname === endpointHost ? url : null
+    if (url.hostname !== registrable && !url.hostname.endsWith(`.${registrable}`)) return null
+    return url
+  } catch {
+    return null
+  }
+}
 
 function baseUrl(): string {
   return (process.env.GSK_BASE_URL || 'https://www.genspark.ai').replace(/\/$/, '')
@@ -250,6 +268,18 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
 
 // ── Device-code login ────────────────────────────────────────────────
 
+// the endpoint picks both values; a hostile answer must not stretch a login
+// for years or poll at a crawl. 1h sits above every provider's real lifetime
+// (RFC 8628 example 1800s), so the clamp never truncates a valid code.
+const MAX_POLL_INTERVAL_MS = 10_000
+const MAX_LOGIN_SEC = 3600
+
+function clampLoginValue(value: unknown, fallback: number, max: number): number {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n <= 0) return fallback
+  return Math.min(n, max)
+}
+
 async function revokeKey(cookie: string, keyId: string, signal: AbortSignal): Promise<void> {
   await resolveFetch()(`${baseUrl()}/api/api_tokens/revoke`, {
     method: 'POST',
@@ -282,9 +312,12 @@ async function runDeviceLogin(
   const code = String(json.device_code ?? '')
   const authUrl = String(json.auth_url ?? '')
   if (!resp.ok || !code || !authUrl) throw new LoginFlowError('network')
-  const expiresInSec = Number(json.expires_in) > 0 ? Number(json.expires_in) : 600
-  const pollMs = Number(json.poll_interval) > 0 ? Number(json.poll_interval) * 1000 : 2000
-  emit({ phase: 'url', url: authUrl, expiresInSec })
+  // the endpoint decides this URL and callers hand it to the OS opener
+  const allowed = isAllowedAuthUrl(authUrl, baseUrl())
+  if (!allowed) throw new LoginFlowError('auth_url_rejected')
+  const expiresInSec = clampLoginValue(json.expires_in, 600, MAX_LOGIN_SEC)
+  const pollMs = clampLoginValue(Number(json.poll_interval) * 1000, 2000, MAX_POLL_INTERVAL_MS)
+  emit({ phase: 'url', url: allowed.href, expiresInSec })
 
   const deadline = Date.now() + expiresInSec * 1000
   let accessToken: string

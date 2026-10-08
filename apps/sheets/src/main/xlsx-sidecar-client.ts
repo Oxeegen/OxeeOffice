@@ -18,7 +18,13 @@ interface PendingRequest {
 
 /** Pure reads a departing consumer can abandon; skipping a queued close (or
  * save) instead would leave its side effects permanently undone. */
-const CANCELLABLE_READS = new Set(['read_range', 'read_formula_cells', 'read_media'])
+const CANCELLABLE_READS = new Set([
+  'read_range',
+  'read_formula_cells',
+  'read_row_outline',
+  'read_media',
+  'find_cells',
+])
 
 interface SidecarResponse {
   readonly version: number
@@ -36,8 +42,27 @@ export class XlsxSidecarClient {
   private lines: Interface | null = null
   private readonly pending = new Map<string, PendingRequest>()
   private stderr = ''
+  /// Notified when the sidecar process dies and the NEXT request will spawn a
+  /// replacement that has never heard of the session ids we are holding. This
+  /// is a positive crash signal, and deliberately NOT the same thing as a
+  /// session guard rejecting an id: closing a workbook (or the Save swap that
+  /// replaces its session) only sends a `close` command down the live pipe, so
+  /// it never reaches here. A renderer that keyed recovery off a guard's error
+  /// text could not tell those two apart, and would re-open the file on every
+  /// ordinary save.
+  private readonly exitListeners = new Set<() => void>()
 
   constructor(private readonly binaryPath: string) {}
+
+  /** Subscribe to unexpected sidecar process death; returns an unsubscribe. */
+  onProcessExit(listener: () => void): () => void {
+    this.exitListeners.add(listener)
+    return () => this.exitListeners.delete(listener)
+  }
+
+  private notifyExit(): void {
+    for (const listener of this.exitListeners) listener()
+  }
 
   async open(path: string, locale = 'zh', shortDateFormat?: string): Promise<unknown> {
     return this.request({
@@ -66,6 +91,19 @@ export class XlsxSidecarClient {
     readonly sheetId: string
   }): Promise<unknown> {
     return this.request({ command: 'read_formula_cells', ...input })
+  }
+
+  async findCells(
+    input: Readonly<Record<string, unknown>> & { readonly sessionId: string },
+  ): Promise<unknown> {
+    return this.request({ command: 'find_cells', ...input })
+  }
+
+  async readRowOutline(input: {
+    readonly sessionId: string
+    readonly sheetId: string
+  }): Promise<unknown> {
+    return this.request({ command: 'read_row_outline', ...input })
   }
 
   async close(sessionId: string): Promise<void> {
@@ -263,8 +301,22 @@ export class XlsxSidecarClient {
       this.lines?.close()
       this.lines = null
       this.rejectPending(reason)
+      // The process is gone, so every session id we hold is now unknown to
+      // the next spawn. stop() (app quit) sets this.process to null first,
+      // which makes the guard above return, so a deliberate shutdown never
+      // reaches this and never reads as a crash.
+      this.notifyExit()
     }
     child.once('error', teardown)
+    // An externally killed child keeps `killed` false, so the next write emits
+    // an async EPIPE that would otherwise be an uncaught exception.
+    child.stdin.on('error', () => {
+      teardown(
+        new Error(
+          `XLSX sidecar stdin failed (${this.stderr.trim() || 'broken pipe'}).`.slice(0, 200),
+        ),
+      )
+    })
     child.once('exit', (code, signal) => {
       const detail = this.stderr.trim()
       const reason = detail

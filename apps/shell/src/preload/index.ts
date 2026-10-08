@@ -9,6 +9,7 @@ import {
 } from '@genoffice/ai-provider/browser'
 import type { AiSettings, CodexModelCatalog } from '@genoffice/ai-provider/browser'
 import { installDropOpenBridge } from '@genoffice/electron-utils/drop-open'
+import type { UpdateUiState } from '../shared/update-api'
 import { normalizeAiPanelPrefs } from '@genoffice/ui/ai-panel-prefs'
 import type {
   AccountLoginEvent,
@@ -256,6 +257,11 @@ const homeApi: HomeApi = {
     const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.accountLogin)
     return result === true
   },
+  onOpenSettings(handler) {
+    const listener = (_event: IpcRendererEvent, target: { section: string }) => handler(target)
+    ipcRenderer.on(HOME_CHANNELS.openSettings, listener)
+    return () => ipcRenderer.removeListener(HOME_CHANNELS.openSettings, listener)
+  },
   onAccountLogin(handler) {
     const listener = (_event: IpcRendererEvent, ev: AccountLoginEvent) => handler(ev)
     ipcRenderer.on(HOME_CHANNELS.accountLoginEvent, listener)
@@ -270,6 +276,19 @@ const homeApi: HomeApi = {
   async getAppVersion() {
     const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.getAppVersion)
     return typeof result === 'string' ? result : ''
+  },
+  async getUpdateState() {
+    const result: unknown = await ipcRenderer.invoke('update:get-state')
+    return (result as UpdateUiState | null) ?? null
+  },
+  async openUpdateDialog() {
+    const result: unknown = await ipcRenderer.invoke('update:open-for-update')
+    return result === true
+  },
+  onUpdateStateChanged(handler: (state: UpdateUiState) => void) {
+    const listener = (_e: IpcRendererEvent, state: UpdateUiState) => handler(state)
+    ipcRenderer.on('update:state-changed', listener)
+    return () => ipcRenderer.removeListener('update:state-changed', listener)
   },
   async onboardingSeen() {
     const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.onboardingSeen)
@@ -287,6 +306,15 @@ const homeApi: HomeApi = {
     if (theme !== 'light' && theme !== 'dark' && theme !== 'system')
       throw new Error('Invalid theme.')
     await ipcRenderer.invoke(HOME_CHANNELS.setTheme, theme)
+  },
+  async getDocumentTheme() {
+    const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.getDocumentTheme)
+    return result === 'dark' || result === 'light' ? result : 'follow'
+  },
+  async setDocumentTheme(theme) {
+    if (theme !== 'light' && theme !== 'dark' && theme !== 'follow')
+      throw new Error('Invalid document theme.')
+    await ipcRenderer.invoke(HOME_CHANNELS.setDocumentTheme, theme)
   },
   async getAutoSaveDefault() {
     const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.getAutoSaveDefault)
@@ -401,6 +429,13 @@ const homeApi: HomeApi = {
     ipcRenderer.on('app:theme-changed', listener)
     return () => ipcRenderer.removeListener('app:theme-changed', listener)
   },
+  onDocumentThemeChanged(handler) {
+    const listener = (_event: Electron.IpcRendererEvent, theme: unknown) => {
+      if (theme === 'light' || theme === 'dark' || theme === 'follow') handler(theme)
+    }
+    ipcRenderer.on('app:document-theme-changed', listener)
+    return () => ipcRenderer.removeListener('app:document-theme-changed', listener)
+  },
   async openGenTeam() {
     await ipcRenderer.invoke(HOME_CHANNELS.openGenTeam)
   },
@@ -445,6 +480,11 @@ const homeApi: HomeApi = {
     await ipcRenderer.invoke(HOME_CHANNELS.openCloudProject, projectUrl)
   },
   // AI settings channels are registered once by the shell's aggregated docs handlers
+  onAiSettingsChanged(handler) {
+    const listener = () => handler()
+    ipcRenderer.on('ai:settings-changed', listener)
+    return () => ipcRenderer.removeListener('ai:settings-changed', listener)
+  },
   async getAiSettings() {
     return (await ipcRenderer.invoke('ai:get-settings')) as AiSettings
   },
@@ -573,6 +613,28 @@ const tabsApi: TabsApi = {
   },
   async detach(id) {
     await ipcRenderer.invoke(TABS_CHANNELS.detach, id)
+  },
+  async tearOff(id, screenX, screenY) {
+    const result: unknown = await ipcRenderer.invoke(TABS_CHANNELS.tearOff, id, screenX, screenY)
+    return result === true
+  },
+  dragTornWindow(screenX, screenY) {
+    ipcRenderer.send(TABS_CHANNELS.dragTornWindow, screenX, screenY)
+  },
+  async dockTornWindow(index) {
+    await ipcRenderer.invoke(TABS_CHANNELS.dockTornWindow, index)
+  },
+  async endTornDrag() {
+    await ipcRenderer.invoke(TABS_CHANNELS.endTornDrag)
+  },
+  onDockPreview(handler) {
+    const listener = (_event: IpcRendererEvent, preview: { x: number } | null) =>
+      handler(preview && typeof preview.x === 'number' ? { x: preview.x } : null)
+    ipcRenderer.on(TABS_CHANNELS.dockPreview, listener)
+    return () => ipcRenderer.removeListener(TABS_CHANNELS.dockPreview, listener)
+  },
+  reportDockIndex(index) {
+    ipcRenderer.send(TABS_CHANNELS.dockIndex, index)
   },
   async showAppMenu(x, y) {
     await ipcRenderer.invoke(TABS_CHANNELS.showAppMenu, x, y)

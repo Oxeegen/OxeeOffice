@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
-import { extname } from 'node:path'
+import { dirname, extname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { generateImageTool } from '@genoffice/ai-search'
+import { generateImageTool, localMediaRoots } from '@genoffice/ai-search'
 import {
   MAX_REMOTE_IMAGE_BYTES,
   fetchRemoteImage,
@@ -90,14 +90,28 @@ export const imageCommand: CommandDef = {
       resolveOutput(`${base}${ext}`, ctx, { force, fresh: true })
     }
     await prepareCloud(ctx.env)
-    const r = await generateImageTool(aiSettingsPath(ctx.env), {
-      prompt,
-      aspectRatio: aspect,
-      imageSize: size,
-      model: flagString(args, 'model'),
-      ...(refs.length ? { referenceImageUrls: refs } : {}),
-    })
-    if (!r.url) throw new CliError(EXIT.app, r.error ?? 'image generation failed')
+    // every --ref is a file the user named on the command line, so each one
+    // contributes its own directory; an http(s) ref is fetched remotely and
+    // contributes no local root
+    const mediaRoots = localMediaRoots(
+      ...refs.filter((r) => !/^https?:\/\//i.test(r)).map((r) => dirname(r)),
+    )
+    const r = await generateImageTool(
+      aiSettingsPath(ctx.env),
+      {
+        prompt,
+        aspectRatio: aspect,
+        imageSize: size,
+        model: flagString(args, 'model'),
+        ...(refs.length ? { referenceImageUrls: refs } : {}),
+      },
+      { mediaRoots },
+    )
+    if (!r.url)
+      throw new CliError(EXIT.app, r.error ?? 'image generation failed', undefined, {
+        suggestion:
+          'retry once later; if it persists, check the Genspark login in the GenOffice app, configure a BYOK image provider under Settings (AI Media), or continue without generated images',
+      })
     const image = await loadImage(r.url)
     const ext = EXTS_BY_MIME[image.mime]?.[0] ?? 'png'
     // the provider picks the encoding; a .png name holding JPEG bytes would mislead every reader,

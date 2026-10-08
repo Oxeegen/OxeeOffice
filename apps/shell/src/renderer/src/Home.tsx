@@ -246,7 +246,7 @@ const FILTER_FAMILY: Record<string, readonly string[]> = {
   docx: ['docx', 'doc'],
   xlsx: ['xlsx', 'xlsm', 'xls', 'csv', 'tsv'],
   pptx: ['pptx', 'ppt'],
-  md: ['md', 'markdown'],
+  md: ['md', 'markdown', 'txt', 'json'],
   html: ['html', 'htm'],
 }
 
@@ -1424,6 +1424,13 @@ export function Home() {
   // bumped when the Jev settings change so the current results are judged again (or the order dropped)
   const [rerankSettingsTick, setRerankSettingsTick] = useState(0)
   const [settingsRequest, setSettingsRequest] = useState<SettingsTarget | null>(null)
+  useEffect(
+    () =>
+      window.aiOffice.onOpenSettings?.((target) =>
+        setSettingsRequest({ section: target.section as SettingsTarget['section'] }),
+      ),
+    [],
+  )
   const searchInputRef = useRef<HTMLInputElement>(null)
   // IME composition: wait for the committed text instead of searching each keystroke
   const composingRef = useRef(false)

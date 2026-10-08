@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import { assertZipWithinLimits } from '@genoffice/docx-engine'
+import { assertZipInflatesWithinLimits, assertZipWithinLimits } from '@genoffice/docx-engine'
 import { resolveTarget } from './opc'
 import { XMLParser } from 'fast-xml-parser'
 import {
@@ -189,8 +189,33 @@ async function zipText(zip: JSZip, path: string): Promise<string | undefined> {
  *  millions via the padding loop below. */
 export const MAX_XLSX_COLS = 16_384
 
+/** Longest run of empty slots kept verbatim between two filled cells. */
+const MAX_EMPTY_RUN = 8
+
+/// Empty slots carry no text: trailing ones are dropped and long inner runs
+/// collapse to a count, so a lone far-right cell (XFD) costs bytes, not ~49 KB
+/// of separators per row (measured 18 KB -> 94 MB before).
+function joinRowCells(cells: readonly string[]): string {
+  const out: string[] = []
+  let run = 0
+  for (const cell of cells) {
+    if (cell === '') {
+      run += 1
+      continue
+    }
+    if (run > MAX_EMPTY_RUN) out.push(`(${run} empty)`)
+    else for (; run > 0; run -= 1) out.push('')
+    run = 0
+    out.push(cell)
+  }
+  return out.join(' | ')
+}
+
 /** extract sheet text from an xlsx: one "# SheetName" section per sheet, cells joined with " | " */
 export async function xlsxToText(bytes: Uint8Array): Promise<string> {
+  // The declared-size pass below is advisory; this metered gate is the one that
+  // holds when a part lies about its size (GH #759).
+  await assertZipInflatesWithinLimits(bytes)
   const zip = await JSZip.loadAsync(bytes)
   assertZipWithinLimits(zip)
   const workbookXml = await zipText(zip, 'xl/workbook.xml')
@@ -236,25 +261,33 @@ export async function xlsxToText(bytes: Uint8Array): Promise<string> {
     let hasData = false
     const sharedFormulas: SharedFormulas = new Map()
     for (const row of rows) {
-      const cells: string[] = []
+      // Sparse by column; a slot holds several values only when refs collide.
+      const slots: string[][] = []
       for (const cell of asArray(row.c as Cell | Cell[])) {
         const text = cellText(cell, shared, dateStyles, date1904, sharedFormulas)
         const ref = cell['@_r']
         // A malformed ref (no leading column letters) yields -1; append in
-        // document order instead of writing cells[-1] which would drop text.
+        // document order instead of writing slots[-1] which would drop text.
         // Clamp wild columns (e.g. XXXXXX99) to append: padding millions of
         // empty cells would OOM on a hostile file.
-        const col = ref ? columnIndex(ref) : cells.length
-        // A ref that points back into already-filled columns lands on a cell an
-        // earlier ref-less or malformed one was appended to; assigning over it
-        // would drop that value with no warning, so open a slot and push it right.
-        if (col >= 0 && col < MAX_XLSX_COLS && col < cells.length) cells.splice(col, 0, '')
-        const target = col >= 0 && col < MAX_XLSX_COLS ? col : cells.length
-        while (cells.length < target) cells.push('')
-        cells[target] = text
+        const col = ref ? columnIndex(ref) : slots.length
+        const target = col >= 0 && col < MAX_XLSX_COLS ? col : slots.length
+        // A ref landing on a slot an earlier ref-less, malformed or duplicate
+        // cell took would drop that value silently: keep it right after the
+        // claimant instead (push here, read back in reverse when joining).
+        const slot = slots[target]
+        if (!slot) slots[target] = [text]
+        else if (slot[slot.length - 1] === '') slot[slot.length - 1] = text
+        else slot.push(text)
         if (text.trim()) hasData = true
       }
-      lines.push(cells.join(' | '))
+      const cells: string[] = []
+      for (let i = 0; i < slots.length; i++) {
+        const slot = slots[i]
+        if (!slot) cells.push('')
+        else for (let j = slot.length - 1; j >= 0; j--) cells.push(slot[j])
+      }
+      lines.push(joinRowCells(cells))
     }
     if (hasData) sheetsWithData += 1
     else if (path && worksheet.worksheet?.drawing) {

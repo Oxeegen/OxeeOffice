@@ -49,6 +49,36 @@ describe('parseChartPartXml grouping and colors', () => {
     expect(parseChartPartXml(bar('clustered'), 'p')!.grouping).toBeUndefined()
   })
 
+  it('caps the series count and splits the point budget over the series', () => {
+    // nothing capped c:ser, and each one padded its cache out to the full point
+    // limit, so a small part multiplied into hundreds of millions of slots
+    const ser = (i: number, declared: number) =>
+      `<c:ser><c:idx val="${i}"/><c:order val="${i}"/>` +
+      `${strCache('tx', [`S${i}`])}${strCache('cat', ['A', 'B'])}` +
+      `<c:val><c:numRef><c:f>S!$A$1</c:f><c:numCache><c:formatCode>General</c:formatCode>` +
+      `<c:ptCount val="${declared}"/><c:pt idx="0"><c:v>1</c:v></c:pt>` +
+      '</c:numCache></c:numRef></c:val></c:ser>'
+
+    const many = parseChartPartXml(
+      chartSpace(
+        `<c:barChart>${Array.from({ length: 300 }, (_, i) => ser(i, 2)).join('')}</c:barChart>`,
+      ),
+      'p',
+    )!
+    expect(many.series).toHaveLength(256)
+
+    const wide = parseChartPartXml(
+      chartSpace(
+        `<c:barChart>${Array.from({ length: 4 }, (_, i) => ser(i, 1_000_000_000)).join('')}</c:barChart>`,
+      ),
+      'p',
+    )!
+    const slots = wide.series.reduce((n, s) => n + s.values.length, 0)
+    expect(slots).toBeLessThanOrEqual(1_048_576)
+    // the split leaves every series the same, non-degenerate budget
+    expect(wide.series.every((s) => s.values.length === 262_144)).toBe(true)
+  })
+
   it('bounds declared and sparse cache indexes', () => {
     const categories =
       '<c:cat><c:strRef><c:f>S!$A$1</c:f><c:strCache><c:ptCount val="1000000000"/>' +
@@ -162,6 +192,19 @@ describe('parseChartPartXml scatter and bubble', () => {
     expect(display.series[0].values).toEqual([55, 57])
     expect(display.series[0].xValues).toEqual([37377, 37408])
     expect(display.series[0].line).toBeUndefined()
+  })
+
+  it('renders 1900-era date serials on their own day, not one day early', () => {
+    // the epoch was the 1899-12-30 one every serial, which is only right from
+    // serial 61 on: below it Excel counts a 29-Feb-1900 that never existed
+    const ser =
+      '<c:ser><c:idx val="0"/><c:order val="0"/>' +
+      strCache('tx', ['S1']) +
+      numCache('cat', [1, 59, 61, 37377], 'm/d/yyyy') +
+      numCache('val', [1, 2, 3, 4]) +
+      '</c:ser>'
+    const display = parseChartPartXml(chartSpace(`<c:lineChart>${ser}</c:lineChart>`), 'p')!
+    expect(display.categories).toEqual(['1/1/1900', '2/28/1900', '3/1/1900', '5/1/2002'])
   })
 
   it('keeps the line for lineMarker series without noFill', () => {

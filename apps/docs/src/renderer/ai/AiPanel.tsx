@@ -1,12 +1,16 @@
-import { aiPanelWidthAtPointer, AiPanelSideButton } from '@genoffice/ui'
+import {
+  aiPanelWidthAtPointer,
+  AiPanelSideButton,
+  AiModelPicker,
+  type AiModelPickerBridge,
+} from '@genoffice/ui'
 import { useEffect, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/core'
 import type { Block } from '@genoffice/docx-engine'
 import { AgentLoop, composeSkills, streamText, type AgentImage } from '@genoffice/agent-core'
 import { imageGenerationAvailable, mediaAnalysisAvailable } from '@genoffice/ai-provider/browser'
-// OxeeOffice brand hook: model picker
-import { AI_PROVIDERS, oxeegenLayerEnabled, oxeegenRoleSettings } from '@genoffice/ai-provider/browser'
-import { OxeeModelPicker } from '@genoffice/ui'
+// OxeeOffice brand hook: the writer's reasoning switch
+import { oxeegenRoleSettings } from '@genoffice/ai-provider/browser'
 import type { AiSettings, AttachmentAddResult, AttachmentMeta } from '../../shared/ipc'
 import { ATTACHMENT_IMAGE_EXTS } from '../../shared/ipc'
 import type { PmNode } from '../editor/convert'
@@ -44,6 +48,7 @@ import { DOCS_CONTINUE_INSTRUCTION } from './continuation'
 import { waitForFullContent } from '../phased-content'
 import { currentDocGeneration } from '../file-actions'
 import { createFilesSkill } from './files-skill'
+import { boundChatHistory } from './chat-retention'
 import { createElectronTransport } from './transport'
 import { useI18n, t as tModule, aiLangDirective, type StringKey } from '../i18n/locale'
 import { Markdown } from '@genoffice/ui'
@@ -321,6 +326,14 @@ interface AiPanelProps {
   docExtras?: AiDocExtras
   /** footnote / endnote lists for insert_footnote, insert_endnote, delete_note, read_notes */
   notesAccess?: AiNotesAccess
+}
+
+const MODEL_BRIDGE: AiModelPickerBridge = {
+  getSettings: () => window.desktop.getAiSettings(),
+  setSettings: (settings) => window.desktop.setAiSettings(settings),
+  onSettingsChanged: (handler) => window.desktop.onAiSettingsChanged(handler),
+  gskLoggedIn: () => window.desktop.aiGskStatus().then((s) => !!s?.loggedIn),
+  openModelSettings: () => window.desktop.openAiModelSettings().catch(() => {}),
 }
 
 export function AiPanel({
@@ -664,7 +677,8 @@ export function AiPanel({
       const last = next[next.length - 1]
       if (!last || last.role !== 'assistant') return prev
       next[next.length - 1] = { ...last, ...(typeof patch === 'function' ? patch(last) : patch) }
-      return next
+      // bounded: this is where a finished run's full-document snapshot lands
+      return boundChatHistory(next)
     })
   }
 
@@ -827,7 +841,9 @@ export function AiPanel({
         },
         onTurnEnd: () => {
           patchLastAssistant({ streaming: false })
-          setChat((prev) => [...prev, { role: 'assistant', text: '', streaming: true }])
+          setChat((prev) =>
+            boundChatHistory([...prev, { role: 'assistant', text: '', streaming: true }]),
+          )
         },
         onDone: ({ text, cancelled, turnLimit, truncated }) => {
           // module-level t: the loop instance is created only once; the component's t goes stale with the first-render closure
@@ -868,7 +884,7 @@ export function AiPanel({
                 snapshot: runSnapshotRef.current ?? undefined,
               }
             }
-            return next
+            return boundChatHistory(next)
           })
           // Signed-out failures get an inline sign-in button; detected via
           // gsk status rather than matching the localized error text
@@ -1037,16 +1053,18 @@ export function AiPanel({
     runToolsRef.current = []
     runSnapshotRef.current = null
     stickToBottomRef.current = true
-    setChat((prev) => [
-      ...prev,
-      {
-        role: 'user',
-        text: displayInstruction,
-        ...(sentAtts.length > 0 ? { attachments: sentAtts } : {}),
-        ...(scope ? { scope } : {}),
-      },
-      { role: 'assistant', text: '', streaming: true },
-    ])
+    setChat((prev) =>
+      boundChatHistory([
+        ...prev,
+        {
+          role: 'user',
+          text: displayInstruction,
+          ...(sentAtts.length > 0 ? { attachments: sentAtts } : {}),
+          ...(scope ? { scope } : {}),
+        },
+        { role: 'assistant', text: '', streaming: true },
+      ]),
+    )
     runStartedAtRef.current = Date.now()
     setBusy(true)
     // claimed before the async image read so Stop / New chat can flag this send at any point
@@ -1291,14 +1309,7 @@ export function AiPanel({
       <div className="ai-panel-header">
         <span className="ai-panel-title">
           <GensparkMark size={22} />
-          {/* OxeeOffice brand hook: model picker in place of the title */}
-          <OxeeModelPicker
-            enabled={oxeegenLayerEnabled()}
-            catalog={AI_PROVIDERS}
-            load={() => window.desktop.getAiSettings()}
-            save={(s) => window.desktop.setAiSettings(s as unknown as AiSettings)}
-            fallback={t('aiPanelTitle')}
-          />
+          {t('aiPanelTitle')}
         </span>
         <div className="ai-panel-header-actions">
           <AiPanelSideButton
@@ -1665,6 +1676,7 @@ export function AiPanel({
           onPasteFiles={(files) => void onPasteFiles(files)}
           footerStart={
             <>
+              <AiModelPicker bridge={MODEL_BRIDGE} lang={lang} />
               <button
                 className="ai-attach-btn"
                 onClick={pickAttachments}

@@ -49,8 +49,23 @@ describe('xlsx-dv date and time guards', () => {
 
   it('still converts a 1900 date', () => {
     // 1900-03-01 is the first day where "days since 1899-12-30" and Excel's
-    // serial agree (61); earlier 1900 dates are off by Excel's phantom
-    // 1900-02-29, which is pre-existing and not what this guards.
+    // serial agree (61).
     expect(formula1For('date', '1900-03-01')).toBe('61')
+  })
+
+  it('shifts 1900-01-01..1900-02-28 back past the phantom leap day', () => {
+    expect(formula1For('date', '1900-01-01')).toBe('1')
+    expect(formula1For('date', '1900-02-01')).toBe('32')
+    expect(formula1For('date', '1900-02-28')).toBe('59')
+  })
+
+  it('keeps a pre-phantom datetime on the same shifted day', () => {
+    expect(formula1For('date', '1900-02-28 12:00:00')).toBe('59.5')
+  })
+
+  it('leaves 1900-03-01 and later on the linear count', () => {
+    expect(formula1For('date', '1900-03-01 12:00:00')).toBe('61.5')
+    expect(formula1For('date', '1900-12-31')).toBe('366')
+    expect(formula1For('date', '2024-01-01')).toBe('45292')
   })
 })

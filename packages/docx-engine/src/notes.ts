@@ -1,4 +1,4 @@
-import { decodeEntities } from './parse-xml-text'
+import { decodeEntities, onOffTagIn } from './parse-xml-text'
 import { patchParagraphTexts } from './text-patch'
 import type { NoteInfo, NoteRun, TextOutline } from './types'
 import { escapeXmlAttr, escapeXmlText } from './xml-utils'
@@ -132,11 +132,7 @@ function noteRichParas(entryXml: string): NoteRun[][] {
   // the self-closing form first: the open-to-close alternative would swallow it
   const pRe = /<w:p(?:\s[^>]*)?\/>|<w:p[\s>][\s\S]*?<\/w:p>/g
   let p: RegExpExecArray | null
-  const flag = (rPr: string, tag: string) =>
-    new RegExp(
-      `<w:${tag}(?:\\s*/>|\\s(?![^>]*w:val=(?:"(?:0|false|none|off)"|'(?:0|false|none|off)'))[^>]*/>)`,
-      'i',
-    ).test(rPr)
+  const flag = (rPr: string, tag: string) => onOffTagIn(rPr, `w:${tag}`) === true
   while ((p = pRe.exec(entryXml)) !== null) {
     const runs: NoteRun[] = []
     const rRe = /<w:r(?:\s[^>]*)?>([\s\S]*?)<\/w:r>/g

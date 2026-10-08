@@ -6,6 +6,7 @@ import {
   customEnumItems,
   formatNumber,
   markerTabAdvance,
+  mergeLevelXml,
   parseDocx,
   saveDocx,
   type SaveBlock,
@@ -101,6 +102,34 @@ describe('mixed multilevel list kind', () => {
   })
 })
 
+describe('mergeLevelXml keeps foreign-namespace children', () => {
+  it('keeps w14 extension children of rPr and an mc:AlternateContent sibling', () => {
+    // the child scan matched w: names only, so a w14:textOutline vanished from
+    // the marker's rPr and the mc:AlternateContent was replaced by its own child
+    const outline =
+      '<w14:textOutline w14:w="9525"><w14:solidFill><w14:srgbClr w14:val="FF0000"/>' +
+      '</w14:solidFill></w14:textOutline>'
+    const alt =
+      '<mc:AlternateContent><mc:Choice Requires="wps"><w:drawing/></mc:Choice></mc:AlternateContent>'
+    const existing =
+      '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="•"/>' +
+      `<w:rPr><w:rFonts w:ascii="Symbol"/>${outline}</w:rPr>${alt}</w:lvl>`
+
+    const merged = mergeLevelXml(existing, { numFmt: 'bullet', lvlText: '–', indentLeft: 720 }, 0)
+    expect(merged).toContain(`<w:rPr><w:rFonts w:ascii="Symbol"/>${outline}</w:rPr>`)
+    expect(merged).toContain(alt)
+    expect(merged).toContain('<w:lvlText w:val="–"/>')
+
+    // an rPr holding nothing but a w14 child survives instead of being deleted
+    const extOnly = mergeLevelXml(
+      `<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="•"/><w:rPr>${outline}</w:rPr></w:lvl>`,
+      { numFmt: 'bullet', lvlText: '–', indentLeft: 720 },
+      0,
+    )
+    expect(extOnly).toContain(`<w:rPr>${outline}</w:rPr>`)
+  })
+})
+
 describe('missing w:start default', () => {
   const NO_START_NUMBERING =
     XML_DECL +
@@ -127,6 +156,28 @@ describe('missing w:start default', () => {
       doc.numbering,
     )
     expect(markers).toEqual(['0.', '1.'])
+  })
+
+  it('letter formats clamp a missing or zero w:start to the first letter instead of an empty marker', async () => {
+    const letters = NO_START_NUMBERING.replace('w:val="decimal"', 'w:val="lowerLetter"')
+    const li = (text: string) =>
+      '<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr>' +
+      `<w:r><w:t>${text}</w:t></w:r></w:p>`
+    const doc = await parseDocx(
+      await buildDocx({ bodyXml: li('a') + li('b'), numberingXml: letters }),
+    )
+    const markers = computeListMarkers(
+      [
+        { numId: '1', ilvl: 0 },
+        { numId: '1', ilvl: 0 },
+      ],
+      doc.numbering,
+    )
+    // the counter still starts at 0 (as for decimal); only the glyph is floored, like toRoman
+    expect(markers[0]).toBe('a.')
+    expect(markers.every((m) => m !== '.')).toBe(true)
+    expect(formatNumber(0, 'lowerLetter')).toBe('a')
+    expect(formatNumber(-3, 'upperLetter')).toBe('A')
   })
 })
 

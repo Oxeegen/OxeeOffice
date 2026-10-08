@@ -76,8 +76,8 @@ export function crossParaCommentMarkers(xml: string): {
   commentEnds: string[] | undefined
 } {
   const ids = (re: RegExp) => [...xml.matchAll(re)].map((m) => m[1])
-  const starts = ids(/<w:commentRangeStart [^>]*w:id="([^"]+)"/g)
-  const ends = ids(/<w:commentRangeEnd [^>]*w:id="([^"]+)"/g)
+  const starts = ids(/<w:commentRangeStart\b[^>]*\bw:id\s*=\s*["']([^"']+)["']/g)
+  const ends = ids(/<w:commentRangeEnd\b[^>]*\bw:id\s*=\s*["']([^"']+)["']/g)
   const onlyStarts = starts.filter((id) => !ends.includes(id))
   const onlyEnds = ends.filter((id) => !starts.includes(id))
   return {
@@ -93,8 +93,8 @@ export function bookmarkNamesOf(xml: string): {
 } {
   const names: string[] = []
   const hidden: string[] = []
-  for (const m of xml.matchAll(/<w:bookmarkStart [^>]*w:name="([^"]+)"/g)) {
-    const name = decodeEntities(m[1])
+  for (const m of xml.matchAll(/<w:bookmarkStart [^>]*w:name=(?:"([^"]+)"|'([^']+)')/g)) {
+    const name = decodeEntities(m[1] ?? m[2] ?? '')
     // A _ prefix marks Word internal bookmarks (_Ref/_Toc/_Hlk): hidden from the UI, but
     // they must be re-emitted when the paragraph rebuilds, otherwise REF cross-references
     // and TOC anchors pointing at them break
@@ -1028,7 +1028,10 @@ function borderLinesOf(node: XNode | undefined, withInside: boolean): TableBorde
     'w:right': 'right',
     'w:start': 'left',
     'w:end': 'right',
-    ...(withInside ? { 'w:insideH': 'insideH', 'w:insideV': 'insideV' } : {}),
+    // the diagonals are cell-level only (CT_TblBorders has no tl2br/tr2bl child)
+    ...(withInside
+      ? { 'w:insideH': 'insideH', 'w:insideV': 'insideV' }
+      : { 'w:tl2br': 'tl2br', 'w:tr2bl': 'tr2bl' }),
   }
   const borders: TableBorders = {}
   for (const [tag, side] of Object.entries(ALIAS)) {
@@ -1069,11 +1072,12 @@ export function paraBorderSidesOf(
     if (!el) continue
     const a = attrsOf(el)
     const val = a['w:val']
+    const line: ParaBorderLine = {}
     if (val === 'none' || val === 'nil') {
-      sides[ch] = null
+      const space = parseInt(a['w:space'] ?? '', 10)
+      sides[ch] = Number.isFinite(space) && space > 0 ? { none: true, spacePt: space } : null
       continue
     }
-    const line: ParaBorderLine = {}
     const themed =
       theme && a['w:themeColor']
         ? resolveThemeColor(a['w:themeColor'], theme, a['w:themeTint'], a['w:themeShade'])
@@ -1090,18 +1094,18 @@ export function paraBorderSidesOf(
 }
 
 /** model form of the sides: drawn "tblr" subset + declared look, reset sides apart */
-export function paraBordersOf(
-  sides: ParaBorderSides,
-): Pick<ParaFormat, 'borders' | 'borderLines' | 'borderReset'> {
-  const out: Pick<ParaFormat, 'borders' | 'borderLines' | 'borderReset'> = {}
+export function paraBordersOf(sides: ParaBorderSides): ParaBorderModel {
+  const out: ParaBorderModel = {}
   let borders = ''
   let reset = ''
   const lines: NonNullable<ParaFormat['borderLines']> = {}
+  const pad: NonNullable<ParaFormat['borderPad']> = {}
   for (const ch of ['t', 'b', 'l', 'r'] as const) {
     const line = sides[ch]
     if (line === undefined) continue
-    if (line === null) {
+    if (line === null || line.none) {
       reset += ch
+      if (line?.spacePt) pad[ch] = line.spacePt
       continue
     }
     borders += ch
@@ -1111,8 +1115,14 @@ export function paraBordersOf(
   if (borders) out.borders = borders
   if (borders && Object.keys(lines).length > 0) out.borderLines = lines
   if (reset) out.borderReset = reset
+  if (Object.keys(pad).length > 0) out.borderPad = pad
   return out
 }
+
+export type ParaBorderModel = Pick<
+  ParaFormat,
+  'borders' | 'borderLines' | 'borderReset' | 'borderPad'
+>
 
 /**
  * Word merges pBdr per side: every side the direct pPr declares (drawn or reset)
@@ -1121,16 +1131,21 @@ export function paraBordersOf(
  */
 export function mergeStyleBorders(
   sides: ParaBorderSides,
-  direct: Pick<ParaFormat, 'borders' | 'borderLines' | 'borderReset'> | undefined,
-): Pick<ParaFormat, 'borders' | 'borderLines'> {
+  direct: ParaBorderModel | undefined,
+): Pick<ParaFormat, 'borders' | 'borderLines' | 'borderPad'> {
   const declared = `${direct?.borders ?? ''}${direct?.borderReset ?? ''}`
   const merged: ParaBorderSides = {}
   for (const ch of ['t', 'b', 'l', 'r'] as const) {
     if (direct?.borders?.includes(ch)) merged[ch] = direct.borderLines?.[ch] ?? {}
+    else if (direct?.borderPad?.[ch]) merged[ch] = { none: true, spacePt: direct.borderPad[ch] }
     else if (sides[ch] && !declared.includes(ch)) merged[ch] = sides[ch]
   }
-  const { borders, borderLines } = paraBordersOf(merged)
-  return { ...(borders ? { borders } : {}), ...(borderLines ? { borderLines } : {}) }
+  const { borders, borderLines, borderPad } = paraBordersOf(merged)
+  return {
+    ...(borders ? { borders } : {}),
+    ...(borderLines ? { borderLines } : {}),
+    ...(borderPad ? { borderPad } : {}),
+  }
 }
 
 /** Duplicated border containers (two w:tcBorders in one tcPr etc.): Word merges per side, later wins */

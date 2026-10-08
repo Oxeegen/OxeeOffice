@@ -21,6 +21,18 @@ import {
 import { bookmarkName } from './bookmarks'
 import { mapFont } from './fonts'
 
+// An unloaded image measures 0, which would emit an invalid wp:extent.
+function finitePx(value) {
+  if (!Number.isFinite(value)) return 1
+  return Math.max(1, Math.round(value))
+}
+
+// Persisted IR may carry a non-string text; keep the content instead of throwing.
+function runText(value) {
+  if (typeof value === 'string') return value
+  return value == null ? '' : String(value)
+}
+
 function makeRuns(context, runs, images: any = {}) {
   const out = []
   for (const r of runs) {
@@ -48,7 +60,7 @@ function makeRuns(context, runs, images: any = {}) {
           new ImageRun({
             type: 'png',
             data: image,
-            transformation: { width: r.width, height: r.height },
+            transformation: { width: finitePx(r.width), height: finitePx(r.height) },
           }),
         )
       }
@@ -99,7 +111,7 @@ function makeRuns(context, runs, images: any = {}) {
         : undefined,
       noProof: true,
     }
-    const lines = (r.text || '').split('\n')
+    const lines = runText(r.text).split('\n')
     lines.forEach((line, i) => {
       const segments = line.split('\t')
       segments.forEach((segment, j) => {
@@ -123,13 +135,18 @@ function makeRuns(context, runs, images: any = {}) {
   return out
 }
 
+/** hard ceiling on the inset spacer, so a bogus geometry cannot balloon it */
+const MAX_INSET_SPACES = 1024
+
 function makeNodeRuns(context, node, images: any = {}) {
   const runs = makeRuns(context, node.runs, images)
   const insetPx = node.style?.borderLeftSpacePx || 0
   if (insetPx > 0) {
     const sample = node.runs.find((run) => run.text) || {}
-    const fontSizePx = sample.sizePx || 16
-    const count = Math.max(1, Math.ceil(insetPx / (fontSizePx * 0.65)))
+    // floor the size: a degenerate one is truthy, so the `|| 16` fallback never
+    // fires and a sub-pixel font put the repeat() count in the billions
+    const fontSizePx = Math.max(1, sample.sizePx || 16)
+    const count = Math.min(MAX_INSET_SPACES, Math.max(1, Math.ceil(insetPx / (fontSizePx * 0.65))))
     runs.unshift(
       new TextRun({
         text: '\u00A0'.repeat(count),
@@ -146,7 +163,7 @@ function makeNodeRuns(context, node, images: any = {}) {
 // content starts far right becomes a right-aligned stop at the margin
 // (dates), otherwise a left stop at the measured column position.
 function tabStopsFor(context, runs) {
-  const tabs = runs.filter((r) => r.text.includes('\t'))
+  const tabs = runs.filter((r) => runText(r.text).includes('\t'))
   if (!tabs.length) return []
   const stops = []
   const seen = new Set()
@@ -155,7 +172,10 @@ function tabStopsFor(context, runs) {
     // otherwise reproduce the measured column position with a left stop.
     const stop =
       r.tabFrac != null && r.tabFrac < 0.75
-        ? { type: TabStopType.LEFT, position: Math.round(r.tabFrac * context.contentDxa) }
+        ? {
+            type: TabStopType.LEFT,
+            position: Math.max(0, Math.round(r.tabFrac * context.contentDxa)),
+          }
         : { type: TabStopType.RIGHT, position: context.contentDxa }
     const key = `${stop.type}:${stop.position}`
     if (!seen.has(key)) {
@@ -353,6 +373,7 @@ export {
   makeNodeRuns,
   makeRuns,
   paraOptions,
+  runText,
   spacerParagraph,
   tabStopsFor,
   wordBorder,

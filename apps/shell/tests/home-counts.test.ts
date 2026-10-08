@@ -34,6 +34,25 @@ describe('home visible counts', () => {
     expect(visiblePageCount(page)).toBe(1)
   })
 
+  it('stats only the returned page, not the whole list (missing files outside the page stay unstat-ted)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'shell-counts-'))
+    tempDirs.push(dir)
+    // one real file and many paths that do not exist
+    const real = join(dir, 'real.docx')
+    writeFileSync(real, 'x')
+    const paths = [real, ...Array.from({ length: 300 }, (_, i) => join(dir, `gone-${i}.docx`))]
+    const page = pageRecentPaths(paths, { offset: 0, limit: 1 }, new Set())
+    // totals count the whole list, but only the first entry was stat-ted
+    expect(page.total).toBe(301)
+    expect(page.totalAll).toBe(301)
+    expect(page.entries).toHaveLength(1)
+    expect(page.entries[0]!.path).toBe(real)
+    expect(page.entries[0]!.missing).toBeFalsy()
+    // paging past the missing files still flags them per-page
+    const tail = pageRecentPaths(paths, { offset: 300, limit: 1 }, new Set())
+    expect(tail.entries[0]!.missing).toBe(true)
+  })
+
   it('counts .xlsm under the sheets (xlsx) filter', () => {
     const dir = mkdtempSync(join(tmpdir(), 'shell-counts-'))
     tempDirs.push(dir)
@@ -115,6 +134,26 @@ describe('recent query ext normalization', () => {
     const page = pageRecentPaths([bookPath], { ext: '.XLSX', limit: 50 }, new Set())
     expect(page.total).toBe(1)
     expect(page.entries.map((entry) => entry.path)).toEqual([bookPath])
+  })
+
+  it('coerces string offset and limit from the IPC boundary instead of paging from one', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'shell-counts-'))
+    tempDirs.push(dir)
+    const paths = [0, 1, 2, 3].map((i) => {
+      const p = join(dir, `n${i}.md`)
+      writeFileSync(p, 'note')
+      return p
+    })
+
+    // RecentQuery crosses preload, so "2"/"2" is a legal page request; it used to
+    // fall back to offset 0 and hand back page one under a total advertising more.
+    const page = pageRecentPaths(paths, { offset: '2', limit: '2' } as never, new Set())
+    expect(page.entries.map((e) => e.path)).toEqual([paths[2], paths[3]])
+    expect(page.total).toBe(4)
+    expect(normalizeRecentQuery({ offset: '10' }).offset).toBe(10)
+    expect(normalizeRecentQuery({ limit: '5' }).limit).toBe(5)
+    // genuinely non-numeric input still falls back
+    expect(normalizeRecentQuery({ offset: 'abc' }).offset).toBe(0)
   })
 
   it('shares the sheets/html families with the starred view (same helper)', () => {

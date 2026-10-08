@@ -88,4 +88,21 @@ describe('sanitizeAgentPayload', () => {
     const input = 'Summarize the quarterly report and draft an email to the team.'
     expect(sanitizeAgentPayload(input)).toBe(input)
   })
+
+  // quadratic in the length of an unbroken alnum run before the fix
+  it('stays fast on a long unbroken alphanumeric run', () => {
+    const hex = 'deadbeef0123456789abcdef'.repeat(4000) // 100 KB
+    const started = performance.now()
+    expect(sanitizeAgentPayload(hex)).toBe(hex)
+    const elapsed = performance.now() - started
+    // loose ceiling: a regression guard, not a benchmark
+    expect(elapsed).toBeLessThan(2_000)
+  })
+
+  it('still redacts a secret at the end of a long alphanumeric run', () => {
+    // the bounded prefix must not stop the keyword from matching after a long run
+    const prefix = 'a'.repeat(200)
+    const input = `${prefix}password=hunter2000`
+    expect(sanitizeAgentPayload(input)).toBe(`${prefix}password=[REDACTED_SECURE_TOKEN]`)
+  })
 })

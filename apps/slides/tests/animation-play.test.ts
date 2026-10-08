@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   animClassOf,
+  animGalleryItem,
+  animGalleryKind,
   animStateKey,
   buildSteps,
   computeMediaCommands,
@@ -112,6 +114,33 @@ describe('new effects (P2 additions)', () => {
 
     const split = buildSteps([item({ sourceId: 'a', effect: 'splitIn' })])
     expect(computeNodeStates(split, 0, 250, H, W).get('a')!.clip!.mode).toBe('mid')
+  })
+
+  // The engine models the wipe direction, so a presetSubtype-4 (top) wipe comes
+  // back as effect 'wipe' + direction 'top'. Before this, that played bottom-up.
+  it('plays a wipe with direction top from the top edge', () => {
+    const steps = buildSteps([item({ sourceId: 'a', effect: 'wipe', direction: 'top' })])
+    const mid = computeNodeStates(steps, 0, 250, H, W).get('a')!
+    expect(mid.hidden).toBe(false)
+    expect(mid.clip!.mode).toBe('top')
+    expect(computeNodeStates(steps, 1, null, H, W).get('a')!.clip).toBeNull()
+  })
+
+  it('still plays a plain wipe bottom-up and keeps wipeDown as the top alias', () => {
+    const plain = buildSteps([item({ sourceId: 'a', effect: 'wipe' })])
+    expect(computeNodeStates(plain, 0, 250, H, W).get('a')!.clip!.mode).toBe('btm')
+
+    const alias = buildSteps([item({ sourceId: 'a', effect: 'wipeDown' })])
+    expect(computeNodeStates(alias, 0, 250, H, W).get('a')!.clip!.mode).toBe('top')
+  })
+
+  it('folds the Wipe Down gallery entry into wipe + top in both directions', () => {
+    expect(animGalleryItem('wipeDown')).toEqual({ effect: 'wipe', direction: 'top' })
+    expect(animGalleryItem('wipe')).toEqual({ effect: 'wipe' })
+    expect(animGalleryKind({ effect: 'wipe', direction: 'top' })).toBe('wipeDown')
+    expect(animGalleryKind({ effect: 'wipe' })).toBe('wipe')
+    expect(animGalleryKind({ effect: 'wipe', direction: 'bottom' })).toBe('wipe')
+    expect(animGalleryKind({ effect: 'wipeDown' })).toBe('wipeDown')
   })
 
   it('bounce drops in from above and settles at 0', () => {

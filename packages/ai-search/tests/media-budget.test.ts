@@ -132,8 +132,9 @@ describe('media tool aggregate budget', () => {
       mediaUrls: Array.from({ length: 13 }, () => dataUrl(8)),
       requirements: 'describe these',
     })
-    expect(result.text).toBe('from genspark')
-    expect(gskAnalyze).toHaveBeenCalledTimes(1)
+    // the fallback enforces the same item ceiling: the CLI argv stays bounded
+    expect(result.error).toMatch(/Too many media items/)
+    expect(gskAnalyze).not.toHaveBeenCalled()
   })
 
   it('generate_image refuses too many references', async () => {

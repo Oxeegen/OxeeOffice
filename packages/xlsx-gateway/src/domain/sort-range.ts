@@ -13,6 +13,10 @@ export interface SortComputedChange {
   readonly address: string
   readonly before: CellScalar
   readonly after: CellScalar
+  /// The cell's display text before the sort. `after` is the raw model value,
+  /// but the CAS precondition is compared against the cell's `value`, so a
+  /// formatted cell (currency, date) must be guarded on this, not on `before`.
+  readonly expectedValue: CellScalar
 }
 
 export interface SortSpec {
@@ -80,9 +84,10 @@ export function computeSortChanges(
     throw new Error('The sort range needs at least two data rows.')
   }
 
-  const rows: { key: CellScalar; cells: CellScalar[] }[] = []
+  const rows: { key: CellScalar; cells: CellScalar[]; display: CellScalar[] }[] = []
   for (let row = firstDataRow; row <= bounds.endRow; row += 1) {
     const cells: CellScalar[] = []
+    const display: CellScalar[] = []
     for (let column = bounds.startColumn; column <= bounds.endColumn; column += 1) {
       const state = readCell(formatAddress(row, column))
       if (state.formula) {
@@ -94,8 +99,9 @@ export function computeSortChanges(
       // dates would sort lexicographically AND be rewritten as text by the
       // moves. Raw serials sort numerically — Excel's order.
       cells.push(state.rawValue !== undefined ? state.rawValue : state.value)
+      display.push(state.value)
     }
-    rows.push({ key: cells[keyColumn - bounds.startColumn] ?? null, cells })
+    rows.push({ key: cells[keyColumn - bounds.startColumn] ?? null, cells, display })
   }
 
   const order = computeSortedRowOrder(
@@ -110,7 +116,14 @@ export function computeSortChanges(
     rows[sourceIndex]?.cells.forEach((value, columnOffset) => {
       const address = formatAddress(targetRow, bounds.startColumn + columnOffset)
       const before = rows[offset]?.cells[columnOffset] ?? null
-      if (before !== value) changes.push({ address, before, after: value })
+      if (before !== value) {
+        changes.push({
+          address,
+          before,
+          after: value,
+          expectedValue: rows[offset]?.display[columnOffset] ?? null,
+        })
+      }
     })
   })
   return changes

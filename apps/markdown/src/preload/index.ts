@@ -5,7 +5,14 @@ import type { AiStreamChunk } from '@genoffice/ai-provider'
 import type { ProjectApi } from '@genoffice/project-store'
 import { installDropOpenBridge } from '@genoffice/electron-utils/drop-open'
 import { AI_CHANNELS, MARKDOWN_CHANNELS } from '../shared/ipc'
-import type { AutoSaveDefault, ExportFormat, MarkdownApi, SaveMode, UiTheme } from '../shared/ipc'
+import type {
+  AutoSaveDefault,
+  DocTheme,
+  ExportFormat,
+  MarkdownApi,
+  SaveMode,
+  UiTheme,
+} from '../shared/ipc'
 
 const api: MarkdownApi = {
   consumePending: () => ipcRenderer.invoke(MARKDOWN_CHANNELS.consumePending),
@@ -42,6 +49,9 @@ const api: MarkdownApi = {
   saveImage: (data) => ipcRenderer.invoke(MARKDOWN_CHANNELS.saveImage, data),
   readImage: (src) => ipcRenderer.invoke(MARKDOWN_CHANNELS.readImage, src),
   saveImageAs: (src) => ipcRenderer.invoke(MARKDOWN_CHANNELS.saveImageAs, src),
+  getImageHost: () => ipcRenderer.invoke(MARKDOWN_CHANNELS.getImageHost),
+  setImageHost: (config) => ipcRenderer.invoke(MARKDOWN_CHANNELS.setImageHost, config),
+  uploadImage: (data) => ipcRenderer.invoke(MARKDOWN_CHANNELS.uploadImage, data),
   onViewImage: (handler) => {
     const listener = (_e: Electron.IpcRendererEvent, src: string) => handler(src)
     ipcRenderer.on(MARKDOWN_CHANNELS.viewImage, listener)
@@ -77,6 +87,15 @@ const api: MarkdownApi = {
     ipcRenderer.on(MARKDOWN_CHANNELS.themeChanged, listener)
     return () => ipcRenderer.removeListener(MARKDOWN_CHANNELS.themeChanged, listener)
   },
+  getDocumentTheme: async () => {
+    const result: unknown = await ipcRenderer.invoke(MARKDOWN_CHANNELS.getDocumentTheme)
+    return result === 'dark' || result === 'light' ? result : 'follow'
+  },
+  onDocumentThemeChanged: (handler) => {
+    const listener = (_e: Electron.IpcRendererEvent, theme: DocTheme) => handler(theme)
+    ipcRenderer.on(MARKDOWN_CHANNELS.documentThemeChanged, listener)
+    return () => ipcRenderer.removeListener(MARKDOWN_CHANNELS.documentThemeChanged, listener)
+  },
   getAutoSaveDefault: () => ipcRenderer.invoke(MARKDOWN_CHANNELS.getAutoSaveDefault),
   onAutoSaveDefaultChanged: (handler) => {
     const listener = (_e: Electron.IpcRendererEvent, value: AutoSaveDefault) => handler(value)
@@ -96,8 +115,13 @@ const api: MarkdownApi = {
     return () => ipcRenderer.removeListener('app:chrome-pressed', listener)
   },
   getAiSettings: () => ipcRenderer.invoke(AI_CHANNELS.getSettings),
-  // OxeeOffice brand hook: the model picker saves the chosen model
-  setAiSettings: (settings: unknown) => ipcRenderer.invoke('ai:set-settings', settings),
+  setAiSettings: (settings) => ipcRenderer.invoke(AI_CHANNELS.setSettings, settings),
+  onAiSettingsChanged: (handler) => {
+    const listener = () => handler()
+    ipcRenderer.on(AI_CHANNELS.settingsChanged, listener)
+    return () => ipcRenderer.removeListener(AI_CHANNELS.settingsChanged, listener)
+  },
+  openAiModelSettings: () => ipcRenderer.invoke(AI_CHANNELS.openModelSettings),
   aiGskStatus: () => ipcRenderer.invoke(AI_CHANNELS.gskStatus),
   aiStream: (request) => ipcRenderer.invoke(AI_CHANNELS.stream, request),
   aiStreamCancel: (requestId) => ipcRenderer.invoke(AI_CHANNELS.streamCancel, requestId),

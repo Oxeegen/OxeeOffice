@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, rm, utimes, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { AgentToolDef } from '@genoffice/agent-core'
+import { MAX_STREAM_TOOL_CALLS, MAX_TOOL_JSON_CHARS } from '../src/protocols/shared'
 import {
   activePermissionProfileId,
   buildCodexAppServerPrompt,
@@ -186,6 +187,34 @@ describe('Codex app-server bridge', () => {
     expect(() =>
       parseCodexAppServerTurn(JSON.stringify({ text: '', toolCalls: [] }), tools),
     ).toThrow('no content')
+  })
+
+  it('rejects a turn over the per-turn tool call and argument budgets', () => {
+    const call = (i: number) => ({ id: `c${i}`, name: 'replace_text', inputJson: '{"a":1}' })
+    expect(() =>
+      parseCodexAppServerTurn(
+        JSON.stringify({
+          text: 'working on it',
+          toolCalls: Array.from({ length: MAX_STREAM_TOOL_CALLS + 1 }, (_, i) => call(i)),
+        }),
+        tools,
+      ),
+    ).toThrow(/Too many streamed tool calls/)
+    expect(() =>
+      parseCodexAppServerTurn(
+        JSON.stringify({
+          text: 'working on it',
+          toolCalls: [
+            {
+              id: 'c1',
+              name: 'replace_text',
+              inputJson: `"${'a'.repeat(MAX_TOOL_JSON_CHARS + 1)}"`,
+            },
+          ],
+        }),
+        tools,
+      ),
+    ).toThrow(/Tool call arguments exceeded the codex-app-server buffer limit/)
   })
 
   it('keeps waiting through transient stream errors Codex retries itself', async () => {

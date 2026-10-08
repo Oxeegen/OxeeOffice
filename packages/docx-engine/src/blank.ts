@@ -258,10 +258,15 @@ const LVL_CHILD_ORDER = [
   'w:rPr',
 ]
 
-/** top-level children of a small element as [name, xml] pairs (no same-name nesting inside a w:lvl) */
+/**
+ * Top-level children of a small element as [name, xml] pairs (no same-name
+ * nesting inside a w:lvl). Any element name is matched, not just the w: ones:
+ * matching w: alone dropped the w14 extension children of a level's rPr, and an
+ * rPr holding nothing but those was deleted with them.
+ */
 function splitChildren(inner: string): Array<[string, string]> {
   const out: Array<[string, string]> = []
-  const re = /<(w:[\w]+)\b(?:[^>]*?\/>|[^>]*>[\s\S]*?<\/\1>)/g
+  const re = /<([\w:]+)\b(?:[^>]*?\/>|[^>]*>[\s\S]*?<\/\1>)/g
   for (const m of inner.matchAll(re)) out.push([m[1], m[0]])
   return out
 }

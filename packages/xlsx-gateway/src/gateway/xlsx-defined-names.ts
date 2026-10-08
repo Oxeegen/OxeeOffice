@@ -29,17 +29,23 @@ const CELL_REF_PATTERN = /^(?:[A-Za-z]{1,3}[0-9]+|[Rr][0-9]*[Cc][0-9]*)$/
 
 export function applyDefinedNamesState(workbookXml: string, state: DefinedNamesState): string {
   const preserved = new Set(state.preserveNames)
+  const preservedKeys = new Set<string>()
+  for (const match of workbookXml.matchAll(/<definedName\b[^>]*>/g)) {
+    const name = /\bname="([^"]*)"/.exec(match[0])?.[1]
+    if (name === undefined || !preserved.has(unescapeXml(name))) continue
+    const scope = /\blocalSheetId="(\d+)"/.exec(match[0])?.[1]
+    preservedKeys.add(`${unescapeXml(name)}\u0000${scope === undefined ? -1 : Number(scope)}`)
+  }
   const seen = new Set<string>()
   for (const entry of state.names) {
     validateName(entry.name)
-    if (preserved.has(entry.name)) {
+    const key = `${entry.name}\u0000${entry.sheetIndex ?? -1}`
+    if (preservedKeys.has(key)) {
       throw new DefinedNameError(
         `The name "${entry.name}" also exists in a form the editor cannot model — ` +
           'saving would duplicate it.',
       )
     }
-    // Same name may repeat across different scopes, never within one.
-    const key = `${entry.name}\u0000${entry.sheetIndex ?? -1}`
     if (seen.has(key)) {
       throw new DefinedNameError(`The name "${entry.name}" is defined twice.`)
     }
@@ -82,23 +88,34 @@ export function applyDefinedNamesState(workbookXml: string, state: DefinedNamesS
   // Schema order: definedNames follows sheets (and functionGroups/externalReferences).
   const anchor = /<\/sheets>|<sheets\b[^>]*\/>/.exec(xml)
   if (!anchor) throw new DefinedNameError('workbook.xml has no sheets element.')
+  const groups = /<functionGroups\b[^>]*>[\s\S]*?<\/functionGroups>|<functionGroups\b[^>]*\/>/.exec(
+    xml,
+  )
   const externals =
     /<externalReferences\b[^>]*>[\s\S]*?<\/externalReferences>|<externalReferences\b[^>]*\/>/.exec(
       xml,
     )
-  const at = externals ? externals.index + externals[0].length : anchor.index + anchor[0].length
+  let at = externals ? externals.index + externals[0].length : anchor.index + anchor[0].length
+  // functionGroups only counts when externalReferences is absent: the later
+  // element is the one the section must follow
+  if (!externals && groups) at = groups.index + groups[0].length
   return `${xml.slice(0, at)}<definedNames>${additions}</definedNames>${xml.slice(at)}`
 }
 
+/** Shared by table names, which follow the same rules (minus the `_xlnm` reservation). */
+export function isValidDefinedName(name: string): boolean {
+  return (
+    name.length > 0 &&
+    name.length <= 255 &&
+    NAME_PATTERN.test(name) &&
+    !CELL_REF_PATTERN.test(name) &&
+    name.toLowerCase() !== 'true' &&
+    name.toLowerCase() !== 'false'
+  )
+}
+
 function validateName(name: string): void {
-  if (
-    name.length === 0 ||
-    name.length > 255 ||
-    !NAME_PATTERN.test(name) ||
-    CELL_REF_PATTERN.test(name) ||
-    name.toLowerCase() === 'true' ||
-    name.toLowerCase() === 'false'
-  ) {
+  if (!isValidDefinedName(name)) {
     throw new DefinedNameError(`"${name}" is not a valid defined name.`)
   }
   if (name.startsWith('_xlnm')) {

@@ -32,6 +32,9 @@ describe('pptx zip limits', () => {
     expect(resolveTarget('ppt/presentation.xml', '/ppt/slides/slide1.xml')).toBe(
       'ppt/slides/slide1.xml',
     )
+    expect(resolveTarget('ppt/slides/slide1.xml', '\\ppt\\slides\\slide2.xml')).toBe(
+      'ppt/slides/slide2.xml',
+    )
   })
 
   it('rejects too many parts before inflating', async () => {
@@ -39,6 +42,21 @@ describe('pptx zip limits', () => {
     for (let i = 0; i <= PPTX_ZIP_LIMITS.maxParts; i++) zip.file(`p/${i}.xml`, '<a/>')
     const bytes = await zip.generateAsync({ type: 'uint8array' })
     await expect(PackageArchive.open(bytes)).rejects.toThrow(/parts exceeds/)
+  })
+
+  it('rejects a lying declaration by inflating past the claim (GH #759)', async () => {
+    // 1.5 MB of real payload behind a 300-byte declaration: the advisory pass
+    // reads the lie as truth, so only the metered gate can catch it.
+    const zip = new JSZip()
+    zip.file('ppt/presentation.xml', '<p/>')
+    zip.file('ppt/slides/slide1.xml', Buffer.alloc(1536 * 1024))
+    const bytes = (await zip.generateAsync({ type: 'uint8array' })) as Uint8Array
+    const buf = Buffer.from(bytes)
+    const centralName = buf.lastIndexOf(Buffer.from('ppt/slides/slide1.xml'))
+    buf.writeUInt32LE(300, centralName - 46 + 24)
+    await expect(PackageArchive.open(new Uint8Array(buf))).rejects.toThrow(
+      /ppt\/slides\/slide1\.xml declares 300 uncompressed bytes but inflates past that/,
+    )
   })
 
   it('rejects oversized parts and totals by declared size', () => {

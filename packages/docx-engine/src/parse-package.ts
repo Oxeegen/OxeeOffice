@@ -48,9 +48,11 @@ export function resolveRelationshipTargetPath(sourcePath: string, target: string
   }
   const sourceSlash = sourcePath.lastIndexOf('/')
   const base = sourceSlash >= 0 ? sourcePath.slice(0, sourceSlash + 1) : ''
-  const path = decoded.startsWith('/') ? decoded.slice(1) : `${base}${decoded}`
+  // Test the root anchor after normalizing: a backslash-led target is rooted too.
+  const normalized = decoded.replace(/\\/g, '/')
+  const path = normalized.startsWith('/') ? normalized.slice(1) : `${base}${normalized}`
   const parts: string[] = []
-  for (const segment of path.replace(/\\/g, '/').split('/')) {
+  for (const segment of path.split('/')) {
     if (!segment || segment === '.') continue
     if (segment === '..') {
       if (parts.length === 0) return null
@@ -69,7 +71,10 @@ export async function parseRels(zip: JSZip, path: string): Promise<Map<string, R
   // fast-xml-parser rejects a DOCTYPE declaring external entities; drop the
   // prologue instead of failing the whole document (entities never resolve —
   // XXE-safe — and Relationship elements carry everything in attributes)
-  const relsXml = (await file.async('string')).replace(/<!DOCTYPE(?:[^>[]|\[[\s\S]*?\])*>/i, '')
+  const relsXml = (await file.async('string')).replace(
+    /<!DOCTYPE(?:[^>"'\x5B\x5D]|\[[\s\S]*?\]|"[^"]*"|'[^']*')*>/i,
+    '',
+  )
   const parsed = xmlParser.parse(relsXml) as XNode[]
   const root = parsed.find((n) => nameOf(n) === 'Relationships')
   if (!root) return rels

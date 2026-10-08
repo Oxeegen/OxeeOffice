@@ -51,7 +51,6 @@ import {
   type DocState,
   type HfVariantKey,
   type HfVariantsState,
-  type HfView,
   type PendingNumbering,
 } from './doc-state'
 import { hfSaveOptions } from './hf-sections'
@@ -87,13 +86,14 @@ import { pruneUnreferencedNumbering } from './numbering-actions'
 import { applySectPrRewrites, type SectPrRewrite } from './sectpr-rewrite'
 import { createSaveSerializer } from './save-until-persisted'
 import { checkMissingFonts, collectDocFonts } from './font-check'
-import { setDocFontTable } from './line-metrics'
+import { hangulSpaceWideningFor, setDocFontTable, setHangulSpaceWidening } from './line-metrics'
 import { adoptEmbeddedFonts } from './embedded-fonts'
 import { defaultEastAsiaFontFor } from './font-list'
 import { hasPrintableHeaderFooter } from './pagination'
 import { clearPrintZoom, setPrintZoom } from './print-zoom'
 import { showToast } from './components/toast-bus'
 import { buildStandaloneHtml } from './html-export'
+import { aiPanelInitiallyOpen } from '@genoffice/ui'
 
 /** An export waiting for the pagination preview to mount; resolve settles the caller's exportPdf promise. */
 export type PendingPdfExport = { outPath?: string; resolve: (ok: boolean) => void }
@@ -167,7 +167,6 @@ export interface FileActionContext {
   setEvenOddHfDirty: (dirty: boolean) => void
   setMirrorMargins: (on: boolean) => void
   setMirrorMarginsDirty: (dirty: boolean) => void
-  setHfView: (view: HfView) => void
   pgNumEdit: { fmt?: string; start?: number } | null
   pgNumDirtySections: number[]
   setPgNumEdit: (value: { fmt?: string; start?: number } | null) => void
@@ -299,6 +298,7 @@ function applyDocLayoutSettings(editor: Editor, parsed: ParsedDocFull): void {
   editor.storage.cjkPunctShrink.hangPunct = parsed.compressPunctuation !== true
   editor.storage.cjkPunctShrink.legacyLayout = (parsed.compatibilityMode ?? 0) < 15
   editor.storage.cjkPunctShrink.docEastAsiaLang = parsed.docDefaults?.eastAsiaLang ?? null
+  setHangulSpaceWidening(hangulSpaceWideningFor(parsed))
   // Chromium only hyphenates under an explicit lang (the app shell is zh-CN);
   // scoped to autoHyphenation docs so CJK font fallback is untouched elsewhere
   const lang = parsed.autoHyphenation ? parsed.docDefaults?.lang : undefined
@@ -396,7 +396,13 @@ export async function loadFile(
   }
   const generation = ++openGeneration
   try {
-    const parsed = await parseDocxOffThread(await fetchDocBytes(result.dataUrl), { owned: true })
+    const bytes = await fetchDocBytes(result.dataUrl)
+    // a 0-byte .docx (touch, failed download) is not a corrupt archive but an
+    // empty document: open the blank template under the file's own path
+    const parsed = await parseDocxOffThread(
+      bytes.byteLength === 0 ? await blankDocxBytes() : bytes,
+      { owned: true },
+    )
     if (generation !== openGeneration) return 'superseded'
     const tier = openTierFor(docWeight(parsed.blocks))
     if (tier === 'refuse') {
@@ -475,7 +481,6 @@ export async function loadFile(
     ctx.setEvenOddHfDirty(false)
     ctx.setMirrorMargins(parsed.mirrorMargins ?? false)
     ctx.setMirrorMarginsDirty(false)
-    ctx.setHfView('default')
     ctx.setShowComments(hasUnanchoredComments(parsed.comments, parsed.blocks))
     ctx.setReadMode(tier === 'readOnly')
     ctx.setLargeDocSpellOff(tier !== 'normal')
@@ -546,15 +551,19 @@ async function systemLocale(): Promise<string> {
   }
 }
 
+async function blankDocxBytes(): Promise<Uint8Array> {
+  return buildBlankDocx({
+    eastAsiaFont: defaultEastAsiaFontFor(getLang()),
+    paperSize: paperSizeForLocale(await systemLocale()),
+  })
+}
+
 /** new document from the built-in blank template (AI can then generate into it) */
 export async function newFile(ctx: FileActionContext): Promise<boolean | undefined> {
   if (!ctx.editor) return
   const generation = ++openGeneration
   try {
-    const bytes = await buildBlankDocx({
-      eastAsiaFont: defaultEastAsiaFontFor(getLang()),
-      paperSize: paperSizeForLocale(await systemLocale()),
-    })
+    const bytes = await blankDocxBytes()
     const parsed = await parseDocx(bytes)
     if (generation !== openGeneration) return
     setLazyMediaHashes([])
@@ -625,7 +634,8 @@ export async function newFile(ctx: FileActionContext): Promise<boolean | undefin
     ctx.onWriteProtectionLoaded(null)
     ctx.setCompareResult(null)
     ctx.dirtyRef.current = false
-    ctx.setShowAi(true)
+    // same rule as the first render, so the "open in new documents" setting holds for Cmd+N too
+    ctx.setShowAi(aiPanelInitiallyOpen('aidocs.showAi'))
     ctx.setStatus(t('appNewDocCreated'))
     return true
   } catch (err) {

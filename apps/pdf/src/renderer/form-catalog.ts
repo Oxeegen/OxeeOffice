@@ -284,11 +284,32 @@ function rectsSubstantiallyOverlap(a: number[], b: number[]): boolean {
 /** Lightweight pre-parse warning for XFA or mixed AcroForm/XFA documents. */
 export function hasXfaMarker(bytes: Uint8Array): boolean {
   const marker = [0x2f, 0x58, 0x46, 0x41] // /XFA
+  // `/` is itself a PDF delimiter, so any regular byte may precede a name token
+  // (`]/XFA`, `R/XFA`); only what follows tells `/XFA` from `/XFAfoo`: EOF,
+  // whitespace or one of the delimiters ( ) < > [ ] { } / %
+  const endsToken = (b: number): boolean =>
+    b === 0 ||
+    b === 9 ||
+    b === 10 ||
+    b === 12 ||
+    b === 13 ||
+    b === 32 ||
+    b === 0x28 ||
+    b === 0x29 ||
+    b === 0x3c ||
+    b === 0x3e ||
+    b === 0x5b ||
+    b === 0x5d ||
+    b === 0x7b ||
+    b === 0x7d ||
+    b === 0x2f ||
+    b === 0x25
   outer: for (let index = 0; index <= bytes.length - marker.length; index++) {
     for (let offset = 0; offset < marker.length; offset++) {
       if (bytes[index + offset] !== marker[offset]) continue outer
     }
-    return true
+    const after = index + marker.length
+    if (after === bytes.length || endsToken(bytes[after]!)) return true
   }
   return false
 }

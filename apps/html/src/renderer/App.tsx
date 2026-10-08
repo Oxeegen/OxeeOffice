@@ -7,6 +7,8 @@ import {
   useAutoSavePref,
   type FindPanelStrings,
   type FindTarget,
+  aiPanelInitiallyOpen,
+  rememberAiPanelOpen,
 } from '@genoffice/ui'
 import {
   pollUntilReady,
@@ -45,6 +47,8 @@ import {
   TEXT_INSERT_KINDS,
   type InsertKind,
 } from './document/insert-presets'
+import { isDocEmpty } from './document/blank'
+import { documentSkeleton } from './document/skeleton'
 import { moveTarget } from './document/move-target'
 import { StylePanel } from './components/StylePanel'
 import { floatPosition, parseDeclarations } from './document/float-position'
@@ -60,6 +64,7 @@ import { injectBrief, parseBrief, type Brief } from './document/brief'
 import { applyPatches } from './document/patch'
 import { adoptImageRewrites } from './document/image-rewrites'
 import { deriveAutoFileName, deriveNameFromPrompt, derivePageTitleName } from './document/auto-name'
+import { runGuardedPrint } from './print-guard'
 import type { ExportFormat, SaveMode } from '../shared/ipc'
 
 type LoadStatus = 'loading' | 'ready' | 'error'
@@ -133,7 +138,7 @@ export default function App() {
   const [previewNonce, setPreviewNonce] = useState(0)
   const [draftHtml, setDraftHtml] = useState<string | null>(null)
   const [historyState, setHistoryState] = useState({ undo: false, redo: false })
-  const [aiOpen, setAiOpen] = useState(() => localStorage.getItem('htmlapp.showAi') !== '0')
+  const [aiOpen, setAiOpen] = useState(() => aiPanelInitiallyOpen('htmlapp.showAi'))
   const [aiPreset, setAiPreset] = useState<AiPreset | null>(null)
   const [editQueue, setEditQueue] = useState<EditQueueItem[]>([])
   const [askMode, setAskMode] = useState<AskMode | null>(null)
@@ -342,7 +347,7 @@ export default function App() {
   }, [canvasMode])
 
   useEffect(() => {
-    localStorage.setItem('htmlapp.showAi', aiOpen ? '1' : '0')
+    rememberAiPanelOpen('htmlapp.showAi', aiOpen)
   }, [aiOpen])
 
   useEffect(() => {
@@ -794,6 +799,14 @@ export default function App() {
     if (rel && selectedSidRef.current === sid)
       runManual([{ op: 'set_attr', sid, name: 'src', value: rel }])
   }
+  /** ribbon Insert > Insert skeleton: a standards-mode page in the UI language, for a still-blank document */
+  const insertSkeleton = useCallback(() => {
+    // the menu is disabled once the page has content, and re-checked here so
+    // the action cannot fire from a stale render (a keyboard path, a queued click)
+    if (!isDocEmpty(textRef.current)) return
+    replaceAll(documentSkeleton(lang), false)
+  }, [lang, replaceAll])
+
   /** ribbon Insert menu: a starter element after the selection (or at the end of the body), then straight into editing */
   const insertElement = async (kind: InsertKind, opts: InsertOptions = {}) => {
     let imageSrc: string | undefined
@@ -1191,6 +1204,26 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- t is not referentially stable
   }, [])
 
+  const printingRef = useRef(false)
+  const runPrint = useCallback(async () => {
+    if (statusRef.current !== 'ready') return false
+    return runGuardedPrint(
+      printingRef,
+      async () => {
+        // serialize inside the gate so a throw still releases the flag
+        flushPending()
+        return window.htmlApi.printHtml({
+          html: serializeDocText({ text: textRef.current, envelope: envelopeRef.current }),
+        })
+      },
+      (error) => {
+        console.error('[html] print failed:', error)
+        setNotice(t('printFailed', { error }))
+      },
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- t is not referentially stable
+  }, [])
+
   // Headless export mode (--headless-export): this renderer lives in a hidden
   // window whose only job is to run the File menu's PDF or Word export against
   // a path the CLI chose, then report back so the main process can quit.
@@ -1254,6 +1287,9 @@ export default function App() {
     })
     const offRenamed = window.htmlApi.onFileRenamed((next) => setPath(next))
     const offExport = window.htmlApi.onExportRequest((format) => void runExport(format))
+    // Shell menu Print / ⌘P. The menu owns the accelerator, so this subscription
+    // is the only route the keystroke takes; without it ⌘P did nothing at all.
+    const offPrint = window.htmlApi.onPrintRequest(() => void runPrint())
     const offTheme = window.htmlApi.onThemeChanged(() => {
       // let main.tsx flip data-theme first
       window.setTimeout(
@@ -1305,10 +1341,11 @@ export default function App() {
       offClose()
       offRenamed()
       offExport()
+      offPrint()
       offTheme()
       window.removeEventListener('keydown', onKeyDown, true)
     }
-  }, [doSave, runExport, cycleView, zoomIn, zoomOut, flushPending, openFind])
+  }, [doSave, runExport, runPrint, cycleView, zoomIn, zoomOut, flushPending, openFind])
 
   // pinch / ctrl+wheel over the stage chrome around the frame; wheel inside the frame arrives as gx:zoom
   useEffect(() => {
@@ -1457,6 +1494,8 @@ export default function App() {
         onToggleAi={() => setAiOpen((v) => !v)}
         canInsert={canvasMode === 'edit'}
         onInsert={(kind, opts) => void insertElement(kind, opts)}
+        onInsertSkeleton={insertSkeleton}
+        canInsertSkeleton={canvasMode === 'edit' && isDocEmpty(textRef.current)}
         onAiPreset={(text) => {
           flushPending()
           setAiOpen(true)

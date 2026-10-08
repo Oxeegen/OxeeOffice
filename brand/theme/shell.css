@@ -7,12 +7,3 @@
 .logo-lockup {
   filter: none;
 }
-
-/* OxeeOffice: a tab dragged below the strip is about to become its own window */
-.tab-item.oxee-tear-off .tab-plate {
-  opacity: 0.55;
-  box-shadow: 0 6px 18px rgb(0 0 0 / 28%);
-}
-.tab-item.oxee-tear-off {
-  cursor: grabbing;
-}

@@ -31,6 +31,11 @@ const CHART_KINDS: Record<string, ChartDisplay['kind']> = {
 const DEFAULT_FRAME_LINE = '868686'
 /** Largest point index honored (a full Excel column): a hostile idx/ptCount must not grow the array. */
 const MAX_CHART_CACHE_POINTS = 1_048_576
+/**
+ * Largest series count honored: each one reads its own caches, so a part with
+ * thousands of c:ser multiplied the point budget out to billions of slots.
+ */
+const MAX_CHART_SERIES = 256
 
 /**
  * Read the display model of a chart part (word/charts/chartN.xml). Only the
@@ -112,14 +117,21 @@ export function parseChartPartXml(
 
   let categories: string[] = []
   const series: ChartSeries[] = []
-  for (const ser of findChildren(plot, 'c:ser')) {
+  const sers = findChildren(plot, 'c:ser')
+  // split the point budget over the series, so the total stays bounded
+  const maxPoints = Math.max(
+    1,
+    Math.floor(MAX_CHART_CACHE_POINTS / Math.min(sers.length, MAX_CHART_SERIES)),
+  )
+  for (const ser of sers) {
+    if (series.length >= MAX_CHART_SERIES) break
     // scatter/bubble series carry x/y pairs instead of category/value caches
     const val = findChild(ser, 'c:val') ?? findChild(ser, 'c:yVal')
-    const values = val ? cacheNumbers(val) : []
+    const values = val ? cacheNumbers(val, maxPoints) : []
     if (values.length === 0) continue
     const cat = findChild(ser, 'c:cat') ?? findChild(ser, 'c:xVal')
     if (cat && categories.length === 0) {
-      categories = cachePoints(cat).map((v) => v ?? '')
+      categories = cachePoints(cat, maxPoints).map((v) => v ?? '')
       // date-formatted numeric caches hold Excel serials; display them as dates
       const fmt = catFormatCode(cat)
       if (fmt && /[yd]/i.test(fmt)) {
@@ -136,7 +148,7 @@ export function parseChartPartXml(
     const entry: ChartSeries = { ...(name !== undefined ? { name } : {}), values }
     const color = solidFillHex(findChild(ser, 'c:spPr'), theme)
     if (color) entry.color = color
-    const pointColors = dataPointColors(ser, theme)
+    const pointColors = dataPointColors(ser, theme, maxPoints)
     if (pointColors) entry.pointColors = pointColors
     if (kind === 'pie' && series.length === 0) {
       const expl = parseInt(attrsOf(findChild(ser, 'c:explosion') ?? {})['val'] ?? '', 10)
@@ -144,10 +156,10 @@ export function parseChartPartXml(
     }
     if (kind === 'scatter' || kind === 'bubble') {
       const xVal = findChild(ser, 'c:xVal')
-      const xValues = xVal ? cacheNumbers(xVal) : []
+      const xValues = xVal ? cacheNumbers(xVal, maxPoints) : []
       if (xValues.some((v) => v !== null)) entry.xValues = xValues
       const sizeVal = findChild(ser, 'c:bubbleSize')
-      const sizes = sizeVal ? cacheNumbers(sizeVal) : []
+      const sizes = sizeVal ? cacheNumbers(sizeVal, maxPoints) : []
       if (sizes.some((v) => v !== null)) entry.sizes = sizes
       if (scatterLines && !seriesLineHidden(ser)) entry.line = true
     }
@@ -340,8 +352,8 @@ function legendPosOf(chart: XNode): ChartDisplay['legendPos'] {
 }
 
 /** numeric cache of a c:val / c:yVal / c:xVal / c:bubbleSize container */
-function cacheNumbers(container: XNode): (number | null)[] {
-  return cachePoints(container).map((v) => {
+function cacheNumbers(container: XNode, maxPoints = MAX_CHART_CACHE_POINTS): (number | null)[] {
+  return cachePoints(container, maxPoints).map((v) => {
     if (v === null || v.trim() === '') return null
     const n = Number(v)
     return Number.isFinite(n) ? n : null
@@ -355,12 +367,16 @@ function seriesLineHidden(ser: XNode): boolean {
 }
 
 /** c:dPt explicit fills, sparse by point index (pie slices, highlighted bars) */
-function dataPointColors(ser: XNode, theme?: ThemeColors | null): (string | null)[] | null {
+function dataPointColors(
+  ser: XNode,
+  theme?: ThemeColors | null,
+  maxPoints = MAX_CHART_CACHE_POINTS,
+): (string | null)[] | null {
   const out: (string | null)[] = []
   let any = false
   for (const dPt of findChildren(ser, 'c:dPt')) {
     const idx = parseInt(attrsOf(findChild(dPt, 'c:idx') ?? {})['val'] ?? '', 10)
-    if (!Number.isFinite(idx) || idx < 0 || idx >= MAX_CHART_CACHE_POINTS) continue
+    if (!Number.isFinite(idx) || idx < 0 || idx >= maxPoints) continue
     const color = solidFillHex(findChild(dPt, 'c:spPr'), theme)
     if (!color) continue
     out[idx] = color
@@ -660,16 +676,21 @@ function catFormatCode(container: XNode): string | undefined {
   return code ? textOf(code) : undefined
 }
 
-/** Excel date serial → "m/d/yyyy" display (Word/LO render category dates, not serials) */
+/**
+ * Excel date serial → "m/d/yyyy" display (Word/LO render category dates, not serials).
+ * Excel's epoch counts a 29-Feb-1900 that never existed, so serials below 61 need a
+ * later day zero; serial 60 is that phantom day and has no date to show.
+ */
 function serialDateText(v: string | null): string | null {
   const n = Number(v)
   if (!Number.isFinite(n) || n <= 0 || n > 80000) return null
-  const d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 86400000)
+  const base = n < 61 ? Date.UTC(1899, 11, 31) : Date.UTC(1899, 11, 30)
+  const d = new Date(base + Math.round(n) * 86400000)
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`
 }
 
 /** cached point texts of a c:cat / c:val / c:tx container, in idx order */
-function cachePoints(container: XNode): (string | null)[] {
+function cachePoints(container: XNode, maxPoints = MAX_CHART_CACHE_POINTS): (string | null)[] {
   const ref = findChild(container, 'c:strRef') ?? findChild(container, 'c:numRef')
   const cache = ref
     ? (findChild(ref, 'c:strCache') ?? findChild(ref, 'c:numCache'))
@@ -679,11 +700,11 @@ function cachePoints(container: XNode): (string | null)[] {
   const points: (string | null)[] = []
   for (const pt of findChildren(cache, 'c:pt')) {
     const idx = parseInt(attrsOf(pt)['idx'] ?? '', 10)
-    if (!Number.isFinite(idx) || idx < 0 || idx >= MAX_CHART_CACHE_POINTS) continue
+    if (!Number.isFinite(idx) || idx < 0 || idx >= maxPoints) continue
     points[idx] = textOf(findChild(pt, 'c:v') ?? {})
   }
   const requestedLength = Number.isFinite(count) ? Math.max(count, points.length) : points.length
-  const length = Math.min(Math.max(requestedLength, 0), MAX_CHART_CACHE_POINTS)
+  const length = Math.min(Math.max(requestedLength, 0), maxPoints)
   const out: (string | null)[] = []
   for (let i = 0; i < length; i++) out.push(points[i] ?? null)
   return out

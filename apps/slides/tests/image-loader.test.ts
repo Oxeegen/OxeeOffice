@@ -81,6 +81,19 @@ describe('createImageLoader', () => {
     vi.runAllTimers()
     expect(apply).not.toHaveBeenCalled()
   })
+
+  it('never re-decodes a url whose decode failed', () => {
+    const apply = vi.fn()
+    const loader = createImageLoader(apply, 16, 100)
+    loader.load(['broken'])
+    img('broken').onerror!()
+    // An edit/zoom/slide change re-collects the same url: it must not be re-queued
+    loader.load(['broken', 'broken'])
+    loader.load(['broken'])
+    expect(FakeImage.instances.map((i) => i.src)).toEqual(['broken'])
+    expect(loader.pending()).toBe(0)
+    expect(apply).not.toHaveBeenCalled()
+  })
 })
 
 describe('metafile rasterization waits for private fonts', () => {

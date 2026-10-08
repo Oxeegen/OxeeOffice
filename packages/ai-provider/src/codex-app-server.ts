@@ -6,7 +6,12 @@ import { tmpdir } from 'node:os'
 import { StringDecoder } from 'node:string_decoder'
 import type { AgentImage, AgentMessage, AgentToolCall, AgentToolDef } from '@genoffice/agent-core'
 import type { AiChatResponse, AiProviderConfig, CodexModelCatalog } from './types'
-import { parseToolInput, type StreamCallbacks } from './protocols/shared'
+import {
+  parseToolInput,
+  throwIfToolCountOverBudget,
+  throwIfToolJsonOverBudget,
+  type StreamCallbacks,
+} from './protocols/shared'
 import { createStreamWatchdog } from './watchdog'
 
 interface CodexAppServerTurn {
@@ -718,6 +723,8 @@ export function parseCodexAppServerTurn(
     throw new Error('Codex app-server returned a response with an invalid toolCalls field')
   }
   const names = new Set(tools.map((tool) => tool.name))
+  // the response schema only caps an empty tool list, so cap the parsed turn here
+  throwIfToolCountOverBudget(parsed.toolCalls.length, 'codex-app-server')
   const toolCalls = parsed.toolCalls.map((call): AgentToolCall => {
     if (!call || typeof call !== 'object' || typeof call.name !== 'string') {
       throw new Error('Codex app-server returned an invalid tool call')
@@ -725,9 +732,9 @@ export function parseCodexAppServerTurn(
     if (!names.has(call.name)) {
       throw new Error(`Codex app-server requested an unknown tool: ${call.name}`)
     }
-    const { input, error } = parseToolInput(
-      typeof call.inputJson === 'string' ? call.inputJson : '',
-    )
+    const inputJson = typeof call.inputJson === 'string' ? call.inputJson : ''
+    throwIfToolJsonOverBudget(inputJson.length, 'codex-app-server')
+    const { input, error } = parseToolInput(inputJson)
     return {
       id: typeof call.id === 'string' && call.id ? call.id : `codex-${randomUUID()}`,
       name: call.name,

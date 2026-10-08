@@ -141,6 +141,7 @@ import { cfbKind, isCfbHeader } from './cfb-sniff'
 import { unplayableAudioCodec } from './mp4-audio-sniff'
 import { audioFrame, videoFrame, videoSize, type Point, type Size } from './video-size'
 import { AUDIO_EXTS, VIDEO_EXTS } from '../shared/media-kinds'
+import { baseName } from '../shared/base-name'
 import type {
   AddChartOp,
   AddCommentOp,
@@ -249,6 +250,7 @@ import {
   dialogParent,
   endHistoryBatch,
   getFontMetrics,
+  hostWindowFor,
   resetFontMetrics,
   journalOps,
   makeMediaResolver,
@@ -299,6 +301,7 @@ export {
   configureSlidesRuntime,
   setActiveSlidesWebContents,
   setSlidesShellWindow,
+  setSlidesHostWindowHook,
   setSlidesShowBleed,
 } from './session-state'
 
@@ -379,7 +382,7 @@ async function handleRendererFreeze(wc: WebContents): Promise<void> {
   if (freezeDialogOpen.has(wc.id)) return
   freezeDialogOpen.add(wc.id)
   try {
-    const parent = BrowserWindow.fromWebContents(wc)
+    const parent = hostWindowFor(wc)
     const options = {
       type: 'warning' as const,
       message: tm('freezeTitle'),
@@ -841,7 +844,12 @@ async function openAndBuild(
     }
   }
   const raw = await readFile(path)
-  const { bytes, recovered } = await maybeRecoverBytes(path, new Uint8Array(raw))
+  // a 0-byte .pptx is an empty deck, not a corrupt one: open the blank template
+  // under the file's own path so Save writes back to it
+  const { bytes, recovered } = await maybeRecoverBytes(
+    path,
+    raw.length === 0 ? await createBlankPptx() : new Uint8Array(raw),
+  )
   await shapedMetricsReady() // Lay out only after complex-script shaped metrics are ready, avoiding an init race falling back to estimation
   const opened = await openPptx(bytes)
   adoptEmbeddedFonts(opened)
@@ -1748,10 +1756,22 @@ export function registerSlidesIpc(): void {
 
   ipcMain.handle('slides:cloud-gen-status', () => ({ enabled: cloudSlideEnabled() }))
 
+  // In-flight cloud generations keyed by the requesting window: stop in one
+  // panel aborts all of that window's pages (a deck batch shares one stop
+  // signal) and none of another window's
+  const cloudPageAborts = new Map<number, Set<AbortController>>()
+
+  ipcMain.handle('slides:cloud-page-cancel', (e) => {
+    const aborts = cloudPageAborts.get(e.sender.id)
+    if (!aborts) return
+    for (const c of aborts) c.abort()
+    cloudPageAborts.delete(e.sender.id)
+  })
+
   ipcMain.handle(
     'slides:cloud-page-generate',
     async (
-      _e,
+      e,
       op: {
         brief: string
         title?: string
@@ -1769,16 +1789,30 @@ export function registerSlidesIpc(): void {
         // comparisons and emergency rollback.
         const tier = process.env.GENOFFICE_CLOUD_SLIDE_TIER === 'standard' ? 'standard' : 'ultra'
         const started = Date.now()
-        const { bytes, model } = await gskSlideGenerate({
-          tier,
-          brief: String(op.brief ?? ''),
-          title: op.title ? String(op.title) : undefined,
-          styleSkill: op.styleSkill ? String(op.styleSkill) : undefined,
-          deckContext: op.deckContext,
-          images: Array.isArray(op.images) ? op.images : undefined,
-          width: op.width,
-          height: op.height,
-        })
+        // Stop must reach the cloud request: without this the generation keeps
+        // running (and billing) after the user pressed stop
+        const abort = new AbortController()
+        const windowAborts = cloudPageAborts.get(e.sender.id) ?? new Set<AbortController>()
+        windowAborts.add(abort)
+        cloudPageAborts.set(e.sender.id, windowAborts)
+        let bytes: Uint8Array
+        let model: string
+        try {
+          ;({ bytes, model } = await gskSlideGenerate({
+            tier,
+            brief: String(op.brief ?? ''),
+            title: op.title ? String(op.title) : undefined,
+            styleSkill: op.styleSkill ? String(op.styleSkill) : undefined,
+            deckContext: op.deckContext,
+            images: Array.isArray(op.images) ? op.images : undefined,
+            width: op.width,
+            height: op.height,
+            signal: abort.signal,
+          }))
+        } finally {
+          windowAborts.delete(abort)
+          if (windowAborts.size === 0) cloudPageAborts.delete(e.sender.id)
+        }
         console.log(
           `[cloud-slide] page generated: tier=${tier} model=${model} bytes=${bytes.length} ms=${Date.now() - started}`,
         )
@@ -2544,6 +2578,7 @@ export function registerSlidesIpc(): void {
     })
     if (!r) return null
     session.fitWidthPx = op.fitWidthPx
+    markMetaDirty(session)
     return {
       slides: buildAllRenderSlides(session.opened, op.fitWidthPx),
       index: op.sourceIndex + 1,
@@ -2586,6 +2621,10 @@ export function registerSlidesIpc(): void {
     if (!r.applied) return null
     const rec = r.records![0]!
     session.fitWidthPx = op.fitWidthPx
+    // Pasted slides are parsed fresh, so no element dirty flag is set: flag the
+    // session here or the paste is invisible to the close guard and autosave.
+    // repaste-slide re-runs this after restoring a snapshot that cleared the flag.
+    markMetaDirty(session)
     const created = r.records!.flatMap((x) => x.created ?? [])
     return {
       slides: buildAllRenderSlides(session.opened, op.fitWidthPx),
@@ -2650,7 +2689,9 @@ export function registerSlidesIpc(): void {
     })
     if (!r) return null
     session.fitWidthPx = op.fitWidthPx
-    if (op.before) markMetaDirty(session)
+    // Always: the blank slide is parsed fresh, so neither structureDirty nor an
+    // element dirty flag is set and the insert would otherwise be unsaveable.
+    markMetaDirty(session)
     return {
       slides: buildAllRenderSlides(session.opened, op.fitWidthPx),
       index: op.before ? op.sourceIndex : op.sourceIndex + 1,
@@ -2686,6 +2727,7 @@ export function registerSlidesIpc(): void {
       return null
     }
     session.fitWidthPx = op.fitWidthPx
+    markMetaDirty(session)
     return {
       slides: buildAllRenderSlides(session.opened, op.fitWidthPx),
       index: op.sourceIndex + 1,
@@ -2960,7 +3002,9 @@ export function registerSlidesIpc(): void {
     const session = sessions.get(e.sender.id)
     if (!session) return null
     const r = sessionTxn(session, { ops: [{ op: 'deleteSlide', target: { slide: slideIndex } }] })
-    return r ? buildAllRenderSlides(session.opened, session.fitWidthPx) : null
+    if (!r) return null
+    markMetaDirty(session)
+    return buildAllRenderSlides(session.opened, session.fitWidthPx)
   })
 
   // Highest index first: every op is validated against the pre-transaction deck
@@ -2973,7 +3017,9 @@ export function registerSlidesIpc(): void {
     const r = sessionTxn(session, {
       ops: indexes.map((i) => ({ op: 'deleteSlide' as const, target: { slide: i } })),
     })
-    return r ? buildAllRenderSlides(session.opened, session.fitWidthPx) : null
+    if (!r) return null
+    markMetaDirty(session)
+    return buildAllRenderSlides(session.opened, session.fitWidthPx)
   })
 
   ipcMain.handle('slides:duplicate-slides', (e, op: DuplicateSlidesOp) => {
@@ -2990,7 +3036,9 @@ export function registerSlidesIpc(): void {
     })
     if (!r) return null
     session.fitWidthPx = op.fitWidthPx
-    if (steps.length > 1) markMetaDirty(session)
+    // Not just for multi-slide plans: a single duplicate is parsed fresh too and
+    // would otherwise leave the deck changed but reported clean.
+    markMetaDirty(session)
     return {
       slides: buildAllRenderSlides(session.opened, op.fitWidthPx),
       index: Math.max(...op.slideIndexes) + 1,
@@ -3804,7 +3852,7 @@ export function registerSlidesIpc(): void {
       const filePath = r.filePaths[0]
       const bytes = new Uint8Array(await readFile(filePath))
       const ext = filePath.split('.').pop()!.toLowerCase()
-      const fileName = filePath.split('/').pop()!
+      const fileName = baseName(filePath)
 
       // Warn up front, before the file lands on the slide
       const detail = mediaPlaybackWarning(kind, ext, bytes)
@@ -3928,7 +3976,7 @@ export function registerSlidesIpc(): void {
             cx,
             cy,
           },
-          name: filePath.split('/').pop()!,
+          name: baseName(filePath),
         },
       ],
     })
@@ -4111,6 +4159,9 @@ export function registerSlidesIpc(): void {
         trigger: a.trigger,
         durationMs: a.durationMs,
         delayMs: a.delayMs,
+        // a modelled directional effect carries its own direction; a top wipe must not
+        // come back to the player as a bare 'wipe' and play bottom-up
+        ...(a.direction != null ? { direction: a.direction } : {}),
         ...(a.motionPath != null ? { motionPath: a.motionPath } : {}),
         ...(a.paragraph != null ? { paragraph: a.paragraph } : {}),
       })
@@ -4503,7 +4554,13 @@ export function registerSlidesIpc(): void {
   ipcMain.handle('slides:export-pdf', async (_e, op: ExportPdfOp): Promise<ExportPdfResult> => {
     return exportSlidesPdf({
       ...op,
-      createWindow: () => new BrowserWindow({ show: false, webPreferences: { sandbox: true } }),
+      // hidden window: without this, throttled timers/rAF stall the
+      // PRINT_READY_SCRIPT settle wait (same as the headless export window)
+      createWindow: () =>
+        new BrowserWindow({
+          show: false,
+          webPreferences: { sandbox: true, backgroundThrottling: false },
+        }),
       openExportedPdf,
     })
   })
@@ -4520,7 +4577,7 @@ export function registerSlidesIpc(): void {
         ...(op.orientation ? { orientation: op.orientation } : {}),
         ...(op.frame ? { frame: true } : {}),
       })
-      const owner = BrowserWindow.fromWebContents(e.sender) ?? dialogParent()
+      const owner = hostWindowFor(e.sender) ?? dialogParent()
       const win = new BrowserWindow({
         show: false,
         ...(owner && !owner.isDestroyed() ? { parent: owner } : {}),
@@ -4572,7 +4629,8 @@ export function registerSlidesIpc(): void {
   // immediately makes the window visibly bounce. ──
   let showFsRelease: ReturnType<typeof setTimeout> | null = null
   ipcMain.handle('slides:show-fullscreen', (e, on: boolean) => {
-    const win = BrowserWindow.fromWebContents(e.sender) ?? windowRefs.shellWindow
+    // a detached editor window fullscreens itself, never the shell behind it
+    const win = hostWindowFor(e.sender)
     if (!win || win.isDestroyed()) return
     const wc = e.sender
     if (showFsRelease) {

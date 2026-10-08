@@ -39,9 +39,11 @@ import {
   rendererUrl,
   MAX_REMOTE_IMAGE_BYTES,
   readBodyCapped,
+  printHtmlDocument,
+  type PrintDialogOutcome,
 } from '@genoffice/electron-utils'
 import { createI18n, getUiLang } from '@genoffice/i18n'
-import { generateImageTool } from '@genoffice/ai-search'
+import { generateImageTool, documentMediaRoots } from '@genoffice/ai-search'
 import { parseFileToText } from '@genoffice/file-parse'
 import { convertHtmlToDocx } from '../../../../packages/html2docx/src'
 import { atomicWriteFile } from './atomic-write'
@@ -49,7 +51,7 @@ import { ElectronBrowserDriver } from '../../../../packages/html2docx/src/driver
 import {
   copyImageIntoOwnedAssets,
   discardPendingOwnedAssets,
-  extractHtmlImageSources,
+  extractHtmlAssetReferences,
   isInDocDir,
   pendingOwnedAssetsForDocument,
   prepareAssetsForSaveAs,
@@ -86,6 +88,8 @@ import type {
   ExportPdfRequest,
   ExportResult,
   ImageData,
+  PrintHtmlRequest,
+  PrintResult,
   SaveHtmlRequest,
   SaveHtmlResult,
   SaveMode,
@@ -923,6 +927,9 @@ function closePresentViewsOf(ownerWcId: number): void {
 
 /** A4 at 96dpi; html2docx re-measures at the authored width itself when the page asks for more. */
 const HTML2DOCX_VIEWPORT = { width: 794, height: 1123, deviceScaleFactor: 2 }
+// A renderer that never yields must not strand the export: watchdog destroys
+// the hidden conversion window.
+const HTML_EXPORT_TIMEOUT_MS = 180_000
 
 /** Print the document in a hidden script-free window (sheets-style). Relative assets
  * resolve through html-asset:// against the document's folder, exactly as in the preview. */
@@ -960,6 +967,19 @@ export function sendHtmlExportRequest(contents: WebContents, format: ExportForma
 export function sendHtmlPrintRequest(contents: WebContents): void {
   if (contents.isDestroyed() || presentOwnerByWc.has(contents.id)) return
   contents.send(HTML_CHANNELS.printRequest)
+}
+
+// Scripting stays on here, unlike the PDF export window: Chromium rejects
+// executeJavaScript under `javascript: false`, and the fonts/images readiness
+// probe needs it. Print and Export-PDF therefore differ for <script>-built content.
+function printHtml(html: string, docPath: string | undefined): Promise<PrintDialogOutcome> {
+  const base = docPath ? assetBaseHref(dirname(docPath)) : null
+  return printHtmlDocument({
+    html: buildPreviewDocument(html, base),
+    window: new BrowserWindow({ show: false, webPreferences: { sandbox: true } }),
+    fileName: 'print.html',
+    dirPrefix: 'genoffice-html-print-',
+  })
 }
 
 export function htmlIsDirty(webContentsId: number): boolean {
@@ -1389,7 +1409,7 @@ function registerHtmlIpc(): void {
         const isNewPath = currentPath !== target
         const imageSources = [...(request.imageSources ?? [])]
         const knownImageSources = new Set(imageSources)
-        for (const source of extractHtmlImageSources(request.text)) {
+        for (const source of extractHtmlAssetReferences(request.text)) {
           if (knownImageSources.has(source)) continue
           knownImageSources.add(source)
           imageSources.push(source)
@@ -1550,11 +1570,20 @@ function registerHtmlIpc(): void {
   // shell-registered, but image generation is gated per app
   ipcMain.handle(
     HTML_CHANNELS.aiGenerateImage,
-    (_e, op: { prompt?: unknown; aspectRatio?: unknown }) =>
-      generateImageTool(join(app.getPath('userData'), 'ai-settings.json'), {
-        prompt: String(op?.prompt ?? ''),
-        aspectRatio: op?.aspectRatio ? String(op.aspectRatio) : undefined,
-      }),
+    (e, op: { prompt?: unknown; aspectRatio?: unknown }) =>
+      generateImageTool(
+        join(app.getPath('userData'), 'ai-settings.json'),
+        {
+          prompt: String(op?.prompt ?? ''),
+          aspectRatio: op?.aspectRatio ? String(op.aspectRatio) : undefined,
+        },
+        {
+          mediaRoots: documentMediaRoots(
+            htmlFilePath(e.sender.id),
+            join(app.getPath('temp'), 'genoffice-pasted'),
+          ),
+        },
+      ),
   )
 
   const MIME_BY_EXT: Record<string, ImageData['mime']> = {
@@ -1635,7 +1664,24 @@ function registerHtmlIpc(): void {
         const htmlPath = join(workDir, 'export.html')
         await writeFile(htmlPath, buildPreviewDocument(request.html, base), 'utf8')
         driver = await ElectronBrowserDriver.create(HTML2DOCX_VIEWPORT)
-        const { docx } = await convertHtmlToDocx({ url: pathToFileURL(htmlPath).href }, driver)
+        // AI-generated markup with a script that never yields keeps
+        // executeJavaScript pending forever, which would strand the hidden
+        // window and this handler; race a watchdog and destroy the window on
+        // timeout (same shape as the slides export guard).
+        const conversion = convertHtmlToDocx({ url: pathToFileURL(htmlPath).href }, driver).then(
+          ({ docx }) => docx,
+        )
+        let watchdog: ReturnType<typeof setTimeout> | undefined
+        const docx = await Promise.race([
+          conversion,
+          new Promise<Uint8Array>((_, reject) => {
+            watchdog = setTimeout(() => {
+              if (driver && !driver.isWindowDestroyed()) driver.destroyNow()
+              driver = null
+              reject(new Error('html export timed out'))
+            }, HTML_EXPORT_TIMEOUT_MS)
+          }),
+        ]).finally(() => clearTimeout(watchdog))
         await writeFile(picked.filePath, docx)
         openExportedDocx(picked.filePath)
         return { ok: true, path: picked.filePath }
@@ -1681,6 +1727,20 @@ function registerHtmlIpc(): void {
       } finally {
         await rm(workDir, { recursive: true, force: true }).catch(() => {})
       }
+    },
+  )
+
+  ipcMain.handle(
+    HTML_CHANNELS.printHtml,
+    async (e, request: PrintHtmlRequest): Promise<PrintResult> => {
+      if (typeof request?.html !== 'string') {
+        return { ok: false, error: 'html: bad print request' }
+      }
+      // printHtml already reports why it failed and separates a dialog the
+      // user closed from a real failure, so the outcome maps straight onto
+      // PrintResult: the renderer can stay silent on cancel and must surface
+      // a failure instead of swallowing it.
+      return printHtml(request.html, savePathByWc.get(e.sender.id))
     },
   )
 

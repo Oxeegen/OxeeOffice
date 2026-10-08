@@ -126,7 +126,7 @@ export function animClassOf(effect: AnimEffectKind): AnimClass {
 
 /** Extract the element's own <p:cNvPr id> from its raw bytes (the first one is the element itself; group children follow). */
 export function elementSpid(el: SlideElement): number | null {
-  const m = /<p:cNvPr\s[^>]*\bid="(\d+)"/.exec(el.anchor.originalXml)
+  const m = /<p:cNvPr\s[^>]*\bid=["'](\d+)["']/.exec(el.anchor.originalXml)
   return m ? Number(m[1]) : null
 }
 
@@ -200,10 +200,11 @@ function directionFromPreset(effect: AnimEffectKind, sub: number): AnimDirection
 function modeledEffect(cls: string, id: number, sub: number): AnimEffectKind | null {
   if (cls === 'path') return 'motionPath'
   if (cls === 'mediacall') return id === 1 ? 'mediaPause' : id === 3 ? 'mediaStop' : 'mediaPlay'
-  // Effects sharing a presetID distinguished by subtype (e.g. wipe direction)
+  // Effects sharing a presetID distinguished by subtype. entr:22:4 reads as wipe
+  // with direction top (wipeDown is a write-compatible alias for the same bytes).
   const bySub: Record<string, AnimEffectKind> = {
     'entr:22:1': 'wipe',
-    'entr:22:4': 'wipeDown',
+    'entr:22:4': 'wipe',
   }
   const exact: Record<string, AnimEffectKind> = {
     'entr:1': 'appear',
@@ -1182,7 +1183,7 @@ export function pruneTimingForSpids(slide: Slide, spids: ReadonlySet<number>): b
   for (;;) {
     spTgt.lastIndex = from
     let removed = false
-    let blockedAt = from
+    let blockedAt = Infinity
     let hit: RegExpExecArray | null
     while ((hit = spTgt.exec(xml)) !== null) {
       if (!spids.has(Number(hit[1]))) continue
@@ -1252,6 +1253,6 @@ export function pruneTimingForSpids(slide: Slide, spids: ReadonlySet<number>): b
 /** Every cNvPr id inside an element's XML fragment (group children included). */
 export function cNvPrIdsInXml(xml: string): Set<number> {
   const out = new Set<number>()
-  for (const m of xml.matchAll(/<p:cNvPr\b[^>]*?\bid="(\d+)"/g)) out.add(Number(m[1]))
+  for (const m of xml.matchAll(/<p:cNvPr\b[^>]*?\bid=["'](\d+)["']/g)) out.add(Number(m[1]))
   return out
 }

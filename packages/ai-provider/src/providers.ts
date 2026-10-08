@@ -151,9 +151,13 @@ export const AI_PROVIDERS: AiProviderMeta[] = withOxeegenProviders([
   {
     id: 'glm',
     label: 'GLM',
-    // bigmodel.cn text-model lineup (2026-08); 5.3 and 5.2 share a base model,
-    // 5-Turbo is the cheap tier
-    models: ['glm-5.3', 'glm-5.2', 'glm-5-turbo'],
+    // bigmodel.cn text-model lineup (2026-08); 5.3 and 5.2 share a base model.
+    // 5.3-Flash is the first multimodal GLM-5 and the documented successor to
+    // 5-Turbo, which Z.ai delisted from its price card in late August and
+    // Tencent CloudBase retires on 2026-10-30 with migration advice pointing
+    // here. 5.2 is marked deprecated on third-party catalogues but is still
+    // sold pay-as-you-go, so it stays listed.
+    models: ['glm-5.3', 'glm-5.3-flash', 'glm-5.2'],
     defaultModel: 'glm-5.3',
     keyPlaceholder: 'xxxxxxxx.xxxxxxxx',
   },
@@ -161,8 +165,10 @@ export const AI_PROVIDERS: AiProviderMeta[] = withOxeegenProviders([
     id: 'qwen',
     label: 'Qwen',
     // Versioned DashScope ids: the bare qwen-max alias still points at a
-    // Qwen2.5-era snapshot, so name the 3.x tiers explicitly (2026-08)
-    models: ['qwen3.8-max', 'qwen3.7-plus', 'qwen3.7-flash'],
+    // Qwen2.5-era snapshot, so name the 3.x tiers explicitly (2026-08).
+    // 3.8 ships as Max and Flash only — there is no 3.8-Plus tier, and
+    // 3.7-Flash is still the listed high-volume option.
+    models: ['qwen3.8-max', 'qwen3.8-flash', 'qwen3.7-plus', 'qwen3.7-flash'],
     defaultModel: 'qwen3.8-max',
     keyPlaceholder: 'sk-...',
   },
@@ -176,6 +182,61 @@ export const AI_PROVIDERS: AiProviderMeta[] = withOxeegenProviders([
     keyPlaceholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
   },
   {
+    id: 'mimo',
+    label: 'MiMo',
+    // Xiaomi's open-weight omni-modal pair (released 2026-09-22): Pro is the
+    // trillion-parameter flagship, Flash the efficiency/cost tier. Both take
+    // text, image, video and audio input; a -pro-ultraspeed tier also exists but
+    // is the same weights behind a faster serving path, so it is not a
+    // separate model to pick here.
+    models: ['mimo-v2.6-pro', 'mimo-v2.6-flash'],
+    defaultModel: 'mimo-v2.6-pro',
+    keyPlaceholder: 'sk-...',
+  },
+  {
+    id: 'hunyuan',
+    label: 'Hunyuan',
+    // Tencent's TokenHub chat models (docs 1823/132252, read 2026-09-30).
+    // hy4-preview is the 1M-context flagship and has deep thinking on by
+    // default; hy3 is the 256k balanced tier. Every other provider here
+    // defaults to its flagship, so this does too.
+    models: ['hy4-preview', 'hy3'],
+    defaultModel: 'hy4-preview',
+    keyPlaceholder: 'sk-...',
+  },
+  {
+    id: 'ling',
+    label: 'Ling',
+    // Ids as listed by developer.ant-ling.com (Ring = reasoning line); only
+    // Ling-3.0-flash-VL takes images, see modelLacksVision()
+    models: [
+      'Ling-3.0-flash',
+      'Ling-3.0-flash-VL',
+      'Ling-3.0-tiny',
+      'Ling-2.6-1T',
+      'Ring-2.6-1T',
+      'Ling-2.6-flash',
+    ],
+    defaultModel: 'Ling-3.0-flash',
+    keyPlaceholder: 'API Key',
+  },
+  {
+    id: 'spark',
+    label: 'Spark',
+    // iFlytek MaaS: lower-case model id and ak- key prefix are the vendor's own spelling
+    models: ['spark-x2.5'],
+    defaultModel: 'spark-x2.5',
+    keyPlaceholder: 'ak-...',
+  },
+  {
+    id: 'longcat',
+    label: 'LongCat',
+    // 2.5-Preview is the multimodal tier; 2.0 stays default so a fresh config avoids a preview
+    models: ['LongCat-2.5-Preview', 'LongCat-2.0'],
+    defaultModel: 'LongCat-2.0',
+    keyPlaceholder: 'API Key',
+  },
+  {
     id: 'minimax',
     label: 'MiniMax',
     // M3 is the current agentic/tool-use model; M2.5 moved to the legacy tier
@@ -186,7 +247,11 @@ export const AI_PROVIDERS: AiProviderMeta[] = withOxeegenProviders([
   {
     id: 'xai',
     label: 'Grok',
-    models: ['grok-4.6', 'grok-4.5'],
+    // 4.7 (2026-09-21) is 2.1T / 500K context at 4.6's price. 4.6 stays the
+    // default so a fresh config does not silently move to a model released
+    // this month; say the word and the default follows the flagship like every
+    // other provider here.
+    models: ['grok-4.7', 'grok-4.6', 'grok-4.5'],
     defaultModel: 'grok-4.6',
     keyPlaceholder: 'xai-...',
   },
@@ -262,6 +327,17 @@ export const AI_PROVIDERS: AiProviderMeta[] = withOxeegenProviders([
     keyPlaceholder: 'API Key',
   },
   {
+    id: 'cheaperinference',
+    label: 'Cheaper Inference',
+    // Bare model ids as GET api.cheaperinference.com/v1/models lists them (the
+    // chat rows, type "text"): no vendor prefix, one key for every lab. Other
+    // ids from that list work as-is when typed in. Full list at
+    // cheaperinference.com/#models.
+    models: ['gpt-5.4-mini', 'gpt-5.4', 'claude-sonnet-5', 'gemini-3.1-pro'],
+    defaultModel: 'gpt-5.4-mini',
+    keyPlaceholder: 'ci_live_...',
+  },
+  {
     id: 'opencode-zen',
     label: 'OpenCode Zen',
     // Pay-as-you-go gateway (opencode.ai/docs/zen); ids exactly as GET
@@ -292,20 +368,29 @@ export const AI_PROVIDERS: AiProviderMeta[] = withOxeegenProviders([
     label: 'OpenCode Go',
     // $10/month subscription to open-weight coding models (opencode.ai/docs/go),
     // same key as Zen; ids exactly as GET /zen/go/v1/models lists them
-    // (2026-09-03). GPT-5.6 Luna, Grok and Muse Spark are Responses-only and
-    // left out for the same reason as above.
+    // (re-read 2026-09-30). GPT-5.6 Luna, Grok and Muse Spark are
+    // Responses-only and left out for the same reason as above.
     models: [
       'kimi-k2.7-code',
       'kimi-k3',
+      'kimi-k2.6',
       'glm-5.3',
       'glm-5.3-flash',
+      'glm-5.2',
       'deepseek-v4-pro',
       'deepseek-v4-flash',
+      'deepseek-v4.1-flash',
       'qwen3.8-max',
       'qwen3.8-flash',
       'minimax-m3',
+      'minimax-m2.7',
       'mimo-v2.5-pro',
+      'mimo-v2.6-pro',
+      'mimo-v2.6-flash',
       'longcat-2.0',
+      'longcat-2.5-preview-free',
+      'hy4-preview',
+      'hy3',
     ],
     defaultModel: 'kimi-k2.7-code',
     keyPlaceholder: 'API Key',
@@ -406,6 +491,8 @@ const RETIRED_MODELS: Partial<Record<AiProviderId, Record<string, string>>> = {
   // proxy stopped serving bare gpt-5.6 (400) and removed the gemini route
   // entirely (405), verified 2026-08-31; gemini selections fall back to the
   // provider default since no gemini id is served at all
+  // 5-Turbo left the Z.ai price card late 2026-08; 5.3 Flash is the cheap tier now
+  glm: { 'glm-5-turbo': 'glm-5.3-flash' },
   genspark: {
     'gpt-5.6': 'gpt-5.6-terra',
     'gemini-3.1-pro-preview': 'claude-opus-4-7',

@@ -1,15 +1,17 @@
-// OxeeOffice brand hook: model picker and Oxee mark
+// OxeeOffice brand hook: reasoning switch per step, pages see the pages before them
 import {
-  AI_PROVIDERS,
   oxeegenDeckPageConcurrency,
   oxeegenDeckPageReferences,
   oxeegenLayerEnabled,
   oxeegenRoleSettings,
 } from '@genoffice/ai-provider/browser'
-// OxeeOffice brand hook: pages see the pages written before them
 import { referenceBlock } from './oxee-deck-references'
-import { OxeeModelPicker } from '@genoffice/ui'
-import { aiPanelWidthAtPointer, AiPanelSideButton } from '@genoffice/ui'
+import {
+  aiPanelWidthAtPointer,
+  AiPanelSideButton,
+  AiModelPicker,
+  type AiModelPickerBridge,
+} from '@genoffice/ui'
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import {
   AgentLoop,
@@ -359,6 +361,14 @@ function clampPanelWidth(w: number): number {
   // shell lays it out), so never let the ceiling drop below the minimum
   const max = Math.max(PANEL_WIDTH_MIN, Math.min(720, Math.round(window.innerWidth * 0.6)))
   return Math.min(Math.max(w, PANEL_WIDTH_MIN), max)
+}
+
+const MODEL_BRIDGE: AiModelPickerBridge = {
+  getSettings: () => window.slidesApi.getAiSettings(),
+  setSettings: (settings) => window.slidesApi.setAiSettings(settings),
+  onSettingsChanged: (handler) => window.slidesApi.onAiSettingsChanged(handler),
+  gskLoggedIn: () => window.slidesApi.aiGskStatus().then((s) => !!s?.loggedIn),
+  openModelSettings: () => window.slidesApi.openAiModelSettings().catch(() => {}),
 }
 
 export function AiPanel({
@@ -1068,6 +1078,8 @@ export function AiPanel({
           '\n' +
           '## Visuals and assets\n' +
           '- Photos may only use URLs from the "available images" list, at most as many image elements as URLs. With no available images, fill with typography/color blocks/shapes — never fake photos.\n' +
+          "- Use a photo only when it genuinely matches this page's content and improves it — an irrelevant or generic stock photo is worse than none. When in doubt, skip the image and compose with typography/color blocks/shapes instead.\n" +
+          '- At most 3 image elements on one page; one strong, relevant image beats several weak ones.\n' +
           '- Icon-like decoration uses the allowed shapes only (at most 4-5 per page, strongly content-related). **Never use emoji**.\n' +
           '- Data visuals: compose bars/rings/timelines from rect/donut/line shapes with sizes proportional to the real values from the brief.\n' +
           '- Solid colors only (alpha allowed) — no gradients. **No placeholders of any kind**: all copy comes from the brief’s real content.\n' +
@@ -1083,13 +1095,14 @@ export function AiPanel({
         const ctxBlock = args.context
           ? `\n\nReference material (all real names/figures/facts come from here; do not invent):\n${args.context.slice(0, 4000)}`
           : ''
+        const skeletonBlock = args.skeleton ? `\n\n${args.skeleton}` : ''
         const userMsg =
           `This is the deck's unified style (this page must follow it strictly to stay consistent across pages):\n${args.style}\n\n` +
           referenceBlock(args.references) + // OxeeOffice brand hook
           (args.topic ? `Deck topic: ${args.topic}\n` : '') +
           `Deck-wide narrative Core Hook: ${args.coreHook}\n\n` +
           `Now design page ${args.pageIndex}/${args.totalPages}.\n` +
-          `Title: ${args.title}\nLayout: ${args.layout}\nContent brief (use real data/facts): ${args.brief}${imgBlock}${ctxBlock}\n\n` +
+          `Title: ${args.title}\nLayout: ${args.layout}\nContent brief (use real data/facts): ${args.brief}${imgBlock}${ctxBlock}${skeletonBlock}\n\n` +
           "Return only this page's spec JSON."
         // One repair round: feed the exact validation error back so the model can fix its JSON
         let lastErr = ''
@@ -1122,6 +1135,12 @@ export function AiPanel({
       // Cloud single-page generation (gsk slide_generate): the cloud service owns HTML writing +
       // pptx conversion; the deck-level style/outline stay local.
       generatePageCloud: async (args) => {
+        // a stop that already fired must not start (and bill) another page
+        if (args.signal?.aborted) return { ok: false, error: tGlobal('aiErrStopped') }
+        // Forward the panel's stop signal: the main process aborts the in-flight
+        // cloud request instead of letting it run (and bill) to completion
+        const cancelCloud = () => void window.slidesApi.cloudPageCancel().catch(() => {})
+        args.signal?.addEventListener('abort', cancelCloud, { once: true })
         try {
           const briefParts = [args.brief]
           if (args.layout) briefParts.push(`Layout intent: ${args.layout}`)
@@ -1129,10 +1148,13 @@ export function AiPanel({
             briefParts.push(
               `Reference material (all real names/figures/facts come from here; do not invent):\n${args.context.slice(0, 4000)}`,
             )
+          // The cloud service owns its own page prompt; the template chrome rides
+          // in as part of the style so its pages pin the same geometry
+          const styleSkill = args.skeleton ? `${args.style}\n\n${args.skeleton}` : args.style
           const res = await window.slidesApi.cloudGeneratePage({
             brief: briefParts.join('\n\n'),
             title: args.title,
-            styleSkill: args.style,
+            styleSkill,
             deckContext: {
               ...(args.topic ? { topic: args.topic } : {}),
               core_hook: args.coreHook,
@@ -1146,6 +1168,8 @@ export function AiPanel({
           return res ?? { ok: false, error: tGlobal('aiErrUnknown') }
         } catch (e) {
           return { ok: false, error: e instanceof Error ? e.message : String(e) }
+        } finally {
+          args.signal?.removeEventListener('abort', cancelCloud)
         }
       },
       // ── In-tool planning: given topic+page count, the LLM produces a structured outline (batched recursion scheduled by the skill).
@@ -2090,14 +2114,7 @@ export function AiPanel({
       <div className="ai-panel-header">
         <span className="ai-panel-title">
           <GensparkMark size={22} />
-          {/* OxeeOffice brand hook: model picker in place of the title */}
-          <OxeeModelPicker
-            enabled={oxeegenLayerEnabled()}
-            catalog={AI_PROVIDERS}
-            load={() => window.slidesApi.getAiSettings()}
-            save={(s) => window.slidesApi.setAiSettings(s as never)}
-            fallback={t('aiPanelTitle')}
-          />
+          {t('aiPanelTitle')}
         </span>
         <div className="ai-panel-header-actions">
           <AiPanelSideButton
@@ -2446,6 +2463,7 @@ export function AiPanel({
               rows={1}
             />
             <div className="ai-input-footer">
+              <AiModelPicker bridge={MODEL_BRIDGE} lang={lang} />
               <button
                 className="ai-attach-btn"
                 onClick={pickAttachments}
@@ -2826,6 +2844,15 @@ function DeckProgressCard({ progress }: { progress: DeckProgressSnapshot }) {
                 <span className={`deck-progress-icon ${step.stepStatus}`}>
                   {step.stepStatus === 'running' ? (
                     <span className="deck-progress-spinner" />
+                  ) : step.stepStatus === 'stopped' ? (
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                      <path
+                        d="M2.5 6h7"
+                        stroke="currentColor"
+                        strokeWidth="0.75"
+                        strokeLinecap="round"
+                      />
+                    </svg>
                   ) : step.stepStatus === 'done' ? (
                     <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
                       <path

@@ -11,6 +11,9 @@ import type { AiPanelPrefs } from '@genoffice/ui'
 import type { RenderSlide } from '@genoffice/pptx-render'
 import type { CustGeomPathCmd, SlideComment, SectionInfo } from '@genoffice/pptx-engine'
 import type { FontSizeStep } from '@genoffice/pptx-ops/font-size'
+// the font catalog's shape is the store's to declare, not a copy kept in step by hand
+import type { CatalogEntry as FontCatalogEntry } from '@genoffice/electron-utils/font-store'
+import type { LayoutSkeleton } from '../renderer/ai/layout-skeleton'
 import type {
   AiSettings,
   AiStreamChunk,
@@ -551,11 +554,15 @@ export type TransitionKind =
 
 // ── Shape animations (the "Animations" tab) ──────────────────────────
 
+/** Reveal direction for the directional effects. 'bottom' reveals upward (default). */
+export type AnimDirection = 'top' | 'bottom' | 'left' | 'right'
+
 export type AnimEffectKind =
   | 'appear'
   | 'fade'
   | 'flyIn'
   | 'wipe'
+  /** Write-compatible alias for wipe with direction 'top' (the same preset subtype). */
   | 'wipeDown'
   | 'splitIn'
   | 'bounce'
@@ -589,6 +596,9 @@ export interface AnimationItem {
   delayMs: number
   /** Path when effect='motionPath' (SVG subset M/L/C/Z, coordinates 0..1 relative to slide width/height) */
   motionPath?: string
+  /** Wipe/fly direction (enters only when the engine models one); the player reads it
+   *  so a top wipe does not play bottom-up. Defaults per effect when absent. */
+  direction?: AnimDirection
   /** Per-paragraph animation: 0-based paragraph number; default = the whole shape */
   paragraph?: number
 }
@@ -1297,15 +1307,13 @@ export interface SlidesApi {
   >
   /** Single-face sfnt bytes for one private face (null = gone/unreadable) */
   privateFontData: (id: string) => Promise<ArrayBuffer | null>
-  /** Curated downloadable (OFL) font catalog with per-family install state */
-  fontCatalog: () => Promise<
-    Array<{
-      family: string
-      script: 'latin' | 'ja' | 'ko' | 'sc' | 'tc'
-      installed: boolean
-      downloading: boolean
-    }>
-  >
+  /**
+   * Curated downloadable (OFL) font catalog with per-family install state and
+   * what each family would cost. Typed from the store that produces it rather
+   * than restated here: `ipcMain.handle` is untyped, so a drifted copy of this
+   * shape passes typecheck and fails at the point of use.
+   */
+  fontCatalog: () => Promise<FontCatalogEntry[]>
   /** Download a catalog family into the user font store; layouts refresh via deck-changed */
   fontDownload: (family: string) => Promise<{ ok: boolean; error?: string }>
   /** File picker → install local font files into the user font store */
@@ -1345,6 +1353,8 @@ export interface SlidesApi {
   >
   /** Whether cloud single-page generation (gsk slide_generate) is available (GENOFFICE_CLOUD_SLIDE=1 + gsk login) */
   cloudGenStatus: () => Promise<{ enabled: boolean }>
+  /** Abort every in-flight cloud page generation of this window (AI panel stop) */
+  cloudPageCancel: () => Promise<void>
   /** Cloud single-page generation: brief → one-slide pptx temp file; the marker goes into a landGeneratedPages pageMarkers slot */
   cloudGeneratePage: (op: {
     brief: string
@@ -1694,6 +1704,10 @@ export interface SlidesApi {
   onRenamed: (handler: (newPath: string) => void) => () => void
   getAiSettings: () => Promise<AiSettings>
   setAiSettings: (settings: AiSettings) => Promise<void>
+  /** ai-settings.json was rewritten by any renderer; re-read it */
+  onAiSettingsChanged: (handler: () => void) => () => void
+  /** shell only: switch to Home and open Settings › AI Model (rejects in standalone) */
+  openAiModelSettings: () => Promise<void>
   aiStream: (request: AiStreamRequest) => Promise<void>
   aiStreamCancel: (requestId: string) => Promise<void>
   /** Genspark account status (gsk login state); with withEmail also fetches the email (needs a network request, slower) */
@@ -1776,14 +1790,24 @@ export interface SlidesApi {
   /** Store styleSkill in userData/style-templates/<name>.json */
   saveStyleTemplate: (
     name: string,
-    data: { topic: string; styleSkill: string; createdAt: string },
+    data: {
+      topic: string
+      styleSkill: string
+      createdAt: string
+      /** Deck chrome skeleton extracted at save time (layout-skeleton.ts); absent in older templates */
+      layout?: LayoutSkeleton
+    },
   ) => Promise<{ ok: boolean; error?: string }>
   /** List saved Style templates */
   listStyleTemplates: () => Promise<Array<{ name: string; topic: string; createdAt: string }>>
   /** Load a given Style template's content */
-  loadStyleTemplate: (
-    name: string,
-  ) => Promise<{ ok: boolean; styleSkill?: string; topic?: string; error?: string }>
+  loadStyleTemplate: (name: string) => Promise<{
+    ok: boolean
+    styleSkill?: string
+    topic?: string
+    layout?: LayoutSkeleton
+    error?: string
+  }>
   /** New blank page (with a specific layout): inserted after slide sourceIndex, rels pointing at the chosen layout */
   addSlideWithLayout: (
     op: AddSlideWithLayoutOp,
