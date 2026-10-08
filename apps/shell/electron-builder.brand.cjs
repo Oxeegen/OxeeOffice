@@ -100,10 +100,13 @@ const config = {
   beforePack: async (context) => {
     // licence gate first: nothing enterprise-licensed may be packed
     brandStep('check-ee.mjs')
+    // upstream's step can rebuild the CLI bundle (to stamp the release version into
+    // `genoffice --version`), which would undo a rename made before it: 0.11.411's
+    // first build shipped 252 upstream names in resources/cli that way
+    await upstream.beforePack(context)
     // user-visible names in the built bundles, then prove none survived
     brandStep('rename-built-output.mjs')
     brandStep('scan-visible-names.mjs', '--fail')
-    await upstream.beforePack(context)
   },
 }
 
