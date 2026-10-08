@@ -5,6 +5,46 @@ What changed in each OxeeOffice release. Installers are on the
 
 ---
 
+## OxeeOffice 0.11.411 — 2026-10-08
+
+Windows x64, Linux x64
+
+### Model picker and windows
+
+- **The model picker moved to the message box** at the bottom of every AI panel. It
+  shows the Oxee model in use, switches between Oxee Max, Pro, Flash and Instant, and
+  ends with **Manage models…**, which opens Settings → AI Model. A change applies in
+  every open editor at once. The panel header shows the Oxee mark and "Oxeegen".
+- **Detached windows dock back:** drag a tab off the strip to give it its own window,
+  then drag that window back onto the strip to make it a tab again, at the place you
+  drop it. Every editor detaches, by dragging or from the tab's right-click menu.
+
+### New in the editors
+
+- **Sheets:** a PivotTable Fields pane with report filters and every summary and
+  show-as mode; an Excel-style Function Arguments dialog; Paste Special; Print with
+  preview; a Table Design tab with Ctrl+T; worksheet protection with Excel-style
+  permissions and passwords; threaded comments; Excel-style context menus for cells,
+  headers and sheet tabs, with Pick From Drop-down List. Large workbooks load up to a
+  million cells, and edits made during a save carry into the reopened file.
+- **Docs:** line heights and baselines match Word, including East Asian text; floating
+  tables, cell borders, display equations and Symbol/Wingdings bullets render like Word;
+  tracked deletions leave the text flow in every markup view; the Arrange group on the
+  Shape Format tab; a dark page you choose is remembered.
+- **Markdown:** a source view, and your own image host for pasted pictures.
+- **Slides:** speaker notes you are drafting survive an AI edit of the deck.
+- **App:** a runaway file can no longer exhaust memory while Home indexes your folders;
+  switching the update channel discards a stale download; muted text meets accessibility
+  contrast guidelines; Russian strings.
+
+### Oxeegen AI
+
+Slides, layout checks and long writing still run with reasoning off, Brave search and
+OpenAI `gpt-image-2.5-flare` images are unchanged. Exa and Firecrawl join the search
+options for anyone using their own key.
+
+---
+
 ## OxeeOffice 0.11.0 — 2026-10-05
 
 Windows x64, Linux x64
