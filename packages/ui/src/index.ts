@@ -137,3 +137,5 @@ export {
   type AiModelPickerSelection,
 } from './ai-model-picker-options'
 export { ProviderLogo } from './provider-logos'
+export { useRedactLabelField } from './use-redact-label'
+export type { RedactLabelField } from './use-redact-label'

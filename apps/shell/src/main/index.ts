@@ -122,12 +122,15 @@ import {
   docsFileRenamed,
   readRecentFiles,
   readStarredFiles,
+  readStarredGroupMap,
+  readStarredGroups,
   recordRecentFile,
   removeRecentFiles,
   removeStarredFiles,
   replaceRecentFile,
   registerAiIpc,
   registerProjectIpc,
+  setStarredGroup,
   toggleStarredFile,
   registerDocsIpc,
   exportDocsHeadless,
@@ -761,6 +764,7 @@ const tMain = createI18n({
     errUnsupportedExt: '暂不支持 .{ext} 类型',
     copySuffix: '副本',
     menuHelp: '帮助',
+    menuUserGuide: '使用手册',
     thirdPartyNotices: '第三方软件声明',
     menuExportDocx: '导出为 Word…',
     btnCancel: '取消',
@@ -854,6 +858,7 @@ const tMain = createI18n({
     errUnsupportedExt: '.{ext} files are not supported',
     copySuffix: 'copy',
     menuHelp: 'Help',
+    menuUserGuide: 'User Guide',
     thirdPartyNotices: 'Third-Party Notices',
     menuExportDocx: 'Export as Word…',
     btnCancel: 'Cancel',
@@ -955,6 +960,7 @@ const tMain = createI18n({
     errUnsupportedExt: 'Tệp .{ext} không được hỗ trợ',
     copySuffix: 'bản sao',
     menuHelp: 'Trợ giúp',
+    menuUserGuide: 'Hướng dẫn sử dụng',
     thirdPartyNotices: 'Thông báo của bên thứ ba',
     menuExportDocx: 'Xuất dưới dạng Word…',
     btnCancel: 'Hủy',
@@ -1056,6 +1062,7 @@ const tMain = createI18n({
     errUnsupportedExt: '.{ext} 形式には対応していません',
     copySuffix: 'コピー',
     menuHelp: 'ヘルプ',
+    menuUserGuide: 'ユーザーガイド',
     thirdPartyNotices: 'サードパーティソフトウェアに関する通知',
     menuExportDocx: 'Word として書き出す…',
     btnCancel: 'キャンセル',
@@ -1157,6 +1164,7 @@ const tMain = createI18n({
     errUnsupportedExt: '.{ext} 형식은 지원되지 않습니다',
     copySuffix: '복사본',
     menuHelp: '도움말',
+    menuUserGuide: '사용자 가이드',
     thirdPartyNotices: '타사 소프트웨어 고지',
     menuExportDocx: 'Word로 내보내기…',
     btnCancel: '취소',
@@ -1257,6 +1265,7 @@ const tMain = createI18n({
     errUnsupportedExt: 'les fichiers .{ext} ne sont pas pris en charge',
     copySuffix: 'copie',
     menuHelp: 'Aide',
+    menuUserGuide: "Guide de l'utilisateur",
     thirdPartyNotices: 'Mentions relatives aux logiciels tiers',
     menuExportDocx: 'Exporter en Word…',
     btnCancel: 'Annuler',
@@ -1360,6 +1369,7 @@ const tMain = createI18n({
     errUnsupportedExt: '.{ext}-Dateien werden nicht unterstützt',
     copySuffix: 'Kopie',
     menuHelp: 'Hilfe',
+    menuUserGuide: 'Benutzerhandbuch',
     thirdPartyNotices: 'Hinweise zu Drittanbietersoftware',
     menuExportDocx: 'Als Word exportieren…',
     btnCancel: 'Abbrechen',
@@ -1462,6 +1472,7 @@ const tMain = createI18n({
     errUnsupportedExt: 'los archivos .{ext} no son compatibles',
     copySuffix: 'copia',
     menuHelp: 'Ayuda',
+    menuUserGuide: 'Guía del usuario',
     thirdPartyNotices: 'Avisos de software de terceros',
     menuExportDocx: 'Exportar como Word…',
     btnCancel: 'Cancelar',
@@ -1564,6 +1575,7 @@ const tMain = createI18n({
     errUnsupportedExt: 'ไม่รองรับไฟล์ .{ext}',
     copySuffix: 'สำเนา',
     menuHelp: 'วิธีใช้',
+    menuUserGuide: 'คู่มือผู้ใช้',
     thirdPartyNotices: 'ประกาศเกี่ยวกับซอฟต์แวร์ของบุคคลที่สาม',
     menuExportDocx: 'ส่งออกเป็น Word…',
     btnCancel: 'ยกเลิก',
@@ -1662,6 +1674,7 @@ const tMain = createI18n({
     errUnsupportedExt: 'file .{ext} tidak didukung',
     copySuffix: 'salinan',
     menuHelp: 'Bantuan',
+    menuUserGuide: 'Panduan Pengguna',
     thirdPartyNotices: 'Pemberitahuan Perangkat Lunak Pihak Ketiga',
     menuExportDocx: 'Ekspor sebagai Word…',
     btnCancel: 'Batal',
@@ -1764,6 +1777,7 @@ const tMain = createI18n({
     errUnsupportedExt: 'файлы .{ext} не поддерживаются',
     copySuffix: 'копия',
     menuHelp: 'Справка',
+    menuUserGuide: 'Руководство пользователя',
     thirdPartyNotices: 'Уведомления о стороннем ПО',
     menuExportDocx: 'Экспортировать в Word…',
     btnCancel: 'Отмена',
@@ -1866,6 +1880,7 @@ const tMain = createI18n({
     errUnsupportedExt: 'ملفات .{ext} غير مدعومة',
     copySuffix: 'نسخة',
     menuHelp: 'تعليمات',
+    menuUserGuide: 'دليل المستخدم',
     thirdPartyNotices: 'إشعارات برامج الجهات الخارجية',
     menuExportDocx: 'تصدير كملف Word…',
     btnCancel: 'إلغاء',
@@ -1964,6 +1979,7 @@ const tMain = createI18n({
     errUnsupportedExt: 'arquivos .{ext} não são suportados',
     copySuffix: 'cópia',
     menuHelp: 'Ajuda',
+    menuUserGuide: 'Guia do Usuário',
     thirdPartyNotices: 'Avisos de software de terceiros',
     menuExportDocx: 'Exportar como Word…',
     btnCancel: 'Cancelar',
@@ -2066,6 +2082,7 @@ const tMain = createI18n({
     errUnsupportedExt: 'i file .{ext} non sono supportati',
     copySuffix: 'copia',
     menuHelp: 'Aiuto',
+    menuUserGuide: "Guida dell'utente",
     thirdPartyNotices: 'Note sul software di terze parti',
     menuExportDocx: 'Esporta come Word…',
     btnCancel: 'Annulla',
@@ -2168,6 +2185,7 @@ const tMain = createI18n({
     errUnsupportedExt: 'pliki .{ext} nie są obsługiwane',
     copySuffix: 'kopia',
     menuHelp: 'Pomoc',
+    menuUserGuide: 'Podręcznik użytkownika',
     thirdPartyNotices: 'Informacje o oprogramowaniu innych firm',
     menuExportDocx: 'Eksportuj jako Word…',
     btnCancel: 'Anuluj',
@@ -2270,6 +2288,7 @@ const tMain = createI18n({
     errUnsupportedExt: 'Soubory .{ext} nejsou podporovány',
     copySuffix: 'kopie',
     menuHelp: 'Nápověda',
+    menuUserGuide: 'Uživatelská příručka',
     thirdPartyNotices: 'Informace o softwaru třetích stran',
     menuExportDocx: 'Exportovat jako Word…',
     btnCancel: 'Zrušit',
@@ -2370,6 +2389,7 @@ const tMain = createI18n({
     errUnsupportedExt: '.{ext}-bestanden worden niet ondersteund',
     copySuffix: 'kopie',
     menuHelp: 'Help',
+    menuUserGuide: 'Gebruikershandleiding',
     thirdPartyNotices: 'Kennisgevingen over software van derden',
     menuExportDocx: 'Exporteren als Word…',
     btnCancel: 'Annuleren',
@@ -2472,6 +2492,7 @@ const tMain = createI18n({
     errUnsupportedExt: 'fail .{ext} tidak disokong',
     copySuffix: 'salinan',
     menuHelp: 'Bantuan',
+    menuUserGuide: 'Panduan Pengguna',
     thirdPartyNotices: 'Notis Perisian Pihak Ketiga',
     menuExportDocx: 'Eksport sebagai Word…',
     btnCancel: 'Batal',
@@ -2573,6 +2594,7 @@ const tMain = createI18n({
     errUnsupportedExt: 'קובצי .{ext} אינם נתמכים',
     copySuffix: 'עותק',
     menuHelp: 'עזרה',
+    menuUserGuide: 'מדריך למשתמש',
     thirdPartyNotices: 'הודעות על תוכנות צד שלישי',
     menuExportDocx: 'ייצוא כ-Word…',
     btnCancel: 'ביטול',
@@ -2672,6 +2694,7 @@ const tMain = createI18n({
     errUnsupportedExt: '.{ext} फ़ाइलें समर्थित नहीं हैं',
     copySuffix: 'प्रतिलिपि',
     menuHelp: 'सहायता',
+    menuUserGuide: 'उपयोगकर्ता गाइड',
     thirdPartyNotices: 'तृतीय-पक्ष सॉफ़्टवेयर सूचनाएँ',
     menuExportDocx: 'Word के रूप में निर्यात करें…',
     btnCancel: 'रद्द करें',
@@ -2774,6 +2797,7 @@ const tMain = createI18n({
     errUnsupportedExt: '暫不支援 .{ext} 類型',
     copySuffix: '副本',
     menuHelp: '說明',
+    menuUserGuide: '使用手冊',
     thirdPartyNotices: '第三方軟體聲明',
     menuExportDocx: '匯出為 Word…',
     btnCancel: '取消',
@@ -3032,6 +3056,55 @@ function ensureFolderWatchers(): void {
   }
 }
 
+/**
+ * Put the manual in whatever menu is currently installed.
+ *
+ * Every tab kind builds its own application menu, which is how File and Edit
+ * stay tab-shaped — and which is also why an item added to one builder is
+ * missing from the other six. F1 worked from Home and nowhere else, and the
+ * manual's own shortcut table was wrong for six of the seven tab kinds.
+ *
+ * Injecting after the builder has run is the one place that cannot be
+ * forgotten: a new tab kind gets the manual for free, and a builder that
+ * already has it is left alone rather than getting a second copy.
+ */
+function withUserGuide(): void {
+  const menu = Menu.getApplicationMenu()
+  if (!menu) return
+  const userGuide = {
+    label: tm('menuUserGuide'),
+    accelerator: 'F1',
+    click: () => tabManager?.openHelpTab(),
+  }
+  const help = menu.items.find((item) => item.role === 'help')
+  // Slides and Sheets build a File/Edit/View template with no Help menu at
+  // all, so there is nothing to insert into — one is created instead. Without
+  // this the manual would be reachable from four of the seven tab kinds.
+  if (!help) {
+    menu.append(
+      Menu.buildFromTemplate([{ role: 'help', label: tm('menuHelp'), submenu: [userGuide] }])
+        .items[0]!,
+    )
+    return
+  }
+  const submenu = help.submenu
+  if (!submenu || submenu.items.some((i) => i.accelerator === 'F1')) return
+  // A separator survives a template only *between* two real items — Electron
+  // drops one at either end, so `[userGuide, separator]` builds a single item
+  // and the destructure below used to hand `undefined` to `insert`, which threw
+  // "Invalid item" and took the main process down on the next tab switch. The
+  // third entry is filler, discarded; the type check is what stops this from
+  // silently regressing if Electron's rule ever changes again.
+  const [item, separator] = Menu.buildFromTemplate([
+    userGuide,
+    { type: 'separator' },
+    { role: 'undo' },
+  ]).items
+  if (!item) return
+  submenu.insert(0, item)
+  if (separator?.type === 'separator') submenu.insert(1, separator)
+}
+
 function applyMenuFor(kind: TabKind): void {
   switch (kind) {
     case 'docs':
@@ -3055,6 +3128,7 @@ function applyMenuFor(kind: TabKind): void {
     default:
       buildHomeMenu()
   }
+  withUserGuide()
 }
 
 function refreshTitleBarOverlay(): void {
@@ -3113,15 +3187,17 @@ function createShellWindow(): void {
     // no extension: these tabs have no file on disk yet; the title becomes the
     // real filename (the localized untitled default + .docx etc.) once the first save lands
     (kind) =>
-      kind === 'docs'
-        ? tm('untitledDoc')
-        : kind === 'slides'
-          ? tm('untitledDeck')
-          : kind === 'markdown'
-            ? tm('untitledMarkdown')
-            : kind === 'html'
-              ? tm('untitledHtml')
-              : tm('untitledSheet'),
+      kind === 'help'
+        ? tm('menuUserGuide')
+        : kind === 'docs'
+          ? tm('untitledDoc')
+          : kind === 'slides'
+            ? tm('untitledDeck')
+            : kind === 'markdown'
+              ? tm('untitledMarkdown')
+              : kind === 'html'
+                ? tm('untitledHtml')
+                : tm('untitledSheet'),
   )
   tabManager = manager
 
@@ -3840,13 +3916,30 @@ function registerHomeIpc(): void {
   // Starred files sort by mtime, which requires stat-ing them all first; they are hand-picked and few, so this is fine
   ipcMain.handle(HOME_CHANNELS.starred, (_event, query: unknown): RecentPage => {
     const { offset, limit, ext } = normalizeRecentQuery(query)
-    const all = statEntries(readStarredFiles()).sort((a, b) => b.mtimeMs - a.mtimeMs)
+    // the Starred view's group pills scope the whole query (totals included)
+    const raw = (query && typeof query === 'object' ? query : {}) as { group?: unknown }
+    const group = typeof raw.group === 'string' && raw.group ? raw.group : undefined
+    const groupOf = readStarredGroupMap()
+    const paths = readStarredFiles()
+    const scoped = group ? paths.filter((p) => groupOf.get(p) === group) : paths
+    const all = statEntries(scoped)
+      .sort((a, b) => b.mtimeMs - a.mtimeMs)
+      .map((entry) => {
+        const g = groupOf.get(entry.path)
+        return g ? { ...entry, group: g } : entry
+      })
     const filtered = ext ? all.filter((entry) => matchesExtFamily(entry.ext, ext)) : all
     return {
       entries: limit === 0 ? [] : filtered.slice(offset, offset + limit),
       total: filtered.length,
       totalAll: all.length,
     }
+  })
+
+  ipcMain.handle(HOME_CHANNELS.starredGroups, (): string[] => readStarredGroups())
+
+  ipcMain.handle(HOME_CHANNELS.setStarredGroup, (_event, paths: unknown, group: unknown) => {
+    setStarredGroup(stringPaths(paths), typeof group === 'string' && group ? group : null)
   })
 
   ipcMain.handle(HOME_CHANNELS.statPaths, (_event, paths: unknown): RecentEntry[] =>
@@ -3918,6 +4011,14 @@ function registerHomeIpc(): void {
     // an unavailable entry's star must go with it, or the Starred view keeps
     // a dead dimmed row the recents list no longer shows
     removeStarredFiles(list.filter((p) => !existsSync(p)))
+  })
+
+  // Bulk unstar from the Starred view: every row there is a favorite, so the
+  // selection action is "unstar", not "remove from recents" — removeRecent
+  // keeps existing files' stars on purpose, which made the Starred view's
+  // bulk removal a no-op for anything still on disk
+  ipcMain.handle(HOME_CHANNELS.unstarPaths, (_event, paths: unknown) => {
+    removeStarredFiles(stringPaths(paths))
   })
 
   ipcMain.handle(HOME_CHANNELS.revealPath, (_event, path: unknown) => {
@@ -4006,6 +4107,9 @@ function registerHomeIpc(): void {
     }
   })
 
+  ipcMain.handle(HOME_CHANNELS.openHelp, () => {
+    tabManager?.openHelpTab()
+  })
   ipcMain.handle(HOME_CHANNELS.getLanguage, (): Lang => currentLang())
 
   ipcMain.handle(HOME_CHANNELS.setLanguage, (_event, lang: unknown) => {
@@ -4474,6 +4578,7 @@ const TAB_MENU_ICON: Record<TabKind, keyof MenuIconSet> = {
   pdf: 'pdf',
   markdown: 'md',
   html: 'html',
+  help: 'home',
 }
 
 // tab views see neither DOM events nor a focus change when the user clicks the
@@ -4747,6 +4852,8 @@ function buildHomeMenu(): void {
       role: 'help',
       label: tm('menuHelp'),
       submenu: [
+        { label: tm('menuUserGuide'), accelerator: 'F1', click: () => tabManager?.openHelpTab() },
+        { type: 'separator' },
         { label: tm('thirdPartyNotices'), click: () => void openThirdPartyNotices() },
         { type: 'separator' },
         checkUpdatesMenuItem(appMenuLabels(currentLang())),
@@ -5658,6 +5765,8 @@ app.whenReady().then(async () => {
     pdf: join(PDF_OUT, 'renderer'),
     markdown: join(MARKDOWN_OUT, 'renderer'),
     html: join(HTML_OUT, 'renderer'),
+    // the manual shares the shell's own renderer bundle (help mode)
+    help: join(__dirname, '../renderer'),
   })
   if (headlessArgv.kind !== 'none') {
     await runHeadlessExportEntry(headlessArgv)

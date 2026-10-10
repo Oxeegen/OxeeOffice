@@ -51,8 +51,10 @@ import {
   isQcEnabled,
   isUnsupportedImageInputError,
   mergeQcPages,
+  NO_SCREENSHOT_NOTE,
   qcSlidePage,
   QC_MAX_PAGES,
+  screenshotAllowed,
   settingsSupportVision,
 } from './slide-qc'
 import { useI18n, t as tGlobal, aiLangDirective, type TFunc } from '../i18n/locale'
@@ -790,7 +792,7 @@ export function AiPanel({
   if (!loopRef.current) {
     // The three slides generation steps (style/planning/per-page HTML) force the high-quality model (only with the anthropic provider;
     // other providers keep the user setting, avoiding passing nonexistent model names). Chat/fine-tuning still uses the user's configured model.
-    const SLIDES_GEN_MODEL = 'claude-opus-4-7'
+    const SLIDES_GEN_MODEL = 'claude-opus-5-5'
     // Return on demand a settings copy with the generation model overridden (deep copy, doesn't pollute settingsRef).
     const settingsForGen = (): AiSettings => {
       const cur = settingsRef.current
@@ -1625,9 +1627,19 @@ export function AiPanel({
   }
 
   /** Current slide rendered at pixelRatio 1 (vision-friendly size); null when rendering fails */
+  /**
+   * A rendered picture of the slide, when sending one is safe.
+   *
+   * A screenshot is the one outbound path that no text projection can reach:
+   * the renderer tints a withheld run, it does not replace it, so the words are
+   * in the bitmap. There is no mask to put over them — a picture has no spans.
+   * So a slide that withholds anything gets no picture, and the caller says so,
+   * rather than the model receiving an image it was never shown the text of.
+   */
   const captureSlideShot = async (pageIndex: number): Promise<AgentImage | null> => {
     const slide = slidesRef.current[pageIndex]
     if (!slide) return null
+    if (!screenshotAllowed(slide)) return null
     try {
       const [png] = await renderSlidesToPngBase64([slide], imagesRef.current, 1)
       return png ? { base64: png, mime: 'image/png' } : null
@@ -1714,6 +1726,10 @@ export function AiPanel({
           if (shot) {
             images.push(shot)
             modelInstruction += `\n\n(Attached image: the current rendering of this slide, slideIndex ${currentRef.current}. Use it to spot visual issues the element inventory can't show.)`
+          } else {
+            // said rather than omitted: a model told nothing assumes it has the
+            // rendering and reasons about text it cannot see
+            modelInstruction += `\n\n(${NO_SCREENSHOT_NOTE})`
           }
         }
         // Clear the flag before run: loop.run sets running synchronously, leaving no re-entry window

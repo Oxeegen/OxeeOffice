@@ -57,6 +57,7 @@ import {
   wordKerns,
 } from '../line-metrics'
 import { firstStrongDir } from './direction'
+import { splitCellBoxGroup } from './protected-render'
 import { inlineMathML } from './equation'
 import { isStraightLineKind } from './shape-svg'
 import { borderDrawnPx, borderTotalPt, collapsedEdgePx } from './border-metrics'
@@ -155,6 +156,10 @@ function formatAttrs(format: ParaFormat | undefined, runs?: Run[]): Record<strin
     indentLeft: format?.indentLeft ?? null,
     indentRight: format?.indentRight ?? null,
     indentFirstLine: format?.indentFirstLine ?? null,
+    // only the paragraph's OWN character unit becomes direct formatting — a
+    // a character-unit indent inherited from the style chain shows through and
+    // must not be copied onto the pPr as direct formatting
+    indentFirstLineChars: format?.directCharIndents?.firstLine ?? null,
     spaceBefore: format?.spaceBefore ?? null,
     spaceAfter: format?.spaceAfter ?? null,
     spaceBeforeAuto: format?.spaceBeforeAuto ?? null,
@@ -1171,7 +1176,9 @@ function cellContentNodes(cell: TableCell): PmNode[] {
     else boxGroups.set(at, [boxes[i]])
   }
   for (const [at, group] of boxGroups) {
-    inserts.push({ at, node: { type: 'docCellBoxes', attrs: { boxes: group } } })
+    for (const boxes of splitCellBoxGroup(group)) {
+      inserts.push({ at, node: { type: 'docCellBoxes', attrs: { boxes } } })
+    }
   }
   const content = [...paraNodes]
   inserts.sort((a, b) => a.at - b.at)
@@ -3032,6 +3039,23 @@ function nodeFormat(node: PmNode): ParaFormat | undefined {
   if (node.attrs?.indentRight != null) format.indentRight = Number(node.attrs.indentRight)
   if (node.attrs?.indentFirstLine != null)
     format.indentFirstLine = Number(node.attrs.indentFirstLine)
+  // the character-unit special indent rides along its twips twin and is written
+  // as w:firstLineChars next to it (Word prefers the character unit on reload).
+  //
+  // Two fields, because the parser's two mean different things: `charIndents`
+  // there is the EFFECTIVE value (style chain merged in) and is what generate
+  // and the cancel-attr merge read, while `directCharIndents` is only what the
+  // paragraph's own w:ind declares. nodeFormat has no style chain to consult —
+  // it reads the node's attributes — so what it sets is the direct value, and
+  // setting both keeps generate correct and gives the signature a direct value
+  // on both sides. Before this, the signature compared the effective value with
+  // the direct one, so every style-inherited paragraph looked edited and an
+  // untouched document came back carrying a frozen direct indent.
+  const firstLineChars = Number(node.attrs?.indentFirstLineChars)
+  if (Number.isFinite(firstLineChars) && firstLineChars > 0) {
+    format.charIndents = { ...format.charIndents, firstLine: firstLineChars }
+    format.directCharIndents = { ...format.directCharIndents, firstLine: firstLineChars }
+  }
   if (node.attrs?.spaceBefore != null) format.spaceBefore = Number(node.attrs.spaceBefore)
   if (node.attrs?.spaceAfter != null) format.spaceAfter = Number(node.attrs.spaceAfter)
   if (node.attrs?.spaceBeforeAuto != null)
@@ -3556,6 +3580,13 @@ function normalizedFormat(format: ParaFormat | undefined): unknown {
     format.indentLeft ?? null,
     format.indentRight ?? null,
     format.indentFirstLine ?? null,
+    // the DIRECT character-unit indent, like the line above and like
+    // nodeFormat, which reads it from the node's own attribute. Taking
+    // format.charIndents here would fold the style-inherited value in, and the
+    // two signatures would then disagree for every paragraph that inherits
+    // its indent — so an untouched document would come back with a frozen
+    // direct indent the original never had.
+    format.directCharIndents?.firstLine ?? null,
     format.spaceBefore ?? null,
     format.spaceAfter ?? null,
     format.pageBreakBefore ?? false,

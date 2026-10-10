@@ -444,6 +444,12 @@ export interface ParaFormat {
    *  writes the matching `*Chars="0"` for them (mergePPrFormat), or Word keeps
    *  preferring the character indent over the new twips value on reload. */
   charIndents?: CharIndents
+  /** the character-unit indents the paragraph's OWN w:ind declares (style-chain
+   *  chars excluded, explicit zeros included). The editor maps these to its
+   *  direct-formatting model and the save path writes them back as `*Chars`
+   *  attributes; an indent the style chain alone provides must not become
+   *  direct formatting (issue #1892). */
+  directCharIndents?: CharIndents
   /** space above the paragraph in twips (w:spacing w:before) */
   spaceBefore?: number
   /** space below the paragraph in twips (w:spacing w:after) */
@@ -1810,6 +1816,12 @@ export interface TextboxDisplay {
   /** page/margin-relative X: absolute on the page in Word — a column-translated
    *  anchor block must not drag the box sideways (the canvas undoes --col-dx) */
   pageRelX?: boolean
+  /** `page`: the X offset measures from the paper edge (margin-relative and
+   *  resolved offsets measure from the column start) */
+  pageRelXFrom?: 'page'
+  /** layoutInCell="0" on a cell-anchored drawing: Word positions it against the
+   *  page/column instead of the cell, and the row does not grow to hold it */
+  outsideCell?: boolean
   /** wrapTopAndBottom (paragraph/line-relative V): the anchor paragraph keeps
    *  flow height down to this box bottom (px) so following text resumes below */
   bandBottomPx?: number

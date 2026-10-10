@@ -174,6 +174,16 @@ import {
 import { isExternallyModified, type DiskFileState } from './external-change'
 import { copyImageDisplaySize, validCopyImageDataUrl } from './copy-image-guard'
 import { printScaleOption, validPrintGeometry } from './print-args'
+import {
+  assignStarredGroup,
+  dropStarredItems,
+  readStarredItems,
+  renameStarredItem,
+  starredGroupMap,
+  starredGroupNames,
+  toggleStarredItem,
+  writeStarredItems,
+} from './starred-files'
 import { initDocsAutoUpdater } from './updater'
 import { registerZoteroIpc, teardownZoteroIpc } from './zotero-ipc'
 
@@ -257,6 +267,7 @@ const tMain = createI18n({
     menuZoom100: '实际大小 (100%)',
     menuPageWidth: '页宽',
     menuWholePage: '整页',
+    menuMultiPage: '多页',
     menuAiSidebar: 'AI 侧栏',
     menuDarkMode: '深色模式',
     menuFullscreen: '进入全屏',
@@ -315,7 +326,6 @@ const tMain = createI18n({
     menuWindow: '窗口',
     menuHelp: '帮助',
     menuShortcuts: '键盘快捷键',
-    menuDocsHelp: 'GenOffice Docs 帮助',
   },
   en: {
     dlgOpenDoc: 'Open Document',
@@ -389,6 +399,7 @@ const tMain = createI18n({
     menuZoom100: 'Actual Size (100%)',
     menuPageWidth: 'Page Width',
     menuWholePage: 'Whole Page',
+    menuMultiPage: 'Multiple Pages',
     menuAiSidebar: 'AI Sidebar',
     menuDarkMode: 'Dark Mode',
     menuFullscreen: 'Enter Full Screen',
@@ -447,7 +458,6 @@ const tMain = createI18n({
     menuWindow: 'Window',
     menuHelp: 'Help',
     menuShortcuts: 'Keyboard Shortcuts',
-    menuDocsHelp: 'GenOffice Docs Help',
   },
   vi: {
     dlgOpenDoc: 'Mở tài liệu',
@@ -522,6 +532,7 @@ const tMain = createI18n({
     menuZoom100: 'Kích thước thực tế (100%)',
     menuPageWidth: 'Chiều rộng trang',
     menuWholePage: 'Toàn bộ trang',
+    menuMultiPage: 'Nhiều trang',
     menuAiSidebar: 'Thanh bên AI',
     menuDarkMode: 'Chế độ tối',
     menuFullscreen: 'Vào chế độ toàn màn hình',
@@ -580,7 +591,6 @@ const tMain = createI18n({
     menuWindow: 'Cửa sổ',
     menuHelp: 'Trợ giúp',
     menuShortcuts: 'Phím tắt bàn phím',
-    menuDocsHelp: 'Trợ giúp GenOffice Docs',
   },
   ja: {
     dlgOpenDoc: '文書を開く',
@@ -654,6 +664,7 @@ const tMain = createI18n({
     menuZoom100: '実際のサイズ (100%)',
     menuPageWidth: 'ページ幅',
     menuWholePage: 'ページ全体',
+    menuMultiPage: '複数ページ',
     menuAiSidebar: 'AI サイドバー',
     menuDarkMode: 'ダークモード',
     menuFullscreen: 'フルスクリーンにする',
@@ -712,7 +723,6 @@ const tMain = createI18n({
     menuWindow: 'ウィンドウ',
     menuHelp: 'ヘルプ',
     menuShortcuts: 'キーボードショートカット',
-    menuDocsHelp: 'GenOffice Docs ヘルプ',
   },
   ko: {
     dlgOpenDoc: '문서 열기',
@@ -787,6 +797,7 @@ const tMain = createI18n({
     menuZoom100: '실제 크기(100%)',
     menuPageWidth: '페이지 너비',
     menuWholePage: '전체 페이지',
+    menuMultiPage: '여러 페이지',
     menuAiSidebar: 'AI 사이드바',
     menuDarkMode: '다크 모드',
     menuFullscreen: '전체 화면 시작',
@@ -845,7 +856,6 @@ const tMain = createI18n({
     menuWindow: '창',
     menuHelp: '도움말',
     menuShortcuts: '키보드 바로 가기',
-    menuDocsHelp: 'GenOffice Docs 도움말',
   },
   fr: {
     dlgOpenDoc: 'Ouvrir un document',
@@ -921,6 +931,7 @@ const tMain = createI18n({
     menuZoom100: 'Taille réelle (100 %)',
     menuPageWidth: 'Largeur de page',
     menuWholePage: 'Page entière',
+    menuMultiPage: 'Plusieurs pages',
     menuAiSidebar: 'Volet IA',
     menuDarkMode: 'Mode sombre',
     menuFullscreen: 'Activer le mode plein écran',
@@ -979,7 +990,6 @@ const tMain = createI18n({
     menuWindow: 'Fenêtre',
     menuHelp: 'Aide',
     menuShortcuts: 'Raccourcis clavier',
-    menuDocsHelp: 'Aide GenOffice Docs',
   },
   de: {
     dlgOpenDoc: 'Dokument öffnen',
@@ -1055,6 +1065,7 @@ const tMain = createI18n({
     menuZoom100: 'Originalgröße (100 %)',
     menuPageWidth: 'Seitenbreite',
     menuWholePage: 'Ganze Seite',
+    menuMultiPage: 'Mehrere Seiten',
     menuAiSidebar: 'KI-Seitenleiste',
     menuDarkMode: 'Dunkelmodus',
     menuFullscreen: 'Vollbild ein',
@@ -1113,7 +1124,6 @@ const tMain = createI18n({
     menuWindow: 'Fenster',
     menuHelp: 'Hilfe',
     menuShortcuts: 'Tastenkombinationen',
-    menuDocsHelp: 'GenOffice Docs-Hilfe',
   },
   es: {
     dlgOpenDoc: 'Abrir documento',
@@ -1189,6 +1199,7 @@ const tMain = createI18n({
     menuZoom100: 'Tamaño real (100 %)',
     menuPageWidth: 'Ancho de página',
     menuWholePage: 'Página completa',
+    menuMultiPage: 'Varias páginas',
     menuAiSidebar: 'Barra lateral de IA',
     menuDarkMode: 'Modo oscuro',
     menuFullscreen: 'Usar pantalla completa',
@@ -1247,7 +1258,6 @@ const tMain = createI18n({
     menuWindow: 'Ventana',
     menuHelp: 'Ayuda',
     menuShortcuts: 'Atajos de teclado',
-    menuDocsHelp: 'Ayuda de GenOffice Docs',
   },
   th: {
     dlgOpenDoc: 'เปิดเอกสาร',
@@ -1321,6 +1331,7 @@ const tMain = createI18n({
     menuZoom100: 'ขนาดจริง (100%)',
     menuPageWidth: 'ความกว้างของหน้า',
     menuWholePage: 'ทั้งหน้า',
+    menuMultiPage: 'หลายหน้า',
     menuAiSidebar: 'แถบข้าง AI',
     menuDarkMode: 'โหมดมืด',
     menuFullscreen: 'เข้าสู่โหมดเต็มหน้าจอ',
@@ -1379,7 +1390,6 @@ const tMain = createI18n({
     menuWindow: 'หน้าต่าง',
     menuHelp: 'วิธีใช้',
     menuShortcuts: 'แป้นพิมพ์ลัด',
-    menuDocsHelp: 'วิธีใช้ GenOffice Docs',
   },
   id: {
     dlgOpenDoc: 'Buka Dokumen',
@@ -1453,6 +1463,7 @@ const tMain = createI18n({
     menuZoom100: 'Ukuran Sebenarnya (100%)',
     menuPageWidth: 'Lebar Halaman',
     menuWholePage: 'Seluruh Halaman',
+    menuMultiPage: 'Beberapa halaman',
     menuAiSidebar: 'Bilah Samping AI',
     menuDarkMode: 'Mode Gelap',
     menuFullscreen: 'Masuk Layar Penuh',
@@ -1511,7 +1522,6 @@ const tMain = createI18n({
     menuWindow: 'Jendela',
     menuHelp: 'Bantuan',
     menuShortcuts: 'Pintasan Papan Ketik',
-    menuDocsHelp: 'Bantuan GenOffice Docs',
   },
   ru: {
     dlgOpenDoc: 'Открыть документ',
@@ -1586,6 +1596,7 @@ const tMain = createI18n({
     menuZoom100: 'Фактический размер (100%)',
     menuPageWidth: 'По ширине страницы',
     menuWholePage: 'Страница целиком',
+    menuMultiPage: 'Несколько страниц',
     menuAiSidebar: 'Боковая панель ИИ',
     menuDarkMode: 'Темный режим',
     menuFullscreen: 'Перейти в полноэкранный режим',
@@ -1644,7 +1655,6 @@ const tMain = createI18n({
     menuWindow: 'Окно',
     menuHelp: 'Справка',
     menuShortcuts: 'Сочетания клавиш',
-    menuDocsHelp: 'Справка GenOffice Docs',
   },
   ar: {
     dlgOpenDoc: 'فتح مستند',
@@ -1719,6 +1729,7 @@ const tMain = createI18n({
     menuZoom100: 'الحجم الفعلي (100%)',
     menuPageWidth: 'عرض الصفحة',
     menuWholePage: 'صفحة كاملة',
+    menuMultiPage: 'صفحات متعددة',
     menuAiSidebar: 'الشريط الجانبي للذكاء الاصطناعي',
     menuDarkMode: 'الوضع الداكن',
     menuFullscreen: 'الدخول إلى ملء الشاشة',
@@ -1777,7 +1788,6 @@ const tMain = createI18n({
     menuWindow: 'نافذة',
     menuHelp: 'تعليمات',
     menuShortcuts: 'اختصارات لوحة المفاتيح',
-    menuDocsHelp: 'تعليمات GenOffice Docs',
   },
   pt: {
     dlgOpenDoc: 'Abrir Documento',
@@ -1852,6 +1862,7 @@ const tMain = createI18n({
     menuZoom100: 'Tamanho Real (100%)',
     menuPageWidth: 'Largura da Página',
     menuWholePage: 'Página Inteira',
+    menuMultiPage: 'Várias páginas',
     menuAiSidebar: 'Barra Lateral de IA',
     menuDarkMode: 'Modo Escuro',
     menuFullscreen: 'Entrar em Tela Cheia',
@@ -1910,7 +1921,6 @@ const tMain = createI18n({
     menuWindow: 'Janela',
     menuHelp: 'Ajuda',
     menuShortcuts: 'Atalhos de Teclado',
-    menuDocsHelp: 'Ajuda do GenOffice Docs',
   },
   it: {
     dlgOpenDoc: 'Apri documento',
@@ -1985,6 +1995,7 @@ const tMain = createI18n({
     menuZoom100: 'Dimensioni effettive (100%)',
     menuPageWidth: 'Larghezza pagina',
     menuWholePage: 'Pagina intera',
+    menuMultiPage: 'Più pagine',
     menuAiSidebar: 'Barra laterale IA',
     menuDarkMode: 'Modalità scura',
     menuFullscreen: 'Attiva schermo intero',
@@ -2043,7 +2054,6 @@ const tMain = createI18n({
     menuWindow: 'Finestra',
     menuHelp: 'Aiuto',
     menuShortcuts: 'Scelte rapide da tastiera',
-    menuDocsHelp: 'Guida di GenOffice Docs',
   },
   pl: {
     dlgOpenDoc: 'Otwórz dokument',
@@ -2118,6 +2128,7 @@ const tMain = createI18n({
     menuZoom100: 'Rzeczywisty rozmiar (100%)',
     menuPageWidth: 'Szerokość strony',
     menuWholePage: 'Cała strona',
+    menuMultiPage: 'Wiele stron',
     menuAiSidebar: 'Pasek boczny AI',
     menuDarkMode: 'Tryb ciemny',
     menuFullscreen: 'Przejdź do pełnego ekranu',
@@ -2176,7 +2187,6 @@ const tMain = createI18n({
     menuWindow: 'Okno',
     menuHelp: 'Pomoc',
     menuShortcuts: 'Skróty klawiaturowe',
-    menuDocsHelp: 'Pomoc GenOffice Docs',
   },
   cs: {
     dlgOpenDoc: 'Otevřít dokument',
@@ -2251,6 +2261,7 @@ const tMain = createI18n({
     menuZoom100: 'Skutečná velikost (100 %)',
     menuPageWidth: 'Šířka stránky',
     menuWholePage: 'Celá stránka',
+    menuMultiPage: 'Více stránek',
     menuAiSidebar: 'Boční panel AI',
     menuDarkMode: 'Tmavý režim',
     menuFullscreen: 'Přejít na celou obrazovku',
@@ -2309,7 +2320,6 @@ const tMain = createI18n({
     menuWindow: 'Okno',
     menuHelp: 'Nápověda',
     menuShortcuts: 'Klávesové zkratky',
-    menuDocsHelp: 'Nápověda GenOffice Docs',
   },
   nl: {
     dlgOpenDoc: 'Document openen',
@@ -2384,6 +2394,7 @@ const tMain = createI18n({
     menuZoom100: 'Ware grootte (100%)',
     menuPageWidth: 'Paginabreedte',
     menuWholePage: 'Hele pagina',
+    menuMultiPage: "Meerdere pagina's",
     menuAiSidebar: 'AI-zijbalk',
     menuDarkMode: 'Donkere modus',
     menuFullscreen: 'Schermvullende weergave',
@@ -2442,7 +2453,6 @@ const tMain = createI18n({
     menuWindow: 'Venster',
     menuHelp: 'Help',
     menuShortcuts: 'Sneltoetsen',
-    menuDocsHelp: 'GenOffice Docs Help',
   },
   ms: {
     dlgOpenDoc: 'Buka Dokumen',
@@ -2517,6 +2527,7 @@ const tMain = createI18n({
     menuZoom100: 'Saiz Sebenar (100%)',
     menuPageWidth: 'Lebar Halaman',
     menuWholePage: 'Seluruh Halaman',
+    menuMultiPage: 'Beberapa halaman',
     menuAiSidebar: 'Bar Sisi AI',
     menuDarkMode: 'Mod Gelap',
     menuFullscreen: 'Masuk Skrin Penuh',
@@ -2575,7 +2586,6 @@ const tMain = createI18n({
     menuWindow: 'Tetingkap',
     menuHelp: 'Bantuan',
     menuShortcuts: 'Pintasan Papan Kekunci',
-    menuDocsHelp: 'Bantuan GenOffice Docs',
   },
   he: {
     dlgOpenDoc: 'פתיחת מסמך',
@@ -2648,6 +2658,7 @@ const tMain = createI18n({
     menuZoom100: 'גודל אמיתי (100%)',
     menuPageWidth: 'רוחב עמוד',
     menuWholePage: 'עמוד שלם',
+    menuMultiPage: 'עמודים מרובים',
     menuAiSidebar: 'סרגל צד AI',
     menuDarkMode: 'מצב כהה',
     menuFullscreen: 'מעבר למסך מלא',
@@ -2706,7 +2717,6 @@ const tMain = createI18n({
     menuWindow: 'חלון',
     menuHelp: 'עזרה',
     menuShortcuts: 'קיצורי מקלדת',
-    menuDocsHelp: 'עזרה של GenOffice Docs',
   },
   hi: {
     dlgOpenDoc: 'दस्तावेज़ खोलें',
@@ -2781,6 +2791,7 @@ const tMain = createI18n({
     menuZoom100: 'वास्तविक आकार (100%)',
     menuPageWidth: 'पृष्ठ चौड़ाई',
     menuWholePage: 'पूरा पृष्ठ',
+    menuMultiPage: 'एकाधिक पृष्ठ',
     menuAiSidebar: 'AI साइडबार',
     menuDarkMode: 'डार्क मोड',
     menuFullscreen: 'पूर्ण स्क्रीन में जाएँ',
@@ -2839,7 +2850,6 @@ const tMain = createI18n({
     menuWindow: 'विंडो',
     menuHelp: 'सहायता',
     menuShortcuts: 'कीबोर्ड शॉर्टकट',
-    menuDocsHelp: 'GenOffice Docs सहायता',
   },
   'zh-TW': {
     dlgOpenDoc: '開啟文件',
@@ -2911,6 +2921,7 @@ const tMain = createI18n({
     menuZoom100: '實際大小 (100%)',
     menuPageWidth: '頁面寬度',
     menuWholePage: '整頁',
+    menuMultiPage: '多頁',
     menuAiSidebar: 'AI 側邊欄',
     menuDarkMode: '深色模式',
     menuFullscreen: '進入全螢幕',
@@ -2969,7 +2980,6 @@ const tMain = createI18n({
     menuWindow: '視窗',
     menuHelp: '說明',
     menuShortcuts: '鍵盤快速鍵',
-    menuDocsHelp: 'GenOffice Docs 說明',
   },
 })
 const tm = (key: Parameters<typeof tMain>[1], params?: Parameters<typeof tMain>[2]) =>
@@ -3213,17 +3223,14 @@ export function replaceRecentFile(oldPath: string, newPath: string): void {
     RECENT_PATH(),
     recent.map((p) => (p === oldPath ? newPath : p)),
   )
-  const starred = readJson<string[]>(STARRED_PATH(), [])
-  if (starred.includes(oldPath)) {
-    writeJsonAtomic(
-      STARRED_PATH(),
-      starred.map((p) => (p === oldPath ? newPath : p)),
-    )
-  }
+  const renamed = renameStarredItem(readStarredItems(STARRED_PATH()), oldPath, newPath)
+  if (renamed) writeStarredItems(STARRED_PATH(), renamed)
   buildDocsMenu()
 }
 
 // ---- starred files (home screen favorites) ----
+// the store lives in starred-files.ts (pure, unit-tested); legacy flat
+// string[] files migrate to the versioned shape on the first write
 
 const STARRED_PATH = () => userDataPath('starred.json')
 
@@ -3231,25 +3238,37 @@ const STARRED_PATH = () => userDataPath('starred.json')
  *  unavailable starred file must keep its star and its Starred-view row —
  *  filtering here also desynced the star state shown on recents rows (r158) */
 export function readStarredFiles(): string[] {
-  return readJson<string[]>(STARRED_PATH(), [])
+  return readStarredItems(STARRED_PATH()).map((item) => item.path)
 }
 
 export function toggleStarredFile(filePath: string): void {
-  const starred = readJson<string[]>(STARRED_PATH(), [])
-  const next = starred.includes(filePath)
-    ? starred.filter((p) => p !== filePath)
-    : [...starred, filePath]
-  writeJsonAtomic(STARRED_PATH(), next)
+  writeStarredItems(STARRED_PATH(), toggleStarredItem(readStarredItems(STARRED_PATH()), filePath))
 }
 
-/** Bulk unstar (in-app delete, or removing an unavailable entry from the
- *  recents list): the star must not outlive the row it pointed at (r158) */
+/** Bulk unstar (in-app delete, bulk unfollow from the Starred view, or
+ *  removing an unavailable entry from the recents list): the star must not
+ *  outlive the row it pointed at (r158) */
 export function removeStarredFiles(filePaths: string[]): void {
-  const drop = new Set(filePaths)
-  if (drop.size === 0) return
-  const starred = readJson<string[]>(STARRED_PATH(), [])
-  const next = starred.filter((p) => !drop.has(p))
-  if (next.length !== starred.length) writeJsonAtomic(STARRED_PATH(), next)
+  const next = dropStarredItems(readStarredItems(STARRED_PATH()), filePaths)
+  if (next) writeStarredItems(STARRED_PATH(), next)
+}
+
+/** put each starred path into `group` (null = back to ungrouped). Groups have
+ *  no separate list: a group exists while an entry carries its name, so
+ *  creating one is assigning its first file and emptying one is implicit. */
+export function setStarredGroup(filePaths: string[], group: string | null): void {
+  const next = assignStarredGroup(readStarredItems(STARRED_PATH()), filePaths, group)
+  if (next) writeStarredItems(STARRED_PATH(), next)
+}
+
+/** group names that currently have at least one starred file, first-seen order */
+export function readStarredGroups(): string[] {
+  return starredGroupNames(readStarredItems(STARRED_PATH()))
+}
+
+/** starred path → its group (ungrouped paths absent); feeds the home IPC entries */
+export function readStarredGroupMap(): Map<string, string> {
+  return starredGroupMap(readStarredItems(STARRED_PATH()))
 }
 
 // ---- original archive (pass-through base: original file archived by content hash) ----
@@ -5539,6 +5558,7 @@ export function buildDocsMenu(): void {
             })),
             { label: tm('menuPageWidth'), click: () => sendCommand('zoom-page-width') },
             { label: tm('menuWholePage'), click: () => sendCommand('zoom-whole-page') },
+            { label: tm('menuMultiPage'), click: () => sendCommand('zoom-multi-page') },
           ],
         },
         { type: 'separator' },
@@ -5717,8 +5737,6 @@ export function buildDocsMenu(): void {
           accelerator: 'CmdOrCtrl+/',
           click: () => sendCommand('shortcuts'),
         },
-        { type: 'separator' },
-        { label: tm('menuDocsHelp'), enabled: false },
         { type: 'separator' },
         checkUpdatesMenuItem(appMenuLabels(getUiLang())),
         aboutMenuItem(appMenuLabels(getUiLang())),
