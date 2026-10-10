@@ -5,6 +5,41 @@ What changed in each OxeeOffice release. Installers are on the
 
 ---
 
+## OxeeOffice 0.11.505 — 2026-10-09
+
+Windows x64, Linux x64
+
+### User manual
+
+- **An illustrated user manual is built in:** open **User Guide** on Home or press **F1**.
+  It covers every editor, the AI panel, the command line and agents, with search and
+  pictures of the app. The pages about OxeeOffice's own setup — installing, Oxeegen AI
+  models, the Home screen and Settings — are written for OxeeOffice, in English and
+  French; other languages read the English version of those four.
+
+### New in the editors
+
+- **PDF:** a Form Design tab to create fillable text, checkbox, radio, drop-down, date
+  and signature fields, edit saved fields, and detect fields from blanks, boxes and label
+  gaps; inserting a blank page can be undone; right-click between thumbnails to insert
+  pages.
+- **Docs:** a Multiple Pages view under View › Zoom; first-line indents measured in
+  characters that follow the font size; floating tables anchored to the page lay out
+  like Word.
+- **Sheets:** large workbooks with formatted empty cells can be filtered again.
+- **AI:** keep several custom endpoints and switch between them; hide a selection in
+  HTML or a span in Slides from the AI.
+- **App:** middle-click closes a tab; starred files can be grouped under names, and
+  removing several stars at once works; the keyboard shortcuts listed in the menus all
+  work.
+
+### Oxeegen AI
+
+Unchanged: Oxee models with the picker in every AI panel, reasoning off for slides,
+layout checks and long writing, Brave search, and OpenAI `gpt-image-2.5-flare` images.
+
+---
+
 ## OxeeOffice 0.11.411 — 2026-10-08
 
 Windows x64, Linux x64
