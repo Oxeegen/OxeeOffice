@@ -22,6 +22,12 @@ const A = 'brand/assets'
 
 const ICON_SIZES = [16, 32, 48, 64, 128, 256, 512, 1024].map((s) => `${s}x${s}.png`)
 
+/** manual figures that show the app's branding; the others are plain toolbars */
+const HELP_FIGURES = [
+  'ai-panel', 'cli', 'file-ops', 'fonts', 'home-screen', 'install', 'mcp', 'md-toolbar',
+  'pdf-redact', 'settings-general', 'settings-integrations', 'tabs', 'word-shortcuts',
+]
+
 /** [brand source, upstream target] */
 export const ASSETS = [
   // installer / exe / taskbar icon (Windows) and the Linux hicolor set
@@ -36,6 +42,8 @@ export const ASSETS = [
   [`${A}/renderer/app-icon.png`, 'apps/docs/src/renderer/assets/app-icon.png'],
   [`${A}/renderer/app-icon.png`, 'apps/sheets/src/renderer/assets/app-icon.png'],
   [`${A}/renderer/app-icon.png`, 'apps/slides/src/renderer/assets/app-icon.png'],
+  // the user manual's figures, captured on OxeeOffice (brand/scripts/make-help-figures.mjs)
+  ...HELP_FIGURES.map((f) => [`${A}/help/${f}.en.png`, `apps/shell/src/renderer/src/i18n/help/topics/img/${f}.en.png`]),
 ]
 
 function main() {

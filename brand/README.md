@@ -38,6 +38,8 @@ Outside this directory, fork-owned files:
 | `packages/ai-provider/src/oxeegen.ts` (+ `tests/oxeegen.test.ts`) | The Oxeegen AI layer: chat/media/search catalogue entries, US/EU endpoints, models, adapter, defaults, settings migration, layer switch. |
 | `packages/ai-search/src/brave.ts` (+ `tests/oxeegen-search.test.ts`) | Brave web and image search behind the Oxeegen search entry. |
 | `apps/shell/src/renderer/src/oxeegen-settings.tsx` | Settings pieces: region buttons, hints, hidden Account section, Settings button glyph, onboarding slide filter. |
+| `apps/shell/src/renderer/src/oxee-help/` | OxeeOffice's own manual pages (see "The user manual"). |
+| `brand/scripts/make-help-figures.mjs`, `help-extra-figures.ts`; `brand/assets/help/` | The manual's figures captured on OxeeOffice. |
 | `packages/ui/src/oxee-mark.tsx` | The Oxee mark (data URI and component) for AI buttons, panel headers and Oxeegen's provider logo. |
 | `README.md`, `PRIVACY.md` | Replaced outright with OxeeOffice versions (structure follows upstream's README). On an upstream merge, take ours and port any new upstream section worth having. The README uses upstream's app screenshots from `docs/assets/readme/` (Oxeegen's decision; they are credited to GenOffice), but not the hero banner or the translated READMEs. |
 | `NOTICE`, `CHANGELOG.md`, `CONTRIBUTING.md` | Upstream notice kept in full with an Oxeegen section appended; changelog is ours; contributing guide has a fork section prepended. |
@@ -137,6 +139,27 @@ key, saves globally and reloads every editor on a settings-changed broadcast; Ox
 only needed its logo in `packages/ui/src/provider-logos.tsx`), and our tab tear-off
 (upstream detaches every editor, by menu or by dragging the tab off the strip, and
 docks a window back by dragging it onto the strip).
+
+## The user manual
+
+Upstream's in-app manual (Help tab, F1; `apps/shell/src/renderer/src/i18n/help/`,
+from 0.11.505) is bundled as string literals, so the build-time rename already turns
+"GenOffice" into "OxeeOffice" in every language. Two things the rename cannot fix:
+
+- **Pages that describe upstream-only features** — a Genspark sign-in, Genspark-hosted
+  models, cloud projects, the analytics switch, upstream's installers. Those topics
+  (`ai-models`, `home-screen`, `install`, `settings-integrations`) are served from
+  `apps/shell/src/renderer/src/oxee-help/` instead (hook in `help-registry.ts`), in
+  English and French; other languages read our English page. Each is upstream's page
+  with only the inaccurate sections rewritten. **When upstream changes one of these
+  topics, refresh our copy from its new English and French text.** The manual renders
+  only internal `help://` links, so write addresses as plain text.
+- **Figures that show upstream's branding.** `node brand/scripts/make-help-figures.mjs`
+  runs upstream's three generators (on a temporary copy, with OxeeOffice seed data)
+  plus `help-extra-figures.ts` for the four figures upstream captured by hand, on a
+  built, renamed app with the brand assets applied. The PNGs land in
+  `brand/assets/help/` and `apply-brand-assets.mjs` copies them over upstream's at
+  build time. Rerun it when upstream changes a figure or the UI it shows.
 
 ## Hooks in upstream files
 

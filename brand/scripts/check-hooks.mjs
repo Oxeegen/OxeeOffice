@@ -89,6 +89,11 @@ const HOOKS = [
     must: ["import { OXEE_MARK_DATA_URI } from './oxee-mark'", 'oxeegen: ('],
   },
   {
+    file: 'apps/shell/src/renderer/src/i18n/help/help-registry.ts',
+    why: "the user manual serves OxeeOffice's own pages where upstream's describe Genspark",
+    must: ["import { oxeeHelpBody, oxeeHelpHasBody } from '../../oxee-help'", 'const oxee = await oxeeHelpBody(id, helpLangSuffix(lang))', 'const oxee = oxeeHelpHasBody(id, helpLangSuffix(lang))'],
+  },
+  {
     file: 'apps/shell/src/main/default-app.ts',
     why: 'the Linux default-app check and claim use our desktop entry',
     must: [`oxeegenLayerEnabled() ? '${brand.linux.desktopName}' : 'genoffice.desktop'`],
@@ -286,6 +291,10 @@ const FORK_FILES = [
   'packages/ai-search/tests/oxeegen-search.test.ts',
   'apps/shell/src/renderer/src/oxeegen-settings.tsx',
   'packages/ui/src/oxee-mark.tsx',
+  'apps/shell/src/renderer/src/oxee-help/index.ts',
+  ...['ai-models', 'home-screen', 'install', 'settings-integrations'].flatMap((t) => ['en', 'fr'].map((l) => `apps/shell/src/renderer/src/oxee-help/${t}.${l}.md`)),
+  'brand/scripts/make-help-figures.mjs',
+  'brand/scripts/help-extra-figures.ts',
   'apps/shell/electron-builder.brand.cjs',
 ]
 

@@ -9,6 +9,8 @@
  */
 
 import { LANGS } from '@genoffice/i18n'
+// OxeeOffice brand hook: OxeeOffice's own manual pages (fork-owned)
+import { oxeeHelpBody, oxeeHelpHasBody } from '../../oxee-help'
 import { topicTitle } from './help-titles'
 
 export type HelpGroupId = 'start' | 'apps' | 'ai' | 'manage'
@@ -344,6 +346,9 @@ export function helpLangSuffix(lang: string): string {
 
 /** A topic's body in the reader's language, falling back to English. */
 export async function helpBody(id: string, lang: string): Promise<string | null> {
+  // OxeeOffice brand hook: OxeeOffice's own pages where upstream's describe Genspark
+  const oxee = await oxeeHelpBody(id, helpLangSuffix(lang))
+  if (oxee !== null) return oxee
   const direct = bodies[`./topics/${id}.${helpLangSuffix(lang)}.md`]
   if (direct) return (await direct()) as string
   const english = bodies[`./topics/${id}.en.md`]
@@ -353,6 +358,9 @@ export async function helpBody(id: string, lang: string): Promise<string | null>
 
 /** True when the topic has a body in this language rather than the English fallback. */
 export function helpHasBody(id: string, lang: string): boolean {
+  // OxeeOffice brand hook: OxeeOffice's own pages
+  const oxee = oxeeHelpHasBody(id, helpLangSuffix(lang))
+  if (oxee !== undefined) return oxee
   // the key is in the map without the file having been fetched, so this stays
   // synchronous where a caller only needs to know the pair exists
   return bodies[`./topics/${id}.${helpLangSuffix(lang)}.md`] !== undefined
