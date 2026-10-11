@@ -1,3 +1,5 @@
+import { certSignStringsFor } from './cert-sign-strings'
+
 const fillFormStrings = {
   ribbonTabFillForm: 'Fill Form',
   formPreviousField: 'Previous field',
@@ -55,12 +57,13 @@ const fillFormStrings = {
   formDesignDeleted: 'Field deleted',
   formDesignPending: '{count} new fields, written to the PDF on save',
   formDesignEmptyHint: 'Pick a field type, then click or drag on the page',
-  formDesignName: 'Field name',
   formDesignRequired: 'Required',
   formDesignMultiLine: 'Multi-line',
   formDesignDefaultValue: 'Default value',
   formDesignDefaultChecked: 'Checked by default',
   formDesignNameInvalid: 'Field names must be unique and cannot contain "." "/" or "\\"',
+  formDesignExportValueTaken: 'Each button in a radio group needs its own, non-empty option value',
+  formDesignOptionsEmpty: 'A dropdown needs at least one option',
   formDesignRadio: 'Radio button',
   formDesignRadioHint:
     'Click or drag to add a radio button; consecutive buttons join one group (same name)',
@@ -103,6 +106,8 @@ const fillFormStrings = {
   formDesignPreviewOn: 'Preview: fill the fields to try them, then toggle Preview off to edit',
   formDesignPlaceHint: 'Click or drag on the page to place the field; Esc cancels',
   formDesignDone: 'Done',
+  formDateInvalid: 'Enter a date as {format}',
+  formDatePick: 'Pick a date',
   formDesignCancel: 'Cancel',
   formDesignExistingHint: 'Saved field: move, resize, mark required or delete',
   formDesignSignedLocked: 'This field is signed; clear the signature before moving or deleting it',
@@ -122,6 +127,8 @@ const localizedFillFormStrings = {
     formDesignRadioGroupHint: '字段名相同的按钮属于同一组',
     formDesignOptions: '选项（每行一个）',
     formDesignDateFormat: '日期格式',
+    formDateInvalid: '请按 {format} 格式输入日期',
+    formDatePick: '选择日期',
     formDesignDetect: '自动识别',
     formDesignDetecting: '识别中…',
     formDesignDetectHint: '扫描各页的下划线、方框和「标签：」后的空白并添加字段；之后可调整或删除',
@@ -164,12 +171,13 @@ const localizedFillFormStrings = {
     formDesignDeleted: '字段已删除',
     formDesignPending: '{count} 个新字段，保存时写入 PDF',
     formDesignEmptyHint: '先选择字段类型，再在页面上点击或拖拽',
-    formDesignName: '字段名称',
     formDesignRequired: '必填',
     formDesignMultiLine: '多行',
     formDesignDefaultValue: '默认值',
     formDesignDefaultChecked: '默认勾选',
     formDesignNameInvalid: '字段名称需唯一，且不能包含 . / \\',
+    formDesignExportValueTaken: '同一单选组内每个按钮的选项值必须唯一且非空',
+    formDesignOptionsEmpty: '下拉框至少需要一个选项',
     formPreviousField: '上一字段',
     formNextField: '下一字段',
     insertText: '插入文字',
@@ -215,6 +223,8 @@ const localizedFillFormStrings = {
     formDesignRadioGroupHint: '欄位名稱相同的按鈕屬於同一組',
     formDesignOptions: '選項（每行一個）',
     formDesignDateFormat: '日期格式',
+    formDateInvalid: '請依 {format} 格式輸入日期',
+    formDatePick: '選擇日期',
     formDesignDetect: '自動辨識',
     formDesignDetecting: '辨識中…',
     formDesignDetectHint: '掃描各頁的底線、方框和「標籤：」後的空白並新增欄位；之後可調整或刪除',
@@ -257,12 +267,13 @@ const localizedFillFormStrings = {
     formDesignDeleted: '欄位已刪除',
     formDesignPending: '{count} 個新欄位，儲存時寫入 PDF',
     formDesignEmptyHint: '先選擇欄位類型，再在頁面上點選或拖曳',
-    formDesignName: '欄位名稱',
     formDesignRequired: '必填',
     formDesignMultiLine: '多行',
     formDesignDefaultValue: '預設值',
     formDesignDefaultChecked: '預設勾選',
     formDesignNameInvalid: '欄位名稱需唯一，且不能包含 . / \\',
+    formDesignExportValueTaken: '同一單選組內每個按鈕的選項值必須唯一且非空',
+    formDesignOptionsEmpty: '下拉選單至少需要一個選項',
     formPreviousField: '上一欄位',
     formNextField: '下一欄位',
     insertText: '插入文字',
@@ -379,6 +390,7 @@ const fillFormStringsFor = (lang: string) => ({
 export const strings = {
   zh: {
     ...fillFormStringsFor('zh'),
+    ...certSignStringsFor('zh'),
     ribbonTabHome: '开始',
     ribbonTabAnnotate: '注释',
     ribbonTabEdit: '编辑',
@@ -710,6 +722,7 @@ export const strings = {
   },
   en: {
     ...fillFormStringsFor('en'),
+    ...certSignStringsFor('en'),
     ribbonTabHome: 'Home',
     ribbonTabAnnotate: 'Annotate',
     ribbonTabEdit: 'Edit',
@@ -1050,6 +1063,7 @@ export const strings = {
   },
   vi: {
     ...fillFormStringsFor('vi'),
+    ...certSignStringsFor('vi'),
     ribbonTabHome: 'Trang chủ',
     ribbonTabAnnotate: 'Chú thích',
     ribbonTabEdit: 'Chỉnh sửa',
@@ -1393,6 +1407,7 @@ export const strings = {
   },
   ja: {
     ...fillFormStringsFor('ja'),
+    ...certSignStringsFor('ja'),
     ribbonTabHome: 'ホーム',
     ribbonTabAnnotate: '注釈',
     ribbonTabEdit: '編集',
@@ -1732,6 +1747,7 @@ export const strings = {
   },
   ko: {
     ...fillFormStringsFor('ko'),
+    ...certSignStringsFor('ko'),
     ribbonTabHome: '홈',
     ribbonTabAnnotate: '주석',
     ribbonTabEdit: '편집',
@@ -2070,6 +2086,7 @@ export const strings = {
   },
   fr: {
     ...fillFormStringsFor('fr'),
+    ...certSignStringsFor('fr'),
     ribbonTabHome: 'Accueil',
     ribbonTabAnnotate: 'Annoter',
     ribbonTabEdit: 'Édition',
@@ -2418,6 +2435,7 @@ export const strings = {
   },
   de: {
     ...fillFormStringsFor('de'),
+    ...certSignStringsFor('de'),
     ribbonTabHome: 'Start',
     ribbonTabAnnotate: 'Anmerken',
     ribbonTabEdit: 'Bearbeiten',
@@ -2764,6 +2782,7 @@ export const strings = {
   },
   es: {
     ...fillFormStringsFor('es'),
+    ...certSignStringsFor('es'),
     ribbonTabHome: 'Inicio',
     ribbonTabAnnotate: 'Anotar',
     ribbonTabEdit: 'Editar',
@@ -3110,6 +3129,7 @@ export const strings = {
   },
   th: {
     ...fillFormStringsFor('th'),
+    ...certSignStringsFor('th'),
     ribbonTabHome: 'หน้าแรก',
     ribbonTabAnnotate: 'คำอธิบายประกอบ',
     ribbonTabEdit: 'แก้ไข',
@@ -3448,6 +3468,7 @@ export const strings = {
   },
   id: {
     ...fillFormStringsFor('id'),
+    ...certSignStringsFor('id'),
     ribbonTabHome: 'Beranda',
     ribbonTabAnnotate: 'Anotasi',
     ribbonTabEdit: 'Edit',
@@ -3791,6 +3812,7 @@ export const strings = {
   },
   ru: {
     ...fillFormStringsFor('ru'),
+    ...certSignStringsFor('ru'),
     ribbonTabHome: 'Главная',
     ribbonTabAnnotate: 'Аннотирование',
     ribbonTabEdit: 'Правка',
@@ -4135,6 +4157,7 @@ export const strings = {
   },
   ar: {
     ...fillFormStringsFor('ar'),
+    ...certSignStringsFor('ar'),
     ribbonTabHome: 'الشريط الرئيسي',
     ribbonTabAnnotate: 'تعليق توضيحي',
     ribbonTabEdit: 'تحرير',
@@ -4472,6 +4495,7 @@ export const strings = {
   },
   pt: {
     ...fillFormStringsFor('pt'),
+    ...certSignStringsFor('pt'),
     ribbonTabHome: 'Página Inicial',
     ribbonTabAnnotate: 'Anotar',
     ribbonTabEdit: 'Editar',
@@ -4817,6 +4841,7 @@ export const strings = {
   },
   it: {
     ...fillFormStringsFor('it'),
+    ...certSignStringsFor('it'),
     ribbonTabHome: 'Home',
     ribbonTabAnnotate: 'Annota',
     ribbonTabEdit: 'Modifica',
@@ -5165,6 +5190,7 @@ export const strings = {
   },
   pl: {
     ...fillFormStringsFor('pl'),
+    ...certSignStringsFor('pl'),
     ribbonTabHome: 'Narzędzia główne',
     ribbonTabAnnotate: 'Adnotacje',
     ribbonTabEdit: 'Edycja',
@@ -5508,6 +5534,7 @@ export const strings = {
   },
   cs: {
     ...fillFormStringsFor('cs'),
+    ...certSignStringsFor('cs'),
     ribbonTabHome: 'Domů',
     ribbonTabAnnotate: 'Anotace',
     ribbonTabEdit: 'Úpravy',
@@ -5849,6 +5876,7 @@ export const strings = {
   },
   nl: {
     ...fillFormStringsFor('nl'),
+    ...certSignStringsFor('nl'),
     ribbonTabHome: 'Start',
     ribbonTabAnnotate: 'Annoteren',
     ribbonTabEdit: 'Bewerken',
@@ -6192,6 +6220,7 @@ export const strings = {
   },
   ms: {
     ...fillFormStringsFor('ms'),
+    ...certSignStringsFor('ms'),
     ribbonTabHome: 'Laman Utama',
     ribbonTabAnnotate: 'Anotasi',
     ribbonTabEdit: 'Edit',
@@ -6534,6 +6563,7 @@ export const strings = {
   },
   he: {
     ...fillFormStringsFor('he'),
+    ...certSignStringsFor('he'),
     ribbonTabHome: 'בית',
     ribbonTabAnnotate: 'הערות',
     ribbonTabEdit: 'עריכה',
@@ -6867,6 +6897,7 @@ export const strings = {
   },
   hi: {
     ...fillFormStringsFor('hi'),
+    ...certSignStringsFor('hi'),
     ribbonTabHome: 'होम',
     ribbonTabAnnotate: 'एनोटेट',
     ribbonTabEdit: 'संपादन',
@@ -7206,6 +7237,7 @@ export const strings = {
   },
   'zh-TW': {
     ...fillFormStringsFor('zh-TW'),
+    ...certSignStringsFor('zh-TW'),
     ribbonTabHome: '常用',
     ribbonTabAnnotate: '註解',
     ribbonTabEdit: '編輯',

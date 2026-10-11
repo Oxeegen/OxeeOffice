@@ -312,7 +312,9 @@ export const ko = {
   appFullLoadRunning:
     '통합 문서 전체를 로드하는 중입니다. 완료되면 정렬과 필터를 사용할 수 있습니다…',
   appFullLoadTooLarge:
-    '이 통합 문서는 너무 커서 메모리에 전부 로드할 수 없습니다. 이 파일에서는 정렬과 필터를 사용할 수 없습니다.',
+    '이 통합 문서는 너무 커서 메모리에 전부 로드할 수 없습니다. 이 파일에서는 정렬과 범위 이동을 사용할 수 없습니다. 필터는 파일에서 직접 실행됩니다.',
+  appLargeFilterLoading: '파일에서 필터 열을 읽는 중…',
+  appLargeFilterApplying: '파일에 필터를 적용하는 중…',
   appSortValueModeFormulas:
     '선택한 범위에 수식이 있지만 이 큰 통합 문서에서는 수식이 실시간으로 계산되지 않습니다. 정렬하거나 이동하면 수식이 값으로 저장됩니다. 수식이 없는 범위를 선택하세요.',
   appSortRangeTooLarge:
@@ -545,6 +547,8 @@ export const ko = {
   appPrintFailed: '인쇄할 수 없습니다.',
   appPrintNeedsFullLoad:
     '인쇄하려면 워크북이 완전히 로드되어야 합니다. 로드가 끝날 때까지 기다려 주세요.',
+  appPrintWorkbookTooLarge:
+    '이 통합 문서는 너무 커서 메모리에 완전히 불러올 수 없으므로 인쇄하거나 PDF로 내보낼 수 없습니다.',
   appCsvExportNeedsFullLoad:
     'CSV 내보내기에는 통합 문서 전체 로드가 필요합니다 — 로드가 완료될 때까지 기다리십시오.',
   appCsvExportTooLarge: '시트가 너무 커서 CSV로 내보낼 수 없습니다.',
