@@ -5,6 +5,47 @@ What changed in each OxeeOffice release. Installers are on the
 
 ---
 
+## OxeeOffice 0.11.564 — 2026-10-11
+
+Windows x64, Linux x64
+
+### Ask your starred files
+
+- **Ask AI on Home:** ask a question about your starred files without opening them. The
+  AI searches and reads them with your AI settings, and the answer cites the file and
+  folder it came from; click a citation to open that file. The conversation is not kept
+  after you quit.
+
+### New in the editors
+
+- **PDF:** sign with a certificate from a `.p12`/`.pfx` file or from the system store (the
+  Windows certificate store; the NSS store on Linux), and check the signatures in a file.
+  Date fields work like Acrobat's: a date typed in another layout is rewritten in the
+  field's format, and a calendar button opens a date picker.
+- **Sheets:** filters work on workbooks too large to load in full; the AutoFilter button
+  looks like Excel's; Ctrl+←/→ moves word by word in the cell editor and formula bar;
+  large workbooks finish loading before printing or PDF export.
+- **Slides:** Ctrl+drag duplicates shapes; moving, resizing or rotating several shapes is
+  one undo step; Escape cancels a resize; a selection drag released outside the slide
+  ends cleanly.
+- **Docs:** with track changes on, splitting a paragraph with Enter no longer shows a
+  deleted copy of it (rejecting that copy could damage the document); a page break
+  inside a table cell turns the page; a style template can set separate East Asian and
+  Latin fonts.
+- **AI:** messages sent while the AI is still replying are queued and run in turn, in
+  every editor; hide a Markdown selection from the AI.
+- **App:** the user manual opens from **Help ▸ User Guide** or **F1** (no longer from the
+  sidebar); OxeeOffice is offered for `.txt` and `.json` files; a torn-off tab dragged to
+  the edge of the screen no longer fails to move.
+
+### Oxeegen AI
+
+Unchanged: Oxee models with the picker in every AI panel, reasoning off for slides,
+layout checks and long writing, Brave search, and OpenAI `gpt-image-2.5-flare` images.
+Ask AI uses the same Oxeegen settings.
+
+---
+
 ## OxeeOffice 0.11.505 — 2026-10-09
 
 Windows x64, Linux x64
