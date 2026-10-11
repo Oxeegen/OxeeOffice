@@ -11,6 +11,8 @@ import { useI18n } from './locale'
 import sendEnterOn from './assets/send-enter-on.png'
 import sendEnterOff from './assets/send-enter-off.png'
 import sendStop from './assets/send-stop.png'
+// OxeeOffice brand hook: no Genspark sign-in, so no sign-in line
+import { oxeegenLayerEnabled } from './oxeegen-settings'
 
 /**
  * The home screen's knowledge-base ask panel: chat with the reader's starred
@@ -220,7 +222,7 @@ export function KbAskPanel({
         ))}
         {busy && messages[messages.length - 1]?.text === '' && messages.length > 0 && null}
       </div>
-      {gskEmail === null && <p className="kb-ask-login">{t('askNeedsLogin')}</p>}
+      {gskEmail === null && !oxeegenLayerEnabled() && <p className="kb-ask-login">{t('askNeedsLogin')}</p>}
       <AiComposer
         value={draft}
         busy={busy}

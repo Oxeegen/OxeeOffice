@@ -8,8 +8,10 @@ Home is OxeeOffice's start page: a navigation sidebar on the left, file lists an
 
 - **Recent**: files you opened recently. Each row is stamped with when — today, yesterday, or the date.
 - **Starred**: files you starred. Hover a file row and click the star to add or remove it.
-- **User Guide**: opens this manual.
+- **Ask AI**: ask a question about your starred files without opening them. The answer cites the file and folder it came from; click a citation to open that file. The conversation is not kept after you quit.
 - **Folders**: directories you add to the sidebar with **Add folder…**, or drag in from the file manager. Each becomes a root you can open, create subfolders in, rename and remove; one that goes offline shows as unavailable and can be taken off the list. **New folder** makes another one.
+
+This manual opens from **Help ▸ User Guide** or with **F1**.
 
 There is no Trash entry here. Deleted files go to the system trash, and restoring one is the OS's business.
 

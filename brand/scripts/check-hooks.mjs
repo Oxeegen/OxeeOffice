@@ -219,6 +219,11 @@ const HOOKS = [
     must: ['const settingsOnly = oxeegenLayerEnabled()', '<SettingsGlyph />'],
   },
   {
+    file: 'apps/shell/src/renderer/src/KbAskPanel.tsx',
+    why: 'Ask AI on Home shows no Genspark sign-in line',
+    must: ['{gskEmail === null && !oxeegenLayerEnabled() && <p className="kb-ask-login">'],
+  },
+  {
     file: 'apps/shell/tests/privacy-doc.test.ts',
     why: 'privacy test asserts the no-analytics statement',
     must: ['sends no usage analytics'],

@@ -8,8 +8,10 @@ Accueil est la page de démarrage de OxeeOffice : une barre de navigation à gau
 
 - **Récents** : les fichiers que vous avez ouverts récemment. Chaque ligne est datée — aujourd’hui, hier ou la date.
 - **Favoris** : les fichiers que vous avez mis en favori. Survolez une ligne et cliquez sur l’étoile pour l’ajouter ou le retirer.
-- **Guide de l’utilisateur** : ouvre ce manuel.
+- **Demander à l’IA** : posez une question sur vos fichiers en favori sans les ouvrir. La réponse cite le fichier et le dossier d’où elle vient ; cliquez sur une citation pour ouvrir ce fichier. La conversation n’est pas conservée après la fermeture.
 - **Dossiers** : les répertoires que vous ajoutez à la barre latérale avec **Ajouter un dossier…**, ou que vous y faites glisser depuis le gestionnaire de fichiers. Chacun devient une racine que vous pouvez ouvrir, dans laquelle créer des sous-dossiers, renommer et retirer ; une racine qui devient indisponible est signalée comme telle et peut être retirée de la liste. **Nouveau dossier** en crée un autre.
+
+Ce manuel s’ouvre depuis **Aide ▸ Guide de l'utilisateur** ou avec **F1**.
 
 Il n’y a pas d’entrée Corbeille ici. Les fichiers supprimés vont dans la corbeille du système, et les restaurer relève de l’OS.
 
