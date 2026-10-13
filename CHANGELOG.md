@@ -5,6 +5,46 @@ What changed in each OxeeOffice release. Installers are on the
 
 ---
 
+## OxeeOffice 0.11.727 — 2026-10-13
+
+Windows x64, Linux x64
+
+### AI
+
+- **Token usage:** every AI panel, and Ask AI on Home, shows the tokens each reply used
+  and a running total for the session.
+- **Ask AI:** save an answer as a Markdown or Word document; a start screen explains how
+  to build the knowledge base when no file is starred yet.
+- **Markdown:** the AI can draw an interactive mind map of the document, with branches
+  you can collapse, citations back to the text and PNG export.
+- **Custom endpoints:** each one can set its protocol, compatibility switches (omit
+  temperature, echo reasoning, `max_completion_tokens`, vision), extra headers, an idle
+  timeout, a key read from an environment variable, and declared models.
+
+### New in the editors
+
+- **Docs:** export as Markdown, images included; the print dialog chooses the printer,
+  copies, collation and two-sided printing; table-of-contents and bookmark links work in
+  PDF exports; damaged column settings no longer squeeze pages into slivers; the compact
+  ribbon no longer cuts off its buttons.
+- **Markdown:** paper themes — Notion (light and dark), Drake, Blubook, Nord and
+  Newsprint; `.txt` and `.json` files fill the window again.
+- **Sheets:** a View-tab switch for a right-to-left grid; fonts load for the workbook you
+  open instead of all at start.
+- **App:** **View ▸ Interface Zoom In / Out** (Ctrl+Alt+= / Ctrl+Alt+-) enlarges the tab
+  bar and the Sheets toolbar up to 150%, separately from the document zoom; the other
+  editors follow later. Files the AI fetches from the web connect only to the address
+  that was checked as safe.
+
+### Oxeegen AI
+
+Unchanged: Oxee models with the picker in every AI panel, reasoning off for slides,
+layout checks and long writing, Brave search, and OpenAI `gpt-image-2.5-flare` images.
+Streamed replies now ask the server for their token count, which is what the new usage
+display shows; no sampling setting is sent.
+
+---
+
 ## OxeeOffice 0.11.564 — 2026-10-11
 
 Windows x64, Linux x64
