@@ -117,7 +117,9 @@ describe('request bodies: the server configuration decides', () => {
       expect(body).not.toHaveProperty('reasoning_effort')
       expect(body.model).toBe('Oxee-max')
     }
-    expect(Object.keys(bodies[0]!).sort()).toEqual(['messages', 'model', 'stream', 'tools'])
+    // streams ask for the token count only (the usage chips); no sampling field
+    expect(Object.keys(bodies[0]!).sort()).toEqual(['messages', 'model', 'stream', 'stream_options', 'tools'])
+    expect(bodies[0]!.stream_options).toEqual({ include_usage: true })
     expect(Object.keys(bodies[2]!).sort()).toEqual(['messages', 'model'])
   })
 

@@ -7,13 +7,21 @@ Accueil est la page de démarrage de OxeeOffice : une barre de navigation à gau
 ## Navigation dans la barre latérale
 
 - **Récents** : les fichiers que vous avez ouverts récemment. Chaque ligne est datée — aujourd’hui, hier ou la date.
-- **Favoris** : les fichiers que vous avez mis en favori. Survolez une ligne et cliquez sur l’étoile pour l’ajouter ou le retirer.
-- **Demander à l’IA** : posez une question sur vos fichiers en favori sans les ouvrir. La réponse cite le fichier et le dossier d’où elle vient ; cliquez sur une citation pour ouvrir ce fichier. La conversation n’est pas conservée après la fermeture.
+- **Favoris** : les fichiers que vous avez mis en favori. Survolez une ligne et cliquez sur l’étoile pour l’ajouter ou le retirer. **Déplacer vers un groupe…**, dans le menu ⋯, range les favoris dans des groupes nommés ; la vue Favoris peut filtrer par groupe.
+- **Demander à l’IA** : posez des questions sur vos fichiers en favori et obtenez des réponses qui les citent (voir plus bas).
 - **Dossiers** : les répertoires que vous ajoutez à la barre latérale avec **Ajouter un dossier…**, ou que vous y faites glisser depuis le gestionnaire de fichiers. Chacun devient une racine que vous pouvez ouvrir, dans laquelle créer des sous-dossiers, renommer et retirer ; une racine qui devient indisponible est signalée comme telle et peut être retirée de la liste. **Nouveau dossier** en crée un autre.
 
 Ce manuel s’ouvre depuis **Aide ▸ Guide de l'utilisateur** ou avec **F1**.
 
 Il n’y a pas d’entrée Corbeille ici. Les fichiers supprimés vont dans la corbeille du système, et les restaurer relève de l’OS.
+
+## Interroger votre base de connaissances
+
+- Mettez d’abord des fichiers en favori (tout type qu’OxeeOffice sait lire) ; l’en-tête du panneau les compte, et une base vide vous invite à en ajouter.
+- L’IA cherche et lit vos favoris avec le modèle et les réglages de vos panneaux IA. Les réponses citent les fichiers d’où elles viennent ; cliquez sur une citation pour ouvrir le fichier dans son éditeur.
+- La conversation reste en mémoire seulement : fermer l’application l’efface.
+- La recherche passe par l’index local des fichiers, comme la recherche de l’accueil ; les fichiers disparus sortent discrètement de la base.
+- Les groupes ne servent qu’à ranger la liste des favoris : la base de connaissances couvre toujours tous les favoris.
 
 ## La liste des fichiers
 
@@ -53,6 +61,6 @@ Ce que fait chaque carte :
 - **AI Markdown** (.md) : un document Markdown vierge dans l’éditeur Markdown.
 - **AI HTML** (.html) : une page web vierge dans l’éditeur HTML.
 - **AI PDF** (.pdf) : différent des autres — il crée **immédiatement** un vrai PDF vierge d’une seule page dans le dossier cible et l’ouvre comme un fichier ordinaire (l’éditeur PDF travaille sur de vrais fichiers). Pratique pour annoter, caviarder ou ajouter du texte ; le fichier peut être renommé automatiquement d’après son contenu à la première sauvegarde.
-- **Ouvrir un fichier local** : un sélecteur de fichiers du système pour Word (.docx/.doc), Excel (.xlsx/.xlsm/.xls/.csv/.tsv), PowerPoint (.pptx/.ppt), PDF, Markdown (.md/.markdown) et pages web (.html/.htm). La sélection multiple fonctionne ; chaque fichier obtient son propre onglet.
+- **Ouvrir un fichier local** : un sélecteur de fichiers du système pour Word (.docx/.doc), Excel (.xlsx/.xlsm/.xls/.csv/.tsv), PowerPoint (.pptx/.ppt), PDF, Markdown (.md/.markdown) et pages web (.html/.htm). La sélection multiple fonctionne ; chaque fichier obtient son propre onglet. Les fichiers texte (.txt, .json) s’ouvrent aussi ici, dans la vue source de l’éditeur Markdown.
 
 > Astuce : Fichier ▸ Nouveau dans la barre de menus crée les mêmes types de documents (⌘N/Ctrl+N crée un document texte par défaut) ; faire glisser un fichier dans la fenêtre l’ouvre.

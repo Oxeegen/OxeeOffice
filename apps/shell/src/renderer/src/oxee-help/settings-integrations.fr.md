@@ -31,7 +31,7 @@ OxeeOffice n’envoie aucune statistique d’utilisation : Général n’a donc 
 Ce ne sont pas des interrupteurs : chaque capacité choisit le fournisseur qui la sert, et la clé et l'URL de base d'un fournisseur sont saisies une seule fois et partagées :
 
 - **Recherche web**, **Génération d'images**, **Analyse d'images** et **Analyse vidéo**, chacune avec un fournisseur, un modèle, une clé et une URL de base.
-- **Recherche de fichiers locaux** s'exécute sur cette machine. Dessous se trouve le **Reclassement Jev**, **désactivé par défaut**. Activez-le et les extraits des 20 meilleurs résultats locaux — jusqu'à 1 200 caractères par document, plus les noms de fichiers et de dossiers — sont envoyés au modèle Jev de TypeSafe pour être réordonnés par pertinence. Désactivé, rien ne quitte l'appareil.
+- **Recherche de fichiers locaux** s'exécute sur cette machine. Dessous se trouve le **Reclassement Jev**, **désactivé par défaut**. Activez-le et les extraits des 20 meilleurs résultats locaux — jusqu'à 1 200 caractères par document, plus les noms de fichiers et de dossiers — partent vers le point de terminaison choisi sous **Point de terminaison Jev** (Jev via OpenRouter ou l’API TypeSafe, Perplexity, Liquid AI d1, Cloudflare, un moteur local ou une URL personnalisée) pour être réordonnés par pertinence. Désactivé, rien ne quitte l'appareil.
 
 ## À propos
 

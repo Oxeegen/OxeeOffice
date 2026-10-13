@@ -7,13 +7,21 @@ Home is OxeeOffice's start page: a navigation sidebar on the left, file lists an
 ## Sidebar navigation
 
 - **Recent**: files you opened recently. Each row is stamped with when — today, yesterday, or the date.
-- **Starred**: files you starred. Hover a file row and click the star to add or remove it.
-- **Ask AI**: ask a question about your starred files without opening them. The answer cites the file and folder it came from; click a citation to open that file. The conversation is not kept after you quit.
+- **Starred**: files you starred. Hover a file row and click the star to add or remove it. The ⋯ menu's **Move to group** sorts starred files into named groups; the Starred view filters by them.
+- **Ask AI**: ask questions about your starred files and get answers that cite them (see below).
 - **Folders**: directories you add to the sidebar with **Add folder…**, or drag in from the file manager. Each becomes a root you can open, create subfolders in, rename and remove; one that goes offline shows as unavailable and can be taken off the list. **New folder** makes another one.
 
 This manual opens from **Help ▸ User Guide** or with **F1**.
 
 There is no Trash entry here. Deleted files go to the system trash, and restoring one is the OS's business.
+
+## Ask your knowledge base
+
+- Star files first (any type OxeeOffice reads); the panel header counts them, and an empty knowledge base tells you to star something.
+- The AI searches and reads your starred files with the model and settings you use in the AI panels. Answers cite the files they came from; click a citation to open the file in its editor.
+- The conversation lives in memory only — closing the app ends it.
+- Search runs on the local file index, like Home search; files that have disappeared quietly drop out.
+- Groups organise the Starred list only — the knowledge base always spans every starred file.
 
 ## The file list
 
@@ -53,6 +61,6 @@ What each card does:
 - **AI Markdown** (.md): a blank Markdown document in the Markdown editor.
 - **AI HTML** (.html): a blank web page in the HTML editor.
 - **AI PDF** (.pdf): different from the rest — it **immediately** creates a real blank single-page PDF in the target folder and opens it as a regular file (the PDF editor works on real files). Good for annotating, redacting or adding text; the file can be renamed automatically from its content on first save.
-- **Open local files**: a system file picker for Word (.docx/.doc), Excel (.xlsx/.xlsm/.xls/.csv/.tsv), PowerPoint (.pptx/.ppt), PDF, Markdown (.md/.markdown) and web pages (.html/.htm). Multi-select works; each file gets its own tab.
+- **Open local files**: a system file picker for Word (.docx/.doc), Excel (.xlsx/.xlsm/.xls/.csv/.tsv), PowerPoint (.pptx/.ppt), PDF, Markdown (.md/.markdown) and web pages (.html/.htm). Multi-select works; each file gets its own tab. Plain-text files (.txt, .json) open here too — they land in the Markdown editor's source view.
 
 > Tip: File ▸ New in the menu bar creates the same document types (⌘N/Ctrl+N defaults to a text document); dragging a file into the window opens it.
