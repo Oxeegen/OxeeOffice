@@ -544,6 +544,12 @@ html.genoffice-popover-open .ribbon-tabs {
   cursor: default;
 }
 
+.file-menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+
 .file-menu-key {
   color: var(--text-dim);
   font-size: 12px;
@@ -4454,6 +4460,10 @@ th.cell-rev-del {
 .doc-autospace-pad {
   margin-inline-start: var(--doc-autospace-pad, 0.125em);
 }
+/* only one of autoSpaceDE/DN is off: the native gap is disabled, the pad carries all of it */
+.doc-autospace-pad-full {
+  margin-inline-start: calc(var(--doc-autospace-pad, 0.125em) * 2);
+}
 
 /* a space with a hangul neighbour advances 0.5em in Word whatever the run font
    (line-metrics hangulSpaceOffsets); the half-width space face supplies that
@@ -6711,6 +6721,15 @@ body.docs-crop-active .doc-protected[data-doc-protected='image'] .doc-img-wrap {
   display: none;
 }
 
+/* a column break leading a paragraph with text (.doc-lead-col-br) has no
+   line of its own: Word opens the next column with the first text line
+   (CNKI/PDF-converter output breaks every second column this way); a
+   break-only paragraph keeps its line */
+.doc-page .doc-lead-col-br > br.doc-col-br:first-child,
+.doc-page .doc-lead-col-br > :first-child br.doc-col-br:first-of-type {
+  display: none;
+}
+
 /* a page break ending a paragraph has no line of its own either: the paragraph
    mark sits on the last text line, and the next page starts with the next
    paragraph. The phantom line after it (directly, or after the run-mark span
@@ -8207,6 +8226,171 @@ body.docs-crop-active
   flex-direction: column;
   gap: 8px;
   margin-top: 8px;
+}
+
+/* ---- interactive mind map card (generate_mindmap) ---- */
+.ai-mindmap {
+  margin-top: 12px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--color-bg-subtle);
+}
+
+.ai-msg-assistant .ai-mindmap:first-child,
+.ai-mindmap:only-child {
+  margin-top: 0;
+}
+
+.ai-mindmap-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border-default);
+  background: var(--surface);
+}
+
+.ai-mindmap-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.ai-mindmap-count {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.ai-mindmap-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.ai-mindmap-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition:
+    color 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-mindmap-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--hover);
+}
+
+.ai-mindmap-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--docs-focus-ring);
+}
+
+.ai-mindmap-viewport {
+  position: relative;
+  height: 300px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.ai-mindmap-viewport:active {
+  cursor: grabbing;
+}
+
+.ai-mindmap-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  user-select: none;
+}
+
+.ai-mindmap-edges path {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 1.5;
+}
+
+.ai-mindmap-node {
+  cursor: pointer;
+}
+
+.ai-mindmap-node rect {
+  fill: var(--surface);
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+}
+
+.ai-mindmap-node.root rect {
+  fill: var(--color-ai-action);
+  stroke: var(--color-ai-action);
+}
+
+.ai-mindmap-node .ai-mindmap-label {
+  fill: var(--color-text-primary);
+  font-size: 12.5px;
+}
+
+.ai-mindmap-node.root .ai-mindmap-label {
+  fill: var(--color-ai-action-text);
+}
+
+.ai-mindmap-node:hover rect {
+  stroke: var(--color-ai-action);
+}
+
+.ai-mindmap-node:focus-visible {
+  outline: none;
+}
+
+.ai-mindmap-node:focus-visible rect {
+  stroke: var(--color-ai-action);
+  stroke-width: 2;
+}
+
+.ai-mindmap-badge {
+  cursor: pointer;
+}
+
+.ai-mindmap-badge rect {
+  fill: var(--color-brand-secondary);
+  stroke: none;
+}
+
+.ai-mindmap-badge text {
+  fill: var(--color-ai-action-text);
+  font-size: 10px;
+}
+
+.ai-mindmap-toggle {
+  cursor: pointer;
+}
+
+.ai-mindmap-toggle rect,
+.ai-mindmap-toggle circle {
+  fill: var(--hover);
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+}
+
+.ai-mindmap-toggle text {
+  fill: var(--color-text-secondary);
+  font-size: 10px;
+}
+
+.ai-mindmap-toggle:hover rect,
+.ai-mindmap-toggle:hover circle {
+  stroke: var(--color-ai-action);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -12922,6 +13106,11 @@ tr > .page-gap-cut {
   width: 34px;
 }
 
+/* "show the AI sidebar" off and panel closed: no rail, no sliver */
+.ai-dock.collapsed.ai-dock-off {
+  width: 0;
+}
+
 /* while dragging the resizer, follow the pointer without easing */
 .ai-dock:has(.ai-panel-resizing) {
   transition: none;
@@ -13371,4 +13560,53 @@ tr > .page-gap-cut {
     outline: 1px dashed var(--border-strong);
     outline-offset: -1px;
   }
+}
+
+/* ---- withheld spans: text kept in the document, hidden from the model ----
+   An underline rather than a fill, because every other decoration here is
+   either a fill (search hits) or a style (bold, highlight), and the reader has
+   to be able to tell at a glance that this one means "the model cannot see
+   this". The ink is the app accent, so the mark follows the theme instead of
+   carrying a colour of its own. */
+.redact-span {
+  border-bottom: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  color: var(--accent);
+  border-radius: 2px;
+  padding: 0 1px;
+  cursor: pointer;
+}
+
+/* the marker is a screen affordance; the printed page shows the plain run */
+@media print {
+  .redact-span {
+    border: none;
+    background: none;
+    color: inherit;
+    padding: 0;
+  }
+}
+
+.redact-span.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+}
+
+.redact-desc {
+  margin: 0 0 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+/* the marker the model will see, shown before anything is committed */
+.redact-preview {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, var(--ui-cjk), monospace;
+  font-size: 12px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 2px;
+  padding: 4px 6px;
+  margin-bottom: 14px;
+  word-break: break-all;
 }

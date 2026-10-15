@@ -247,6 +247,7 @@ export const it = {
   appPageOf: 'Pagina {current} di {total}',
   appWordCountTitle: 'Conteggio parole',
   appWordCountN: '{n} parole',
+  appWordCountSelection: '{selected} di {total} parole selezionate',
   appTrackChangesOn: 'Revisioni: attive',
   appTrackChangesOff: 'Revisioni: disattivate',
   appAcTitle: 'Opzioni correzione automatica',
@@ -362,6 +363,15 @@ export const it = {
   appAiBadgeTip: "Usa l'IA",
   appTranslate: 'Traduci',
   appTranslateTo: 'Traduci in {lang}',
+  redactMenuLabel: 'Nascondi la selezione all’IA',
+  redactDialogDesc:
+    'Le parole restano nel documento e nel file; il modello vede solo il segnaposto. Dai un nome perché sappia cosa rappresenta.',
+  redactDialogScope:
+    'Nascondere vale solo per l’IA di questa app. La CLI, gli strumenti MCP e l’esportazione senza interfaccia leggono direttamente il file e vedono comunque queste parole.',
+  redactDialogPlaceholder: 'Nome del segnaposto, es. telefono del cliente',
+  redactCancel: 'Annulla',
+  redactInsert: 'Nascondi',
+  redactShowLabel: 'Mostra di nuovo la selezione all’IA',
   appLangEnglish: 'Inglese',
   appLangSimplifiedChinese: 'Cinese semplificato',
   appLangJapanese: 'Giapponese',

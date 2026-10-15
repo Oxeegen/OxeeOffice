@@ -236,6 +236,7 @@ export const ar = {
   appPageOf: 'الصفحة {current} من {total}',
   appWordCountTitle: 'عدد الكلمات',
   appWordCountN: '{n} كلمة',
+  appWordCountSelection: 'المحدد {selected} / {total} كلمة',
   appTrackChangesOn: 'تعقب التغييرات: تشغيل',
   appTrackChangesOff: 'تعقب التغييرات: إيقاف',
   appAcTitle: 'خيارات التصحيح التلقائي',
@@ -351,6 +352,15 @@ export const ar = {
   appAiBadgeTip: 'يستخدم الذكاء الاصطناعي',
   appTranslate: 'ترجمة',
   appTranslateTo: 'ترجمة إلى {lang}',
+  redactMenuLabel: 'إخفاء التحديد عن الذكاء الاصطناعي',
+  redactDialogDesc:
+    'تبقى الكلمات في المستند وفي الملف؛ يرى النموذج العلامة أدناه. سمِّها ليعرف ما تمثّله.',
+  redactDialogScope:
+    'الإخفاء يشمل الذكاء الاصطناعي في هذا التطبيق فقط. أما CLI وأدوات MCP والتصدير بدون واجهة فيقرأون الملف مباشرة، وما زالوا يرون هذه الكلمات.',
+  redactDialogPlaceholder: 'اسم العنصر، مثال: هاتف العميل',
+  redactCancel: 'إلغاء',
+  redactInsert: 'إخفاء',
+  redactShowLabel: 'إظهار التحديد للذكاء الاصطناعي مرة أخرى',
   appLangEnglish: 'الإنجليزية',
   appLangSimplifiedChinese: 'الصينية المبسطة',
   appLangJapanese: 'اليابانية',

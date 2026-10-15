@@ -251,6 +251,7 @@ export const fr = {
   appPageOf: 'Page {current} sur {total}',
   appWordCountTitle: 'Statistiques',
   appWordCountN: '{n} mots',
+  appWordCountSelection: '{selected} mots sur {total} sélectionnés',
   appTrackChangesOn: 'Suivi des modifications : activé',
   appTrackChangesOff: 'Suivi des modifications : désactivé',
   appAcTitle: 'Options de correction automatique',
@@ -366,6 +367,15 @@ export const fr = {
   appAiBadgeTip: "Utilise l'IA",
   appTranslate: 'Traduire',
   appTranslateTo: 'Traduire en {lang}',
+  redactMenuLabel: 'Masquer la sélection à l’IA',
+  redactDialogDesc:
+    'Les mots restent dans le document et dans le fichier ; le modèle ne voit que le marqueur ci-dessous. Donnez-lui un nom pour qu’il sache ce qu’il désigne.',
+  redactDialogScope:
+    'Le masquage ne concerne que l’IA de cette application. La CLI, les outils MCP et l’exportation sans interface lisent le fichier directement et voient toujours ces mots.',
+  redactDialogPlaceholder: 'Nom du placeholder, ex. : téléphone du client',
+  redactCancel: 'Annuler',
+  redactInsert: 'Masquer',
+  redactShowLabel: 'Réafficher la sélection à l’IA',
   appLangEnglish: 'anglais',
   appLangSimplifiedChinese: 'chinois simplifié',
   appLangJapanese: 'japonais',

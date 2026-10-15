@@ -241,6 +241,7 @@ export const cs = {
   appPageOf: 'Stránka {current} z {total}',
   appWordCountTitle: 'Počet slov',
   appWordCountN: 'Slov: {n}',
+  appWordCountSelection: 'Vybráno {selected} z {total} slov',
   appTrackChangesOn: 'Sledování změn: zapnuto',
   appTrackChangesOff: 'Sledování změn: vypnuto',
   appAcTitle: 'Možnosti automatických oprav',
@@ -356,6 +357,15 @@ export const cs = {
   appAiBadgeTip: 'Používá AI',
   appTranslate: 'Přeložit',
   appTranslateTo: 'Přeložit do jazyka {lang}',
+  redactMenuLabel: 'Skrýt výběr před AI',
+  redactDialogDesc:
+    'Slova zůstanou v dokumentu i v souboru; model uvidí jen zástupný symbol. Pojmenujte ho, aby věděl, co zastupuje.',
+  redactDialogScope:
+    'Skrýtí se týká jen AI v této aplikaci. CLI, nástroje MCP a headless export čtou soubor přímo a tato slova stále vidí.',
+  redactDialogPlaceholder: 'Název zástupného symbolu, např. telefon zákazníka',
+  redactCancel: 'Zrušit',
+  redactInsert: 'Skrýt',
+  redactShowLabel: 'Znovu zobrazit výběr AI',
   appLangEnglish: 'angličtina',
   appLangSimplifiedChinese: 'zjednodušená čínština',
   appLangJapanese: 'japonština',

@@ -229,6 +229,7 @@ export const zhTW = {
   appPageOf: '第 {current} 頁,共 {total} 頁',
   appWordCountTitle: '字數統計',
   appWordCountN: '{n} 個字',
+  appWordCountSelection: '已選 {selected} / {total} 個字',
   appTrackChangesOn: '追蹤修訂:開',
   appTrackChangesOff: '追蹤修訂:關',
   appAcTitle: '自動校正選項',
@@ -344,6 +345,15 @@ export const zhTW = {
   appAiBadgeTip: '將呼叫 AI',
   appTranslate: '翻譯',
   appTranslateTo: '翻譯成{lang}',
+  redactMenuLabel: '把選中的內容對 AI 隱藏',
+  redactDialogDesc:
+    '這段文字會留在文件裡，AI 讀到的卻是下面的標記。給它起個名字，AI 才知道它是什麼。',
+  redactDialogScope:
+    '這只針對本應用的 AI。命令列、MCP 工具和無介面匯出會直接讀取文件，仍然看得到這些文字。',
+  redactDialogPlaceholder: '佔位名稱，例如：客戶電話',
+  redactCancel: '取消',
+  redactInsert: '隱藏',
+  redactShowLabel: '把選取的內容重新對 AI 顯示',
   appLangEnglish: '英文',
   appLangSimplifiedChinese: '簡體中文',
   appLangJapanese: '日文',
