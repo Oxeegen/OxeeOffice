@@ -5,6 +5,47 @@ What changed in each OxeeOffice release. Installers are on the
 
 ---
 
+## OxeeOffice 0.11.829 — 2026-10-15
+
+Windows x64, Linux x64
+
+### Open OpenDocument files
+
+- **`.odt`, `.ods` and `.odp`** (and the `.ott`/`.ots`/`.otp` templates) open in Docs,
+  Sheets and Slides as editable Word, Excel and PowerPoint copies. The original file is
+  never changed. Text, headings, lists, tables and images carry over in documents;
+  values, formulas and dates in spreadsheets. Footnotes, comments, text boxes, cell
+  styles, column widths and charts are not fully kept.
+
+### AI
+
+- **Docs:** the AI can draw an interactive mind map of the document, like Markdown's;
+  hide a selection from the AI, as in Markdown and HTML.
+- **Turn the AI panel off:** Settings ▸ General ▸ **Show the AI sidebar**. When off, the
+  editors hide the AI panel and its side button; an AI action in the ribbon or a menu
+  still opens the panel, and new documents never open it.
+
+### New in the editors
+
+- **Tabs:** right-click a tab to save, print, rename, duplicate the saved file, split
+  side by side, copy the path or file name, show it in its folder, open it with the
+  default app, move it, close other tabs or tabs to the right, or reopen a closed tab;
+  hover a tab to see the file's path.
+- **Docs:** the status bar shows selected/total words while text is selected, like
+  Word; saving keeps the font you were typing with; mail-merge templates keep their
+  fields when opened.
+- **Markdown:** `[[wiki links]]` resolve to your notes and open on click, including
+  `[[note|alias]]`, `[[note#heading]]` and block links.
+- **Sheets, Slides and PDF:** the compact icon-only ribbon (Ctrl+Alt+K), as in Docs.
+- **Windows:** restoring the window from the taskbar keeps the documents' views.
+
+### Oxeegen AI
+
+Unchanged: Oxee models with the picker in every AI panel, reasoning off for slides,
+layout checks and long writing, Brave search, and OpenAI `gpt-image-2.5-flare` images.
+
+---
+
 ## OxeeOffice 0.11.727 — 2026-10-13
 
 Windows x64, Linux x64
