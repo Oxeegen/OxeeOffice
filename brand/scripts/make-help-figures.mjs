@@ -34,9 +34,15 @@ for (const [name, args] of Object.entries(GENERATORS)) {
   if (ONLY.size && !ONLY.has(name)) continue
   const src = readFileSync(join(ROOT, 'tools', `${name}.ts`), 'utf8')
   if (!OUT_LINE.test(src)) throw new Error(`${name}.ts: OUT_DIR line moved; update make-help-figures.mjs`)
-  const patched = src
+  let patched = src
     .replace(OUT_LINE, `const OUT_DIR = ${JSON.stringify(OUT)}`)
     .replaceAll('GenOffice', 'OxeeOffice')
+  // Settings > General shows the OS account name as the user-name placeholder:
+  // seed a neutral name so this machine's account never lands in a figure
+  if (name === 'gen-help-screenshots') {
+    if (!patched.includes('onboardingSeen: true,')) throw new Error(`${name}.ts: settings seed moved; update make-help-figures.mjs`)
+    patched = patched.replace('onboardingSeen: true,', "onboardingSeen: true, authorName: 'Alex Martin',")
+  }
   const tmp = join(ROOT, 'tools', `.oxee-${name}.ts`)
   writeFileSync(tmp, patched)
   try {
