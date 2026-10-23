@@ -224,6 +224,11 @@ const HOOKS = [
     must: ["{gskEmail === null && provider === 'genspark' && !oxeegenLayerEnabled() && ("],
   },
   {
+    file: 'apps/sheets/native/xlsx-engine/src/lib.rs',
+    why: 'encrypted-workbook error names no product (native strings are not renamed)',
+    must: ['Encrypted workbooks cannot be'],
+  },
+  {
     file: 'apps/shell/tests/privacy-doc.test.ts',
     why: 'privacy test asserts the no-analytics statement',
     must: ['sends no usage analytics'],

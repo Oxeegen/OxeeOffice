@@ -257,9 +257,10 @@ impl WorkbookSessions {
         let canonical_path = canonicalize(path)?;
         let mut file = File::open(&canonical_path)?;
         if is_ole2_container(&mut file)? {
+            // OxeeOffice brand hook: no product name in a native string (the renamer only rewrites JS)
             return Err(SidecarError::Workbook(
-                "This workbook is password-protected. GenOffice Sheets cannot open \
-                 encrypted workbooks yet."
+                "This workbook is password-protected. Encrypted workbooks cannot be \
+                 opened yet."
                     .into(),
             ));
         }

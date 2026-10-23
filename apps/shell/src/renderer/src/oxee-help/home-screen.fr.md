@@ -19,7 +19,7 @@ Il n’y a pas d’entrée Corbeille ici. Les fichiers supprimés vont dans la c
 
 - Mettez d’abord des fichiers en favori (tout type qu’OxeeOffice sait lire) ; l’en-tête du panneau les compte, et une base vide vous invite à en ajouter.
 - L’IA cherche et lit vos favoris avec le modèle et les réglages de vos panneaux IA. Les réponses citent les fichiers d’où elles viennent ; cliquez sur une citation pour ouvrir le fichier dans son éditeur.
-- La conversation reste en mémoire seulement : fermer l’application l’efface.
+- Les conversations sont conservées d’un lancement à l’autre. Les pastilles du haut les listent : cliquez sur l’une pour y revenir, **Nouvelle conversation** en commence une autre, et × en supprime une définitivement.
 - La recherche passe par l’index local des fichiers, comme la recherche de l’accueil ; les fichiers disparus sortent discrètement de la base.
 - Les groupes ne servent qu’à ranger la liste des favoris : la base de connaissances couvre toujours tous les favoris.
 

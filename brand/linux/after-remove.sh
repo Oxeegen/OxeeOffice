@@ -8,6 +8,9 @@ case "$1" in
   0|remove|purge) ;;
   *) exit 0 ;;
 esac
+# the package manager already removed our MIME file; rebuild the database so
+# the per-type icons come back without a relogin
+command -v update-mime-database >/dev/null 2>&1 && update-mime-database /usr/share/mime >/dev/null 2>&1 || true
 if [ -L /usr/bin/genoffice ] && [ "$(readlink /usr/bin/genoffice)" = "/opt/OxeeOffice/resources/cli/genoffice" ]; then
   rm -f /usr/bin/genoffice
 fi

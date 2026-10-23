@@ -19,7 +19,7 @@ There is no Trash entry here. Deleted files go to the system trash, and restorin
 
 - Star files first (any type OxeeOffice reads); the panel header counts them, and an empty knowledge base tells you to star something.
 - The AI searches and reads your starred files with the model and settings you use in the AI panels. Answers cite the files they came from; click a citation to open the file in its editor.
-- The conversation lives in memory only — closing the app ends it.
+- Conversations are kept across restarts. The chips at the top list them: click one to go back to it, **New conversation** starts another, and × deletes one for good.
 - Search runs on the local file index, like Home search; files that have disappeared quietly drop out.
 - Groups organise the Starred list only — the knowledge base always spans every starred file.
 
