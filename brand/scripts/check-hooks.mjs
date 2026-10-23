@@ -166,7 +166,7 @@ const HOOKS = [
   {
     file: 'packages/ai-provider/src/search-settings.ts',
     why: 'Oxeegen (Brave) search entry and defaults',
-    must: ['= withOxeegenSearch([', 'return withOxeegenSearchDefaults({', "['serper', 'serply', 'tavily', 'parallel', 'exa', 'firecrawl', 'oxeegen']"],
+    must: ['= withOxeegenSearch([', 'return withOxeegenSearchDefaults({', "['serper', 'serply', 'tavily', 'parallel', 'exa', 'firecrawl', 'keenable', 'oxeegen']"],
   },
   {
     file: 'packages/ai-provider/src/index.ts',
@@ -221,7 +221,7 @@ const HOOKS = [
   {
     file: 'apps/shell/src/renderer/src/KbAskPanel.tsx',
     why: 'Ask AI on Home shows no Genspark sign-in line',
-    must: ['{gskEmail === null && !oxeegenLayerEnabled() && <p className="kb-ask-login">'],
+    must: ["{gskEmail === null && provider === 'genspark' && !oxeegenLayerEnabled() && ("],
   },
   {
     file: 'apps/shell/tests/privacy-doc.test.ts',

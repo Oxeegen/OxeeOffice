@@ -46,6 +46,7 @@ import type {
   WebSearchResult,
   ImageSearchResponse,
   GenerateImageResult,
+  UserSkillEntry,
 } from '../shared/desktop-api'
 import {
   HEADER_FOOTER_PICTURE_POSITION,
@@ -519,6 +520,15 @@ const desktopApi: DesktopApi = {
   async openAiModelSettings() {
     await ipcRenderer.invoke(IPC_CHANNELS.aiOpenModelSettings)
   },
+  async openSkillsSettings() {
+    await ipcRenderer.invoke('ai:open-skills-settings')
+  },
+  skillsList() {
+    return ipcRenderer.invoke('ai:skills-list') as Promise<UserSkillEntry[]>
+  },
+  skillText(name: string) {
+    return ipcRenderer.invoke('ai:skill-text', name) as Promise<string>
+  },
   async aiChat(request) {
     const result: unknown = await ipcRenderer.invoke(IPC_CHANNELS.aiChat, request)
     if (!isRecord(result) || typeof result.ok !== 'boolean') {
@@ -747,6 +757,8 @@ const projectApi: ProjectApi = {
   appendChat: (args) => ipcRenderer.invoke('project:appendChat', args),
   loadChat: (args) => ipcRenderer.invoke('project:loadChat', args),
   rebindChat: (args) => ipcRenderer.invoke('project:rebindChat', args),
+  listChats: (args) => ipcRenderer.invoke('project:listChats', args),
+  deleteChat: (args) => ipcRenderer.invoke('project:deleteChat', args),
 }
 contextBridge.exposeInMainWorld('projectApi', projectApi)
 

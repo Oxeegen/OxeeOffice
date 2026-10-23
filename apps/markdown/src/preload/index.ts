@@ -22,6 +22,9 @@ const api: MarkdownApi = {
   rememberWikiFragment: (path, fragment) =>
     ipcRenderer.invoke(MARKDOWN_CHANNELS.rememberWikiFragment, path, fragment),
   takeWikiFragment: (path) => ipcRenderer.invoke(MARKDOWN_CHANNELS.takeWikiFragment, path),
+  listWikiNotes: () => ipcRenderer.invoke(MARKDOWN_CHANNELS.listWikiNotes),
+  wikiBacklinks: (path: string) => ipcRenderer.invoke(MARKDOWN_CHANNELS.wikiBacklinks, path),
+  wikiGraph: () => ipcRenderer.invoke(MARKDOWN_CHANNELS.wikiGraph),
   consumeHeadlessExport: () => ipcRenderer.invoke(MARKDOWN_CHANNELS.consumeHeadlessExport),
   headlessExportDone: (result: { ok: boolean; error?: string }) =>
     ipcRenderer.send(MARKDOWN_CHANNELS.headlessExportDone, result),
@@ -51,6 +54,12 @@ const api: MarkdownApi = {
     ipcRenderer.on(MARKDOWN_CHANNELS.fileRenamed, listener)
     return () => ipcRenderer.removeListener(MARKDOWN_CHANNELS.fileRenamed, listener)
   },
+  onFileChangedOnDisk: (handler) => {
+    const listener = (_e: Electron.IpcRendererEvent, path: string) => handler(path)
+    ipcRenderer.on(MARKDOWN_CHANNELS.fileChangedOnDisk, listener)
+    return () => ipcRenderer.removeListener(MARKDOWN_CHANNELS.fileChangedOnDisk, listener)
+  },
+  ackFileChangedOnDisk: () => ipcRenderer.send(MARKDOWN_CHANNELS.ackFileChangedOnDisk),
   pickImage: () => ipcRenderer.invoke(MARKDOWN_CHANNELS.pickImage),
   saveImage: (data) => ipcRenderer.invoke(MARKDOWN_CHANNELS.saveImage, data),
   readImage: (src) => ipcRenderer.invoke(MARKDOWN_CHANNELS.readImage, src),
@@ -136,6 +145,9 @@ const api: MarkdownApi = {
     return () => ipcRenderer.removeListener(AI_CHANNELS.settingsChanged, listener)
   },
   openAiModelSettings: () => ipcRenderer.invoke(AI_CHANNELS.openModelSettings),
+  openSkillsSettings: () => ipcRenderer.invoke('ai:open-skills-settings'),
+  skillsList: () => ipcRenderer.invoke('ai:skills-list'),
+  skillText: (name: string) => ipcRenderer.invoke('ai:skill-text', name),
   aiGskStatus: () => ipcRenderer.invoke(AI_CHANNELS.gskStatus),
   aiStream: (request) => ipcRenderer.invoke(AI_CHANNELS.stream, request),
   aiStreamCancel: (requestId) => ipcRenderer.invoke(AI_CHANNELS.streamCancel, requestId),

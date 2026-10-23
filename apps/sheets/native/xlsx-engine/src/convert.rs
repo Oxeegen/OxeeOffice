@@ -7,23 +7,78 @@
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::Write;
+use std::io::Read;
 use std::path::Path;
 
 use calamine::{Data, Reader, open_workbook_auto};
-use zip::write::SimpleFileOptions;
-use zip::{CompressionMethod, ZipWriter};
 
 use crate::SidecarError;
+use crate::spreadsheetml;
+use crate::xlsx_package::{
+    SheetSpec, cell_reference, escape_xml, iso_serial, worksheet_document, write_package,
+};
 
 pub struct ConvertResult {
     pub sheets: usize,
     pub cells: usize,
 }
 
+/// Why the reader refused a file, when the refusal is about the container and
+/// a friendlier sentence helps. `None` keeps the reader's own error.
+///
+/// Legacy workbooks are OLE2/CFB containers; a file that starts with anything
+/// else was renamed rather than exported. Excel sniffs content over extension
+/// and opens plenty of those happily, so the reader's `Invalid OLE (signature
+/// ...)` tells the person holding the file nothing they can act on.
+///
+/// An XML spreadsheet is not one of these: genoffice#2044 reads it directly,
+/// and this only has to speak about files no reader should open at all.
+fn unreadable_container_hint(source: &Path) -> Option<String> {
+    let mut head = [0u8; 1024];
+    let read = File::open(source).ok()?.read(&mut head).ok()?;
+    let head = &head[..read];
+    if head.starts_with(&[0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]) {
+        // a real CFB container: whatever is wrong inside is the reader's to explain
+        return None;
+    }
+    let text = String::from_utf8_lossy(head);
+    let trimmed = text.trim_start_matches('\u{FEFF}').trim_start();
+    if !trimmed.starts_with("<?xml") && !trimmed.starts_with('<') {
+        return None;
+    }
+    let first_line = trimmed.lines().next().unwrap_or("").trim();
+    let first_line = if first_line.chars().count() > 60 {
+        let cut: String = first_line.chars().take(60).collect();
+        format!("{cut}…")
+    } else {
+        first_line.to_string()
+    };
+    Some(format!(
+        "This file is not a workbook container: its content is text or XML rather than \
+         an Excel/ODF package, and it begins with \"{first_line}\"."
+    ))
+}
+
 pub fn convert_to_xlsx(source: &Path, target: &Path) -> Result<ConvertResult, SidecarError> {
-    let mut workbook = open_workbook_auto(source)
-        .map_err(|error| SidecarError::Workbook(format!("Unable to read the workbook: {error}")))?;
+    let mut workbook = match open_workbook_auto(source) {
+        Ok(workbook) => workbook,
+        Err(error) => {
+            // Excel opens an XML spreadsheet saved under a legacy name by
+            // sniffing content rather than extension, so one reaches here with
+            // nothing in its header for calamine to go on. The SpreadsheetML
+            // importer is the only reader that can still make sense of it;
+            // the container hint below covers everything left over.
+            if spreadsheetml::probe(source) {
+                return spreadsheetml::convert_to_xlsx(source, target);
+            }
+            return Err(SidecarError::Workbook(
+                match unreadable_container_hint(source) {
+                    Some(hint) => hint,
+                    None => format!("Unable to read the workbook: {error}"),
+                },
+            ));
+        }
+    };
     let names: Vec<String> = workbook.sheet_names().to_vec();
     if names.is_empty() {
         return Err(SidecarError::Workbook("The workbook has no sheets.".into()));
@@ -60,27 +115,14 @@ pub fn convert_to_xlsx(source: &Path, target: &Path) -> Result<ConvertResult, Si
         sheet_xmls.push(xml);
     }
 
-    let file = File::create(target)?;
-    let mut writer = ZipWriter::new(file);
-    let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
-    let mut add = |name: &str, content: &str| -> Result<(), SidecarError> {
-        writer.start_file(name, options)?;
-        writer.write_all(content.as_bytes())?;
-        Ok(())
-    };
-
-    add("[Content_Types].xml", &content_types_xml(names.len()))?;
-    add("_rels/.rels", ROOT_RELS)?;
-    add("xl/workbook.xml", &workbook_xml(&names))?;
-    add(
-        "xl/_rels/workbook.xml.rels",
-        &workbook_rels_xml(names.len()),
-    )?;
-    add("xl/styles.xml", STYLES_XML)?;
-    for (index, xml) in sheet_xmls.iter().enumerate() {
-        add(&format!("xl/worksheets/sheet{}.xml", index + 1), xml)?;
-    }
-    writer.finish()?.sync_all()?;
+    let sheets: Vec<SheetSpec> = names
+        .iter()
+        .map(|name| SheetSpec {
+            name: name.clone(),
+            state: None,
+        })
+        .collect();
+    write_package(target, &sheets, "", &sheet_xmls)?;
     Ok(ConvertResult {
         sheets: names.len(),
         cells,
@@ -141,13 +183,7 @@ fn worksheet_xml(
         ),
         _ => "A1:A1".into(),
     };
-    (
-        format!(
-            r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="{dimension}"/><sheetData>{body}</sheetData></worksheet>"#,
-        ),
-        cells,
-    )
+    (worksheet_document(&dimension, "", &body, ""), cells)
 }
 
 fn cell_xml(position: (u32, u32), value: &Data, formula: Option<&str>) -> Option<String> {
@@ -203,162 +239,13 @@ fn text_cell(reference: &str, formula_xml: &str, text: &str) -> String {
     )
 }
 
-/// Excel serial for the ISO forms ODF writes (`2026-03-05`, optionally followed
-/// by `T10:20:30` and a fraction). `None` keeps the cell a string instead of
-/// guessing — including below 1900-03-01, where Excel's phantom 1900 leap day
-/// makes a computed serial one too low.
-fn iso_serial(text: &str) -> Option<f64> {
-    let (date, time) = match text.split_once('T') {
-        Some((date, time)) => (date, Some(time)),
-        None => (text, None),
-    };
-    let mut fields = date.split('-');
-    let year: i64 = fields.next()?.parse().ok()?;
-    let month: i64 = fields.next()?.parse().ok()?;
-    let day: i64 = fields.next()?.parse().ok()?;
-    if fields.next().is_some()
-        || !(1900..=9999).contains(&year)
-        || !(1..=12).contains(&month)
-        || day < 1
-        || day > i64::from(days_in_month(year, month))
-    {
-        return None;
-    }
-    // Serial 1 is 1900-01-01 for Excel's own arithmetic, but the 1900-02-29 it
-    // never had puts every later date one above the plain day count, which the
-    // 1899-12-30 epoch absorbs.
-    let mut serial = (days_from_civil(year, month, day) - days_from_civil(1899, 12, 30)) as f64;
-    if let Some(time) = time {
-        let mut parts = time.split(':');
-        let hours: f64 = unsigned_number(parts.next()?)?;
-        let minutes: f64 = unsigned_number(parts.next()?)?;
-        let seconds_text = parts.next()?;
-        if parts.next().is_some() {
-            return None;
-        }
-        let (whole, fraction) = match seconds_text.split_once('.') {
-            Some((whole, fraction)) => (
-                unsigned_number(whole)?,
-                unsigned_number(fraction)? / 10f64.powi(fraction.chars().count() as i32),
-            ),
-            None => (unsigned_number(seconds_text)?, 0.0),
-        };
-        if hours > 23.0 || minutes > 59.0 || whole > 60.0 {
-            return None;
-        }
-        serial += (hours * 3600.0 + minutes * 60.0 + whole + fraction) / 86_400.0;
-    }
-    if serial < 61.0 || serial > 2_958_465.0 {
-        return None;
-    }
-    Some(serial)
-}
-
-/// Digits only, no sign and no exponent: `"05"` parses to 5 while `"+5"`,
-/// `"1e3"` and `"30Z"` are refused.
-fn unsigned_number(text: &str) -> Option<f64> {
-    if text.is_empty() || !text.chars().all(|c| c.is_ascii_digit()) {
-        return None;
-    }
-    text.parse().ok()
-}
-
-fn days_in_month(year: i64, month: i64) -> u32 {
-    const LENGTHS: [u32; 12] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    let leap = month == 2 && (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0));
-    if leap {
-        29
-    } else {
-        LENGTHS[(month - 1) as usize]
-    }
-}
-
-/// Days from the civil calendar epoch 1970-01-01 (Howard Hinnant's algorithm).
-fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
-    let shifted = if month <= 2 { year - 1 } else { year };
-    let era = if shifted >= 0 { shifted } else { shifted - 399 } / 400;
-    let year_of_era = shifted - era * 400;
-    let day_of_year = (153 * (if month > 2 { month - 3 } else { month + 9 }) + 2) / 5 + day - 1;
-    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
-    era * 146_097 + day_of_era - 719_468
-}
-
-fn cell_reference(row: u32, column: u32) -> String {
-    let mut letters = String::new();
-    let mut remaining = column + 1;
-    while remaining > 0 {
-        remaining -= 1;
-        letters.insert(0, char::from(b'A' + (remaining % 26) as u8));
-        remaining /= 26;
-    }
-    format!("{letters}{}", row + 1)
-}
-
-fn escape_xml(text: &str) -> String {
-    text.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-}
-
-fn content_types_xml(sheet_count: usize) -> String {
-    let overrides: String = (1..=sheet_count)
-        .map(|index| format!(
-            r#"<Override PartName="/xl/worksheets/sheet{index}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>"#,
-        ))
-        .collect();
-    format!(
-        r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>{overrides}</Types>"#,
-    )
-}
-
-const ROOT_RELS: &str = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>"#;
-
-fn workbook_xml(names: &[String]) -> String {
-    let sheets: String = names
-        .iter()
-        .enumerate()
-        .map(|(index, name)| {
-            format!(
-                r#"<sheet name="{}" sheetId="{}" r:id="rId{}"/>"#,
-                escape_xml(name),
-                index + 1,
-                index + 1,
-            )
-        })
-        .collect();
-    format!(
-        r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>{sheets}</sheets></workbook>"#,
-    )
-}
-
-fn workbook_rels_xml(sheet_count: usize) -> String {
-    let mut relationships: String = (1..=sheet_count)
-        .map(|index| format!(
-            r#"<Relationship Id="rId{index}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{index}.xml"/>"#,
-        ))
-        .collect();
-    relationships.push_str(&format!(
-        r#"<Relationship Id="rId{}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>"#,
-        sheet_count + 1,
-    ));
-    format!(
-        r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">{relationships}</Relationships>"#,
-    )
-}
-
-/// xf 1 = short date (numFmt 14), xf 2 = date+time (numFmt 22).
-const STYLES_XML: &str = r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="14" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/><xf numFmtId="22" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs></styleSheet>"#;
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Read;
+    use std::fs::File;
+    use std::io::{Read, Write};
+    use zip::ZipWriter;
+    use zip::write::SimpleFileOptions;
 
     fn read_entry(path: &Path, name: &str) -> String {
         let mut archive = zip::ZipArchive::new(File::open(path).unwrap()).unwrap();
@@ -575,5 +462,77 @@ mod tests {
             r#"<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:B2"/><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>Name &amp; Co</t></is></c><c r="B1"><v>42</v></c></row><row r="2"><c r="A2" t="b"><v>1</v></c><c r="B2"><f>B1*2</f><v>84</v></c></row></sheetData></worksheet>"#,
         );
         writer.finish().unwrap();
+    }
+
+    #[test]
+    fn an_xml_spreadsheet_is_the_converter_s_business_not_a_dead_end() {
+        // genoffice#2044 opens this shape instead of refusing it: the XML
+        // spreadsheet converts, and the container hint keeps speaking only
+        // for text a reader cannot open at all.
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("report.xls");
+        std::fs::write(
+            &source,
+            r#"<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Worksheet ss:Name="Data">
+  <Table><Row><Cell><Data ss:Type="Number">42</Data></Cell></Row></Table>
+ </Worksheet>
+</Workbook>
+"#,
+        )
+        .unwrap();
+        let result = convert_to_xlsx(&source, &dir.path().join("out.xlsx"))
+            .expect("an XML spreadsheet under a legacy name converts (genoffice#2044)");
+        assert_eq!(result.sheets, 1, "sheets: {}", result.sheets);
+        assert_eq!(result.cells, 1, "cells: {}", result.cells);
+    }
+
+    #[test]
+    fn a_binary_file_that_is_no_container_at_all_keeps_the_reader_error() {
+        // Neither a CFB nor anything text-shaped. Guessing what it might have
+        // been would be worse than the reader's own message, and this is the
+        // branch that keeps it.
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("blob.xls");
+        std::fs::write(&source, [0x00u8, 0x01, 0x02, 0x03, 0xFE, 0xFF]).unwrap();
+        let Err(error) = convert_to_xlsx(&source, &dir.path().join("out.xlsx")) else {
+            panic!("a binary blob must not convert");
+        };
+        let message = error.to_string();
+        assert!(message.contains("Unable to read the workbook"), "{message}");
+    }
+
+    #[test]
+    fn other_text_content_says_what_the_file_is_not() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("page.xls");
+        std::fs::write(
+            &source,
+            "<html><body><table><tr><td>1</td></tr></table></body></html>\n",
+        )
+        .unwrap();
+        let Err(error) = convert_to_xlsx(&source, &dir.path().join("out.xlsx")) else {
+            panic!("html is not a workbook");
+        };
+        let message = error.to_string();
+        assert!(message.contains("not a workbook container"), "{message}");
+        assert!(message.contains("<html>"), "{message}");
+    }
+
+    #[test]
+    fn a_real_container_keeps_the_reader_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("broken.xls");
+        let mut bytes = vec![0xD0u8, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
+        bytes.extend(vec![0u8; 600]);
+        std::fs::write(&source, &bytes).unwrap();
+        let Err(error) = convert_to_xlsx(&source, &dir.path().join("out.xlsx")) else {
+            panic!("a truncated container must not convert");
+        };
+        let message = error.to_string();
+        assert!(message.contains("Unable to read the workbook"), "{message}");
     }
 }

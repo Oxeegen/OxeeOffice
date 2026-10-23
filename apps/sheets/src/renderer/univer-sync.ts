@@ -104,6 +104,7 @@ import {
   recordHyperlinkEdit,
   recordSetRangeValues,
   toRecalcUserInput,
+  type CellImageAdd,
   type EditJournal,
   type VisualEditEntry,
 } from './edit-journal'
@@ -160,6 +161,7 @@ import {
   installWorkbookVisuals,
   isChartEditorOpen,
   isVisualDragActive,
+  type CellImageState,
   type ChartEditData,
   type ChartVectorRead,
   type ShapeEditChanges,
@@ -405,9 +407,15 @@ export function applyFormatPatchToRange(
   }
   if (patch.numberFormat !== undefined) range.setNumberFormat(patch.numberFormat ?? 'General')
   if (patch.horizontalAlign !== undefined) {
-    range.setHorizontalAlignment(
-      (patch.horizontalAlign ?? 'normal') as 'left' | 'center' | 'normal',
-    )
+    // The facade helper only accepts 'left' | 'center' | 'normal' — and
+    // 'normal' (confusingly) maps to RIGHT — so a raw 'right' hits its
+    // throwing default branch; translate it first (same as the ribbon's align
+    // command). null clears the alignment like the other null branches.
+    if (patch.horizontalAlign === null) range.setValue({ s: { ht: null } } as unknown as ICellData)
+    else
+      range.setHorizontalAlignment(
+        patch.horizontalAlign === 'right' ? 'normal' : patch.horizontalAlign,
+      )
   }
   if (patch.verticalAlign !== undefined) {
     if (patch.verticalAlign === null) range.setValue({ s: { vt: null } } as unknown as ICellData)
@@ -2727,6 +2735,7 @@ async function runFormulaRecalc(
     const formulaTextBySheet = state.formulaText.get(sheetId)
     const sharedBySheet = state.sharedFormulaGroups.get(sheetId)
     const cachedBySheet = state.cachedFormulaValues.get(sheetId)
+    const candidates: { key: string; cell: PinnedClosureCell; cached: CachedFormulaValue }[] = []
     for (const cell of result.cells) {
       if (cell.sheetId !== sheetId || !cell.isFormula) continue
       // The user's own journaled edits stay authoritative on screen.
@@ -2734,22 +2743,40 @@ async function runFormulaRecalc(
       const key = `${cell.row}:${cell.column}`
       const formulaText =
         formulaTextBySheet?.get(key) ?? sharedBySheet?.textAt(cell.row, cell.column)
+      const cached = cachedBySheet?.get(key)
+      if (recalcResultKeepsCache(cell.formatted, formulaText, cached, edits.length > 0)) {
+        unsupported += 1
+        continue
+      }
+      candidates.push({
+        key,
+        cell: {
+          v: cell.number ?? cell.formatted,
+          ...(cell.isError ? { isError: true } : {}),
+        },
+        cached,
+      })
+    }
+    // A run that had to keep any cache evaluated an incomplete model: an
+    // unsupported precedent is #NAME? inside the engine, and a dependent
+    // that wraps it (IFERROR(x,0)) comes back as a clean wrong value no
+    // per-cell check can flag. Before any session edit the file's cached
+    // results are Excel's own, so a differing value over a usable cache is
+    // noise from the gap, not news — the cache stays.
+    const incompleteRun = unsupported > 0
+    for (const candidate of candidates) {
       if (
-        recalcResultKeepsCache(
-          cell.formatted,
-          formulaText,
-          cachedBySheet?.get(key),
-          edits.length > 0,
-        )
+        incompleteRun &&
+        edits.length === 0 &&
+        overlayBetraysCache(candidate.cell.v, candidate.cached)
       ) {
         unsupported += 1
         continue
       }
-      overlay.set(`${cell.row}:${cell.column}`, {
-        v: cell.number ?? cell.formatted,
-        ...(cell.isError ? { isError: true } : {}),
-      })
+      overlay.set(candidate.key, candidate.cell)
     }
+    if (incompleteRun) state.recalc.incompleteRuns.add(sheetId)
+    else state.recalc.incompleteRuns.delete(sheetId)
     state.recalc.overlay.set(sheetId, overlay)
     state.recalc.follow.set(sheetId, { anchorRow: viewportStartRow, complete: windowComplete })
     const loaded = state.loadedRanges.get(sheetId)
@@ -4293,6 +4320,22 @@ export function recalcResultKeepsCache(
   return (formatted === '' || EXCEL_ERROR_LITERALS.has(formatted)) && hasUsableCachedValue(cached)
 }
 
+type CachedFormulaValue = string | number | boolean | undefined
+
+/// True when an engine value would replace a usable file-cached result with
+/// something different. Only consulted on an incomplete-model run with no
+/// session edits, where the cached value is Excel's own result: a clean
+/// number equal to the cache confirms it, a differing one is a laundered
+/// artifact of the gap (IFERROR over an unsupported precedent).
+export function overlayBetraysCache(
+  value: string | number | boolean | null | undefined,
+  cached: CachedFormulaValue,
+): boolean {
+  if (!hasUsableCachedValue(cached)) return false
+  if (value === null || value === undefined) return true
+  return String(value) !== String(cached)
+}
+
 /// A cached formula value installed as bare `{ f, v }` lets Univer coerce
 /// numeric-looking text ("1") into a number, which then picks up the cell's
 /// numeric format — a [h]:mm cell rendered 24:00 where Excel shows 1.
@@ -4319,16 +4362,11 @@ export function usesLocaleDependentFunction(formula: string): boolean {
   return false
 }
 
-interface KeepsCacheVerdict {
-  /// Keep the cache whether or not the file has one: the engine's result is
-  /// wrong by construction (locale, Google-only, unresolvable names).
-  readonly always: boolean
-  /// Keep the cache only when the file has one — with nothing to keep, the
-  /// engine's attempt (#NAME?, or a wrapped fallback) beats a blank cell.
-  readonly unsupportedFunction: boolean
-}
-
-const keepsCacheMemo = new Map<string, KeepsCacheVerdict>()
+/// Whether a formula's cached <v> must be kept instead of recalculated:
+/// Google-only, locale-dependent or unsupported functions, defined names and
+/// table references. The verdict only applies when the cell has a cache — with
+/// nothing to keep, the engine's attempt beats a blank cell (genoffice#2125).
+const keepsCacheMemo = new Map<string, boolean>()
 
 /// Window onto the running formula engine's function registry. Installed
 /// once the Univer instance exists; without one every function counts as
@@ -4366,22 +4404,18 @@ export function formulaKeepsCache(formula: string, hasCachedValue = true): boole
     // IFERROR(__xludf.DUMMYFUNCTION("..."), <literal>); recalculating turns
     // the float-repr literal (46235.0) into a string that numfmt skips.
     // The cached <v> IS the computed value — keep it, like Excel does.
-    const always =
-      formula.includes('__xludf.') ||
-      usesLocaleDependentFunction(formula) ||
-      containsUnresolvedNames(formula)
     const probe = supportedFunctionProbe
     const registryReady = probe === null || probe.ready()
-    verdict = {
-      always,
-      unsupportedFunction:
-        !always && probe !== null && registryReady && callsUnsupportedFunction(formula, probe),
-    }
+    verdict =
+      formula.includes('__xludf.') ||
+      usesLocaleDependentFunction(formula) ||
+      containsUnresolvedNames(formula) ||
+      (probe !== null && registryReady && callsUnsupportedFunction(formula, probe))
     // A verdict taken before the builtins landed would pin "supported" on
     // every function for the rest of the session.
     if (registryReady) keepsCacheMemo.set(formula, verdict)
   }
-  return verdict.always || (hasCachedValue && verdict.unsupportedFunction)
+  return hasCachedValue && verdict
 }
 
 /// Per-cell verdict shared by the cell installer and collectArrayFollowers,
@@ -7918,6 +7952,26 @@ export function queueVisualInstall(
 /// Sparklines install separately from the floating visuals: dragging a
 /// chart re-installs the visual pool, and rebuilding up to 200 sparkline
 /// float DOMs with it would make every drag commit crawl.
+/// Session embeds render from their inline bytes; one replaces the file's
+/// picture in the same cell (the save overwrites that cell's rich value too).
+export function mergeCellImages(
+  fileImages: readonly CellImageState[],
+  sessionAdds: readonly CellImageAdd[],
+  sheetId: string,
+): CellImageState[] {
+  const session = sessionAdds.filter((entry) => entry.sheetId === sheetId)
+  const taken = new Set(session.map((entry) => `${entry.row}:${entry.column}`))
+  return [
+    ...fileImages.filter((image) => !taken.has(`${image.row}:${image.column}`)),
+    ...session.map((entry) => ({
+      id: `session-${entry.row}-${entry.column}`,
+      row: entry.row,
+      column: entry.column,
+      dataUrl: entry.dataUrl,
+    })),
+  ]
+}
+
 export function queueSparklineInstall(
   runtime: UniverRuntime,
   lazyWorkbookRef: { current: LazyWorkbookState | null },
@@ -7947,7 +8001,11 @@ export function queueSparklineInstall(
         })),
     ]
     // In-cell rich-value pictures share the per-cell float DOM lifecycle.
-    const cellImages = sheetMeta?.cellImages ?? []
+    const cellImages = mergeCellImages(
+      sheetMeta?.cellImages ?? [],
+      state.editJournal.cellImageAdds,
+      sheetId,
+    )
     sparklineDisposablesRef.current = [
       ...(sparklines.length === 0 ? [] : installSparklines(runtime, sparklines, sheetId)),
       ...(cellImages.length === 0

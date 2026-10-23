@@ -3,7 +3,8 @@
  * ai-settings.json live and turns the search provider choice into
  * SearchOptions — Genspark keeps the historic chain (gsk when signed in and
  * cloud tools are on, then env keys, then free Parallel MCP, then DuckDuckGo); a
- * selected custom provider runs first and skips gsk.
+ * selected custom provider runs first and skips gsk. Keenable's free endpoint
+ * only runs when Keenable is the selected provider.
  */
 
 import {
@@ -27,6 +28,7 @@ export function searchOptionsFromSettings(settings: AiSettings): SearchOptions {
   if (provider === 'serply') return { useGsk: false, serplyKey: key, prefer: 'serply' }
   if (provider === 'exa') return { useGsk: false, exaKey: key, prefer: 'exa' }
   if (provider === 'firecrawl') return { useGsk: false, firecrawlKey: key, prefer: 'firecrawl' }
+  if (provider === 'keenable') return { useGsk: false, keenableKey: key, prefer: 'keenable' }
   return provider === 'tavily'
     ? { useGsk: false, tavilyKey: key, prefer: 'tavily' }
     : { useGsk: false, serperKey: key }
@@ -47,11 +49,12 @@ export async function testSearchProvider(
 ): Promise<{ ok: boolean; error?: string }> {
   if (provider === 'genspark') return { ok: true }
   apiKey = apiKey.trim()
-  if (!apiKey && provider !== 'parallel') return { ok: false, error: 'API key is empty' }
+  if (!apiKey && provider !== 'parallel' && provider !== 'keenable')
+    return { ok: false, error: 'API key is empty' }
   const options: SearchOptions =
     // OxeeOffice brand hook: the Oxeegen entry is tested against Brave
     provider === 'oxeegen'
-      ? { useGsk: false, braveKey: apiKey, serperKey: '', serplyKey: '', tavilyKey: '', parallelKey: '', exaKey: '', firecrawlKey: '' }
+      ? { useGsk: false, braveKey: apiKey, serperKey: '', serplyKey: '', tavilyKey: '', parallelKey: '', exaKey: '', firecrawlKey: '', keenableKey: '' }
       : {
           useGsk: false,
           serperKey: provider === 'serper' ? apiKey : '',
@@ -60,6 +63,7 @@ export async function testSearchProvider(
           parallelKey: provider === 'parallel' ? apiKey : '',
           exaKey: provider === 'exa' ? apiKey : '',
           firecrawlKey: provider === 'firecrawl' ? apiKey : '',
+          keenableKey: provider === 'keenable' ? apiKey : '',
           prefer: provider,
         }
   const r = await webSearch('GenOffice', 1, options)

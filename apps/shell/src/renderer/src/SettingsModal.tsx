@@ -10,7 +10,7 @@ import {
 } from '@genoffice/ui'
 import type { AiFontSize, AiPanelPrefs, AiPanelSide } from '@genoffice/ui'
 import type { DecisionEndpoint, DefaultAppStatus, FileSearchSettings } from '../../shared/home-api'
-import { AUTHOR_NAME_MAX } from '../../shared/home-api'
+import { AUTHOR_NAME_MAX, isCloudflareEndpoint } from '../../shared/home-api'
 import type { UpdateUiState } from '../../shared/update-api'
 import {
   DEFAULT_MAX_OUTPUT_TOKENS,
@@ -57,6 +57,7 @@ import {
   oxeegenLayerEnabled,
   visibleSettingsSections,
 } from './oxeegen-settings'
+import { FoundSkills } from './FoundSkills'
 import './settings.css'
 
 // ── Settings modal (opened from the account menu) ─────────
@@ -176,7 +177,8 @@ function CustomFontSizeInput({
   )
 }
 
-export type SectionId = 'account' | 'aiModel' | 'aiMedia' | 'general' | 'integrations' | 'about'
+export type SectionId =
+  'account' | 'aiModel' | 'aiMedia' | 'general' | 'integrations' | 'skills' | 'about'
 
 const SECTIONS: readonly { id: SectionId; labelKey: StringKey }[] = [
   { id: 'account', labelKey: 'setSecAccount' },
@@ -184,6 +186,7 @@ const SECTIONS: readonly { id: SectionId; labelKey: StringKey }[] = [
   { id: 'aiMedia', labelKey: 'setSecAiMedia' },
   { id: 'general', labelKey: 'setSecGeneral' },
   { id: 'integrations', labelKey: 'setSecIntegrations' },
+  { id: 'skills', labelKey: 'setSecSkills' },
   { id: 'about', labelKey: 'setSecAbout' },
 ]
 
@@ -231,6 +234,20 @@ function SectionIcon({ id }: { id: SectionId }) {
           strokeWidth="1.3"
           strokeLinecap="round"
         />
+      </svg>
+    )
+  }
+  if (id === 'skills') {
+    return (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path
+          d="M3 3.5h6.5l3.5 3.5v5.5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1Z"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinejoin="round"
+        />
+        <path d="M9.5 3.5V7H13" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+        <path d="M5 10.5h6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
       </svg>
     )
   }
@@ -381,12 +398,19 @@ function AiModelPane({ t }: { t: TFunc }) {
   // endpoint itself. Keyed on the catalog's `needsBaseUrl` flag rather than on
   // the literal 'custom' id, so it follows the slot rather than the name, and
   // stays a no-op while any other provider is selected — a local server saved
-  // months ago is never contacted while Genspark is in use.
-  const endpointProvider = catalog.find(
-    (entry) => entry.id === settings?.provider && entry.needsBaseUrl,
-  )?.id
+  // months ago is never contacted while Genspark is in use. Aggregators flagged
+  // `liveModels` (OpenRouter) join in at their default address, their shipped
+  // list standing in until the catalog answers.
+  const liveEntry = catalog.find(
+    (entry) => entry.id === settings?.provider && (entry.needsBaseUrl || entry.liveModels),
+  )
+  const endpointProvider = liveEntry?.id
   const endpointConfig = settings ? settings.providers[settings.provider] : undefined
-  const endpointBaseUrl = (endpointConfig?.baseUrl ?? '').trim()
+  const endpointBaseUrl =
+    (endpointConfig?.baseUrl ?? '').trim() ||
+    (liveEntry?.liveModels ? liveEntry.defaultBaseUrl : '')
+  /** the lists as shipped, restored when a live list is withdrawn */
+  const shippedModelsRef = useRef(new Map(catalog.map((entry) => [entry.id, entry.models])))
   const endpointApiKey = endpointConfig?.apiKey ?? ''
   // The probe speaks the endpoint's declared protocol: an Anthropic- or
   // Gemini-shaped gateway answers a different route, and the list it returns
@@ -411,7 +435,7 @@ function AiModelPane({ t }: { t: TFunc }) {
     if (listedForRef.current && listedForRef.current !== endpointBaseUrl) {
       listedForRef.current = ''
       probedProfilesRef.current = undefined
-      setCatalog(foldModels(endpointProvider, []))
+      setCatalog(foldModels(endpointProvider, shippedModelsRef.current.get(endpointProvider) ?? []))
     }
     if (!endpointBaseUrl || !window.aiOffice.getCustomModels) return
     let cancelled = false
@@ -708,8 +732,12 @@ function AiModelPane({ t }: { t: TFunc }) {
             className="set-dd"
             value={config.model || meta.defaultModel}
             ariaLabel={t('setAiModelId')}
-            options={meta.models.map((m) => ({ value: m, label: m }))}
+            options={meta.models.map((m) => ({
+              value: m,
+              label: m,
+            }))}
             onPick={(m) => updateConfig({ model: m })}
+            searchPlaceholder={meta.models.length > 12 ? t('setAiModelSearch') : undefined}
           />
         ) : (
           <input
@@ -1070,9 +1098,13 @@ type TestResult = { ok: boolean; error?: string }
 const DECISION_ENDPOINTS: { value: DecisionEndpoint; label: string }[] = [
   { value: 'openrouter', label: 'Jev (OpenRouter)' },
   { value: 'direct', label: 'Jev (TypeSafe API)' },
-  { value: 'perplexity', label: 'Perplexity' },
+  { value: 'perplexity', label: 'Perplexity (v1 27B)' },
+  { value: 'perplexity-v12', label: 'Perplexity (v1.2)' },
+  { value: 'perplexity-flash', label: 'Perplexity (Flash v1.2)' },
   { value: 'liquid', label: 'Liquid AI (d1)' },
-  { value: 'cloudflare', label: 'Cloudflare' },
+  { value: 'liquid-ultra', label: 'Liquid AI (d1-ultra)' },
+  { value: 'cloudflare', label: 'Cloudflare (Clef)' },
+  { value: 'cloudflare-flash', label: 'Cloudflare (Clef-flash)' },
   { value: 'kev', label: 'Kev (local)' },
   { value: 'rizzo', label: 'Rizzo Flow (local)' },
   { value: 'custom', label: 'Custom (/v1/systemone)' },
@@ -1559,11 +1591,13 @@ function AiMediaPane({
             ? t('setAiSearchGensparkHint')
             : search.provider === 'parallel'
               ? t('setAiSearchParallelHint')
-              : search.provider === 'serply'
-                ? t('setAiSearchSerplyHint')
-                : searchMeta?.imageSearch
-                  ? t('setAiSearchSerperHint')
-                  : t('setAiSearchTavilyHint')}
+              : search.provider === 'keenable'
+                ? t('setAiSearchKeenableHint')
+                : search.provider === 'serply'
+                  ? t('setAiSearchSerplyHint')
+                  : searchMeta?.imageSearch
+                    ? t('setAiSearchSerperHint')
+                    : t('setAiSearchTavilyHint')}
         </div>
         {search.provider !== 'genspark' &&
           keyRow('set-ai-search-key', searchKey, searchMeta?.keyPlaceholder ?? 'API Key', (v) =>
@@ -1633,15 +1667,16 @@ function AiMediaPane({
                   )}
                 </>
               )}
+              {isCloudflareEndpoint(fileSearch.endpoint) &&
+                textRow(
+                  'set-search-jev-account',
+                  'setSearchRerankAccount',
+                  fileSearch.cloudflareAccountId,
+                  '',
+                  (v) => setFileSearch({ ...fileSearch, cloudflareAccountId: v }),
+                )}
               {fileSearch.endpoint === 'cloudflare' && (
                 <>
-                  {textRow(
-                    'set-search-jev-account',
-                    'setSearchRerankAccount',
-                    fileSearch.cloudflareAccountId,
-                    '',
-                    (v) => setFileSearch({ ...fileSearch, cloudflareAccountId: v }),
-                  )}
                   {textRow(
                     'set-search-jev-cf-model',
                     'setSearchRerankCustomModel',
@@ -1766,6 +1801,7 @@ export function SettingsModal({
   const [analyticsOn, setAnalyticsOn] = useState(true)
   const [analyticsSaving, setAnalyticsSaving] = useState(false)
   const [autoSaveOn, setAutoSaveOn] = useState(false)
+  const [tabSleepOn, setTabSleepOn] = useState(true)
   const [defaultApp, setDefaultApp] = useState<DefaultAppStatus | null>(null)
   const [defaultAppBusy, setDefaultAppBusy] = useState(false)
   const [defaultAppFailed, setDefaultAppFailed] = useState(false)
@@ -1792,6 +1828,9 @@ export function SettingsModal({
     })
     void window.aiOffice.getAutoSaveDefault?.().then((v) => {
       if (alive) setAutoSaveOn(v.on)
+    })
+    void window.aiOffice.getTabSleepEnabled?.().then((on) => {
+      if (alive) setTabSleepOn(on)
     })
     void window.aiOffice.getDefaultAppStatus?.().then((st) => {
       if (alive) setDefaultApp(st)
@@ -2210,6 +2249,25 @@ export function SettingsModal({
                 <div className="set-field">
                   <div className="set-field-text">
                     <div className="set-field-stack">
+                      <div className="set-field-label">{t('setTabSleep')}</div>
+                      <div className="set-field-desc">{t('setTabSleepDesc')}</div>
+                    </div>
+                  </div>
+                  <button
+                    className="set-switch"
+                    role="switch"
+                    aria-checked={tabSleepOn}
+                    aria-label={t('setTabSleep')}
+                    onClick={() => {
+                      const next = !tabSleepOn
+                      setTabSleepOn(next)
+                      void window.aiOffice.setTabSleepEnabled?.(next).catch(() => {})
+                    }}
+                  />
+                </div>
+                <div className="set-field">
+                  <div className="set-field-text">
+                    <div className="set-field-stack">
                       <div className="set-field-label">{t('setAnalytics')}</div>
                       <div className="set-field-desc">{t('setAnalyticsDesc')}</div>
                     </div>
@@ -2239,6 +2297,7 @@ export function SettingsModal({
             {section === 'integrations' && (
               <IntegrationsPane t={t} onStatus={(st) => onSkillUpdateDue?.(skillUpdateDue(st))} />
             )}
+            {section === 'skills' && <FoundSkills t={t} />}
             {section === 'about' && (
               <>
                 <h3 className="set-pane-title">{t('setSecAbout')}</h3>

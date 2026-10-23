@@ -15,6 +15,7 @@ import {
   journalSize,
   recordPageSetup,
   recordProtectedRangesChange,
+  recordRemoveNumfmt,
   recordSetNumfmt,
   recordSetRangeValues,
   recordThemeColors,
@@ -42,6 +43,7 @@ import {
   toSaveSheetOps,
   toSavePageSetupStates,
   toSaveStructuralOps,
+  recordCellImageAdd,
 } from '../src/renderer/edit-journal'
 
 describe('bulk constant-fill journal', () => {
@@ -509,6 +511,28 @@ describe('recordSetRangeValues', () => {
     })
     expect(recorded).toHaveLength(0)
     expect(journalSize(journal)).toBe(0)
+  })
+})
+
+describe('recordRemoveNumfmt', () => {
+  it('journals a cleared format as General so the save drops the old one', () => {
+    const journal = createEditJournal()
+    const recorded = recordRemoveNumfmt(journal, 'sheet-1', {
+      ranges: [{ startRow: 0, endRow: 1, startColumn: 6, endColumn: 6 }],
+    })
+    expect(recorded).toHaveLength(2)
+    expect(journal.cells.get('sheet-1')?.get('0:6')?.style).toEqual({ numberFormat: 'General' })
+    expect(journal.cells.get('sheet-1')?.get('1:6')?.style).toEqual({ numberFormat: 'General' })
+  })
+
+  it('ignores malformed or unbounded ranges', () => {
+    const journal = createEditJournal()
+    expect(recordRemoveNumfmt(journal, 'sheet-1', {})).toEqual([])
+    expect(
+      recordRemoveNumfmt(journal, 'sheet-1', {
+        ranges: [{ startRow: 0, endRow: Number.NaN, startColumn: 0, endColumn: 0 }],
+      }),
+    ).toEqual([])
   })
 })
 
@@ -1286,5 +1310,45 @@ describe('right-to-left page-setup journal', () => {
       { sheetId: 'sheet-1', showGridlines: false, rightToLeft: true },
       { sheetId: 'sheet-2', rightToLeft: false },
     ])
+  })
+})
+
+describe('cell picture journal', () => {
+  const png = 'data:image/png;base64,iVBORw0KGgo='
+  it('counts an embedded picture as a pending edit unless its sheet is removed', () => {
+    const journal = createEditJournal()
+    recordCellImageAdd(journal, {
+      sheetId: 's1',
+      row: 1,
+      column: 1,
+      mediaType: 'image/png',
+      dataUrl: png,
+    })
+    recordCellImageAdd(journal, {
+      sheetId: 's2',
+      row: 1,
+      column: 1,
+      mediaType: 'image/png',
+      dataUrl: png,
+    })
+    expect(journalSize(journal)).toBe(2)
+    recordSheetRemove(journal, 's2')
+    expect(journalSize(journal)).toBe(2) // s1 picture + the sheet removal
+  })
+
+  it('a second picture in the same cell displaces the first', () => {
+    const journal = createEditJournal()
+    const first = {
+      sheetId: 's1',
+      row: 3,
+      column: 4,
+      mediaType: 'image/png' as const,
+      dataUrl: png,
+    }
+    expect(recordCellImageAdd(journal, first)).toBeUndefined()
+    expect(
+      recordCellImageAdd(journal, { ...first, dataUrl: 'data:image/gif;base64,R0lGODlh' }),
+    ).toEqual(first)
+    expect(journal.cellImageAdds).toHaveLength(1)
   })
 })

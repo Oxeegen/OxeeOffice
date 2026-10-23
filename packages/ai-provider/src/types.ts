@@ -163,6 +163,8 @@ export interface AiProviderMeta {
   keyPlaceholder: string
   needsBaseUrl?: boolean
   needsCliPath?: boolean
+  /** the settings page refreshes `models` from the vendor's own /models route; the shipped list is the offline fallback */
+  liveModels?: boolean
 }
 
 /** Image generation / media analysis backends (separate from the chat provider) */
@@ -227,9 +229,9 @@ export interface AiMediaSettings {
   provider?: AiMediaProviderId | undefined
 }
 
-/** web/image search backends; Parallel supports both a user key and free keyless search */
+/** web/image search backends; Parallel and Keenable take a user key or run free and keyless */
 // OxeeOffice brand hook: oxeegen
-export type AiSearchProviderId = 'oxeegen' | 'genspark' | 'serper' | 'serply' | 'tavily' | 'parallel' | 'exa' | 'firecrawl'
+export type AiSearchProviderId = 'oxeegen' | 'genspark' | 'serper' | 'serply' | 'tavily' | 'parallel' | 'exa' | 'firecrawl' | 'keenable'
 
 export interface AiSearchProviderMeta {
   id: AiSearchProviderId
@@ -328,8 +330,8 @@ export interface AiStreamChunk {
   /** complete parsed tool call (emitted once its arguments finish streaming) */
   toolCall?: AgentToolCall
   error?: string
-  /** machine-readable error cause ('timeout', exhausted 'credits', 'network' connectivity failure, 'overloaded' capacity/rate limit); lets the renderer localize the message */
-  errorCode?: 'timeout' | 'credits' | 'network' | 'overloaded'
+  /** machine-readable error cause ('timeout', exhausted 'credits', 'network' connectivity failure, 'overloaded' capacity/rate limit, 'region' vendor refuses the request origin); lets the renderer localize the message */
+  errorCode?: 'timeout' | 'credits' | 'network' | 'overloaded' | 'region'
   /** normalized stop reason carried on 'done' ('max_tokens' = output cut off by the token limit) */
   stopReason?: string
   /** tokens the provider billed for this turn, carried on 'usage' (always sent before 'done') */

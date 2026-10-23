@@ -25,8 +25,14 @@ import {
   toSaveTableEdits,
   toSaveVisualAdds,
   toSaveVisualEdits,
+  toSaveCellImageAdds,
 } from './edit-journal'
-import { activeCsvSheet, handleExportCsv, serializeActiveSheetCsv } from './csv-export'
+import {
+  activeCsvSheet,
+  cellPatternLookup,
+  handleExportCsv,
+  serializeActiveSheetCsv,
+} from './csv-export'
 import type { CellState } from '@genoffice/xlsx-gateway/domain/workbook.types'
 import { verifiedFormulaValues } from './formula-values'
 import { t } from './i18n/locale'
@@ -145,6 +151,7 @@ export async function handleSave(
   const chartEdits = toSaveChartEdits(state.editJournal)
   const visualEdits = toSaveVisualEdits(state.editJournal)
   const visualAdditions = toSaveVisualAdds(state.editJournal)
+  const cellImageAdditions = toSaveCellImageAdds(state.editJournal)
   const tableAdditions = toSaveTableAdds(state.editJournal)
   const tableEdits = toSaveTableEdits(state.editJournal)
   const pivotAdditions = toSavePivotAdds(state.editJournal)
@@ -214,8 +221,13 @@ export async function handleSave(
   // separately so the save refreshes each formula cell's cached <v>, keeping its <f>.
   // A journaled formula is excluded: the overlay may still hold the previous
   // formula's result when the user saves immediately after entering a replacement.
+  // A sheet whose run kept any cached value is excluded wholesale: the engine
+  // evaluated an incomplete model there, so a dependent of the gap may carry a
+  // clean wrong value (IFERROR over an unsupported precedent collapses to its
+  // literal); the file's own cached results stay, and fullCalcOnLoad already
+  // asks Excel to recalculate the session's edits on open.
   const overlayValues = [...(state.recalc?.overlay ?? [])].flatMap(([sheetId, cells]) =>
-    isSheetRemoved(state.editJournal, sheetId)
+    isSheetRemoved(state.editJournal, sheetId) || state.recalc?.incompleteRuns?.has(sheetId)
       ? []
       : [...cells].flatMap(([key, cell]) => {
           // #ERROR! is IronCalc's own failure, never a value Excel would cache.
@@ -286,6 +298,7 @@ export async function handleSave(
     (themeState === null ? 0 : 1) +
     protectedRangeStates.length +
     visualAdditions.length +
+    cellImageAdditions.length +
     visualEdits.length +
     tableAdditions.length +
     tableEdits.length +
@@ -329,7 +342,15 @@ export async function handleSave(
       return { ok: false }
     }
     const active = activeCsvSheet(ctx.univerRef.current)
-    const serialized = active === null ? null : serializeActiveSheetCsv(active.sheet, state)
+    const runtime = ctx.univerRef.current
+    const serialized =
+      active === null || runtime === null
+        ? null
+        : serializeActiveSheetCsv(
+            active.sheet,
+            state,
+            cellPatternLookup(runtime, active.sheet.getSheetId(), state.file.date1904 === true),
+          )
     if (serialized === 'too-large') {
       ctx.setMessage(t('appCsvExportTooLarge'))
       return { ok: false }
@@ -384,6 +405,7 @@ export async function handleSave(
     chartEdits,
     visualEdits,
     visualAdditions,
+    cellImageAdditions,
     tableAdditions,
     tableEdits,
     pivotAdditions,
@@ -437,6 +459,7 @@ export async function handleSave(
       chartEdits,
       visualEdits,
       visualAdditions,
+      cellImageAdditions,
       tableAdditions: splitSave && heldTables.length > 0 ? [] : tableAdditions,
       tableEdits: phaseOneTableEdits,
       pivotAdditions: splitSave && heldPivots.length > 0 ? [] : pivotAdditions,
@@ -515,6 +538,7 @@ export async function handleSave(
         chartEdits: [],
         visualEdits: [],
         visualAdditions: [],
+        cellImageAdditions: [],
         tableAdditions: heldTables,
         tableEdits: heldTableEdits,
         pivotAdditions: heldPivots,

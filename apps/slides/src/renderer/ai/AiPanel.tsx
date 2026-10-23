@@ -11,21 +11,20 @@ import {
   AiPanelSideButton,
   AiModelPicker,
   type AiModelPickerBridge,
+  AiSkillChips,
+  AiSkillsMenu,
 } from '@genoffice/ui'
 import React, { useEffect, useRef, useState, useCallback } from 'react'
 import {
   AgentLoop,
   composeSkills,
+  withAttachedSkills,
   IPC_STREAM_SILENCE_TIMEOUT_MS,
   type AgentImage,
   type ToolDisplay,
 } from '@genoffice/agent-core'
 import type { RenderSlide } from '@genoffice/pptx-render'
-import {
-  cloudToolsEnabled,
-  imageGenerationAvailable,
-  mediaAnalysisAvailable,
-} from '@genoffice/ai-provider/browser'
+import { imageGenerationAvailable, mediaAnalysisAvailable } from '@genoffice/ai-provider/browser'
 import type { AiSettings, AttachmentAddResult, AttachmentMeta } from '../../shared/ipc'
 import { ATTACHMENT_IMAGE_EXTS } from '../../shared/ipc'
 import {
@@ -74,7 +73,6 @@ import { GensparkMark } from '../components/icons'
 import sendEnterOn from '../assets/send-enter-on.png'
 import sendEnterOff from '../assets/send-enter-off.png'
 import sendStop from '../assets/send-stop.png'
-import attachIcon from '../assets/attach-icon.png'
 import filePdfIcon from '../assets/file-pdf.png'
 import fileWordIcon from '../assets/file-word.png'
 import fileExcelIcon from '../assets/file-excel.png'
@@ -257,6 +255,8 @@ interface ChatEntry {
   snapshotId?: number
   /** attachments consumed from the composer by this user message (read-only echo chips) */
   attachments?: AttachmentMeta[]
+  /** skills the user attached to this message from the composer menu */
+  skills?: string[]
   /** the selection this user message targeted, frozen at send */
   scope?: AiScopeQuoteData
   /** tokens the provider billed for this reply, summed across its turns (absent when unreported) */
@@ -442,6 +442,7 @@ export function AiPanel({
   const [historicChat, setHistoricChat] = useState<ChatEntry[]>([])
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
   const [attachments, setAttachments] = useState<AttachmentMeta[]>([])
+  const [attachedSkills, setAttachedSkills] = useState<string[]>([])
   const [attachNotice, setAttachNotice] = useState<string | null>(null)
   /** data-URL previews for image attachments, keyed by path (Genspark composer thumbnails) */
   const [attachmentPreviews, setAttachmentPreviews] = useState<Record<string, string>>({})
@@ -577,6 +578,8 @@ export function AiPanel({
   }, [])
   const imagesRef = useRef(images)
   imagesRef.current = images
+  const attachedSkillsRef = useRef(attachedSkills)
+  attachedSkillsRef.current = attachedSkills
   const attachmentsRef = useRef(attachments)
   attachmentsRef.current = attachments
   /** attachments consumed by the most recent send — retry resends the same set */
@@ -1068,27 +1071,12 @@ export function AiPanel({
           setActiveClarify(questions)
         })
       },
-      isCloudPageGenEnabled: async () => {
-        // Cloud page generation runs on Genspark's own slide model and spends
-        // Genspark credits, so it is gated by the "Genspark cloud tools" toggle
-        // plus the main-process account status only — the chat provider does not
-        // gate it (search/media gate per capability, not per chat provider). A
-        // free-plan or credits-exhausted account is covered by the mid-run
-        // fallback to the local pipeline instead of disabling cloud up front.
-        const cur = settingsRef.current
-        if (!cloudToolsEnabled(cur)) return false
-        try {
-          return !!(await window.slidesApi.cloudGenStatus())?.enabled
-        } catch {
-          return false
-        }
-      },
       // OxeeOffice brand hook: pages one at a time, reasoning off, each seeing the pages before it
       pageConcurrency: () => oxeegenDeckPageConcurrency(settingsRef.current),
       pageReferences: () => oxeegenDeckPageReferences(settingsRef.current),
-      // Local single-page generation (no gsk needed, e.g. BYOK): one LLM request through the
-      // app's own AI transport writes a structured JSON slide spec, and the main process builds
-      // it directly into a one-slide pptx with pptx-engine primitives — no HTML intermediate.
+      // Single-page generation: one LLM request through the app's own AI transport writes a
+      // structured JSON slide spec, and the main process builds it directly into a one-slide
+      // pptx with pptx-engine primitives.
       generatePageLocal: async (args) => {
         const W = args.canvasW
         const H = args.canvasH
@@ -1168,46 +1156,6 @@ export function AiPanel({
           }
         }
         return { ok: false, error: lastErr || tGlobal('aiErrUnknown') }
-      },
-      // Cloud single-page generation (gsk slide_generate): the cloud service owns HTML writing +
-      // pptx conversion; the deck-level style/outline stay local.
-      generatePageCloud: async (args) => {
-        // a stop that already fired must not start (and bill) another page
-        if (args.signal?.aborted) return { ok: false, error: tGlobal('aiErrStopped') }
-        // Forward the panel's stop signal: the main process aborts the in-flight
-        // cloud request instead of letting it run (and bill) to completion
-        const cancelCloud = () => void window.slidesApi.cloudPageCancel().catch(() => {})
-        args.signal?.addEventListener('abort', cancelCloud, { once: true })
-        try {
-          const briefParts = [args.brief]
-          if (args.layout) briefParts.push(`Layout intent: ${args.layout}`)
-          if (args.context)
-            briefParts.push(
-              `Reference material (all real names/figures/facts come from here; do not invent):\n${args.context.slice(0, 4000)}`,
-            )
-          // The cloud service owns its own page prompt; the template chrome rides
-          // in as part of the style so its pages pin the same geometry
-          const styleSkill = args.skeleton ? `${args.style}\n\n${args.skeleton}` : args.style
-          const res = await window.slidesApi.cloudGeneratePage({
-            brief: briefParts.join('\n\n'),
-            title: args.title,
-            styleSkill,
-            deckContext: {
-              ...(args.topic ? { topic: args.topic } : {}),
-              core_hook: args.coreHook,
-              page_index: args.pageIndex,
-              total_pages: args.totalPages,
-            },
-            images: args.images.map((u) => ({ url: u })),
-            width: args.canvasW,
-            height: args.canvasH,
-          })
-          return res ?? { ok: false, error: tGlobal('aiErrUnknown') }
-        } catch (e) {
-          return { ok: false, error: e instanceof Error ? e.message : String(e) }
-        } finally {
-          args.signal?.removeEventListener('abort', cancelCloud)
-        }
       },
       // ── In-tool planning: given topic+page count, the LLM produces a structured outline (batched recursion scheduled by the skill).
       // Fixes "missing pages at the input side" at the root: the main agent doesn't hand-write dozens of pages of pages JSON.
@@ -1639,7 +1587,7 @@ export function AiPanel({
     // `open` dep: re-measure after expand restores a draft
   }, [input, open])
 
-  const run = () => runWith(input.trim())
+  const run = () => runWith(input.trim(), undefined, { attachSkills: true })
 
   /** Enter while a reply runs: the draft joins the queue above the composer */
   const enqueueDraft = () => {
@@ -1725,6 +1673,8 @@ export function AiPanel({
       scope?: AiScopeQuoteData
       /** resend of the last message: quote what it quoted */
       retry?: boolean
+      /** only the composer's own send takes the attached skills along */
+      attachSkills?: boolean
     },
   ) => {
     const loop = loopRef.current
@@ -1748,6 +1698,9 @@ export function AiPanel({
       attachmentsRef.current = []
     }
     lastAttachmentsRef.current = sentAtts
+    // skills ride with this one message only: the chips clear like attachments do
+    const sentSkills = opts?.attachSkills ? attachedSkillsRef.current : []
+    if (sentSkills.length > 0) setAttachedSkills([])
     inputEditedSinceRunRef.current = false
     instructionRef.current = instruction
     lastInstructionRef.current = instruction
@@ -1777,6 +1730,7 @@ export function AiPanel({
         role: 'user',
         text: shown,
         ...(sentAtts.length > 0 ? { attachments: sentAtts } : {}),
+        ...(sentSkills.length > 0 ? { skills: sentSkills } : {}),
         ...(scope ? { scope } : {}),
       },
       { role: 'assistant', text: '', streaming: true },
@@ -1789,7 +1743,7 @@ export function AiPanel({
       .then(async (images) => {
         // AI Beautify sends the current slide's rendering along, so the model sees what it edits;
         // the note rides on the model instruction only — the chat bubble stays the localized preset text
-        let modelInstruction = instruction
+        let modelInstruction = await withSkillBodies(instruction, sentSkills)
         if (opts?.slideShot && settingsSupportVision(settingsRef.current)) {
           const shot = await captureSlideShot(currentRef.current)
           if (shot) {
@@ -1812,6 +1766,31 @@ export function AiPanel({
         void finishHistoryBatch().finally(() => setBusy(false))
       })
   }
+
+  /** the attached skills' full text in front of the request; a skill that vanished is skipped */
+  const withSkillBodies = async (instruction: string, names: readonly string[]) => {
+    if (names.length === 0) return instruction
+    const bodies = await Promise.all(
+      names.map(async (name) => {
+        try {
+          return { name, body: await window.slidesApi.skillText(name) }
+        } catch {
+          return null
+        }
+      }),
+    )
+    return withAttachedSkills(
+      instruction,
+      bodies.filter((b): b is { name: string; body: string } => b !== null),
+    )
+  }
+
+  const listSkillsForMenu = async () =>
+    (await window.slidesApi.skillsList()).map(({ name, description }) => ({ name, description }))
+  const toggleSkill = (name: string) =>
+    setAttachedSkills((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
+    )
 
   /** One page of a queue submission — runWith's bookkeeping minus the composer and the user bubble */
   const runQueuePage = (instruction: string) =>
@@ -2067,6 +2046,7 @@ export function AiPanel({
     // Unsent composer attachments would otherwise ride into the next chat's
     // file context (availableAttachments merges sent + live), mirroring docs.
     setAttachments([])
+    setAttachedSkills([])
     setAttachNotice(null)
     sentAttachmentsRef.current = []
     readAttachmentPathsRef.current.clear()
@@ -2243,6 +2223,9 @@ export function AiPanel({
                 {entry.role === 'user' && entry.attachments && entry.attachments.length > 0 && (
                   <SentAttachments atts={entry.attachments} previews={attachmentPreviews} />
                 )}
+                {entry.role === 'user' && entry.skills && (
+                  <AiSkillChips lang={lang} names={entry.skills} />
+                )}
                 {entry.tools && entry.tools.length > 0 && <ToolChipList tools={entry.tools} />}
                 {entry.text && (
                   <div dir="auto">
@@ -2309,6 +2292,9 @@ export function AiPanel({
               {entry.role === 'user' && entry.scope && <AiScopeQuote scope={entry.scope} />}
               {entry.role === 'user' && entry.attachments && entry.attachments.length > 0 && (
                 <SentAttachments atts={entry.attachments} previews={attachmentPreviews} />
+              )}
+              {entry.role === 'user' && entry.skills && (
+                <AiSkillChips lang={lang} names={entry.skills} />
               )}
               {entry.role === 'assistant' && !entry.text && entry.streaming ? (
                 <span className="ai-typing-row">
@@ -2478,6 +2464,7 @@ export function AiPanel({
               onTogglePause={msgQueue.togglePaused}
               onMove={msgQueue.move}
             />
+            <AiSkillChips lang={lang} names={attachedSkills} onRemove={toggleSkill} />
             {attachments.length > 0 && (
               <div className="ai-attachments" onScroll={onAttachmentsScroll}>
                 {attachments.map((a) =>
@@ -2574,14 +2561,14 @@ export function AiPanel({
             <div className="ai-input-footer">
               <AiModelPicker bridge={MODEL_BRIDGE} lang={lang} />
               {sessionUsage && <AiUsageChip usage={sessionUsage} session lang={lang} />}
-              <button
-                className="ai-attach-btn"
-                onClick={pickAttachments}
-                data-tip={t('aiAttachTitle')}
-                aria-label={t('aiAttachTitle')}
-              >
-                <img src={attachIcon} alt="" aria-hidden />
-              </button>
+              <AiSkillsMenu
+                lang={lang}
+                listSkills={listSkillsForMenu}
+                selected={attachedSkills}
+                onToggle={toggleSkill}
+                onAddFile={() => void pickAttachments()}
+                onManage={() => void window.slidesApi.openSkillsSettings?.().catch(() => {})}
+              />
               {busy ? (
                 <button
                   className="ai-send-btn ai-stop-btn"

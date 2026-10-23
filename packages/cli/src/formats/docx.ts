@@ -1,13 +1,17 @@
 import { clipText } from '../preview'
 import type { Editor } from '@tiptap/core'
+import JSZip from 'jszip'
 import {
+  applyTrackedChangesXml,
   BLANK_BULLET_NUM_ID,
   BLANK_ORDERED_NUM_ID,
   buildBlankDocx,
+  countTrackedChangesXml,
   findChartWorkbookPath,
   nextNoteId,
   parseChartPartXml,
   parseDocx,
+  parsePropertyChanges,
   patchChartPartXml,
   patchChartWorkbookXlsxBase64,
   pendingHeadingLevel,
@@ -15,9 +19,12 @@ import {
   readSections,
   saveDocx,
   type CommentInfo,
+  type DocumentProperties,
   type HeaderFooter,
   type HfPartInfo,
   type NoteInfo,
+  type PropertyChanges,
+  type RevisionXmlFilter,
   type SaveOptions,
   type StyleUpsert,
   type PictureWatermarkSpec,
@@ -129,6 +136,11 @@ interface SideState {
   footnotes: NoteInfo[]
   endnotes: NoteInfo[]
   notesDirty: boolean
+  /** header / footer / footnote / endnote part XML by zip path, loaded on the first accept_changes / reject_changes */
+  revisionParts: Map<string, string> | null
+  revisionPartsDirty: Set<string>
+  /** set_properties changes; written into the docProps parts on save */
+  properties?: PropertyChanges
 }
 
 export interface OpenDocument {
@@ -183,6 +195,8 @@ function sideStateOf(parsed: Parsed): SideState {
     footnotes: [...parsed.footnotes],
     endnotes: [...parsed.endnotes],
     notesDirty: false,
+    revisionParts: null,
+    revisionPartsDirty: new Set(),
   }
 }
 
@@ -228,9 +242,84 @@ export async function saveDocument(doc: OpenDocument): Promise<Uint8Array> {
     watermark: side.watermark,
     footnotes: side.notesDirty ? side.footnotes : undefined,
     endnotes: side.notesDirty ? side.endnotes : undefined,
+    properties: side.properties,
     ...(await chartPartPatches(doc, plan.chartPatches)),
   }
+  for (const path of side.revisionPartsDirty) {
+    options.partXml = { ...options.partXml, [path]: side.revisionParts!.get(path)! }
+  }
   return saveDocx(doc.parsed, sectionEdits.saveBlocks, options)
+}
+
+const REVISION_PART_RE = /^word\/(?:header\d*|footer\d*|footnotes|endnotes)\.xml$/
+
+async function revisionParts(doc: OpenDocument): Promise<Map<string, string>> {
+  if (doc.side.revisionParts) return doc.side.revisionParts
+  const zip = await JSZip.loadAsync(doc.parsed.internal.originalBytes)
+  const parts = new Map<string, string>()
+  for (const [name, entry] of Object.entries(zip.files)) {
+    if (REVISION_PART_RE.test(name) && !entry.dir) parts.set(name, await entry.async('string'))
+  }
+  doc.side.revisionParts = parts
+  return parts
+}
+
+/** tracked changes outside the body (headers, footers, footnotes, endnotes) */
+export async function countRevisionsElsewhere(doc: OpenDocument): Promise<number> {
+  let n = 0
+  for (const xml of (await revisionParts(doc)).values()) n += countTrackedChangesXml(xml)
+  return n
+}
+
+/**
+ * accept_changes / reject_changes: the body goes through the editor; the parts it
+ * never loads are rewritten as XML. Positional selectors (ids, blockIndex,
+ * blockRange) address the body only.
+ */
+async function applyRevisionOp(
+  doc: OpenDocument,
+  op: Record<string, unknown>,
+  mode: 'accept' | 'reject',
+): Promise<{ output?: string; error?: string }> {
+  const { op: _op, ...input } = op
+  const ops = doc.mods.revisionOps
+  const sel = ops.validateSelector(input)
+  if ('error' in sel) return { error: sel.error }
+  const bodyOnly = !!sel.ids || sel.blockIndex !== undefined || !!sel.blockRange
+  const body = ops.applyRevisionSelection(doc.editor, sel, mode)
+  let elsewhere = 0
+  if (!bodyOnly) {
+    const filter: RevisionXmlFilter = {
+      ...(sel.author !== undefined ? { author: sel.author } : {}),
+      ...(sel.type !== undefined ? { type: sel.type } : {}),
+      ...(sel.before !== undefined ? { before: sel.before } : {}),
+    }
+    for (const [path, xml] of await revisionParts(doc)) {
+      const r = applyTrackedChangesXml(xml, mode, filter)
+      if (r.xml === xml) continue
+      elsewhere += r.applied
+      doc.side.revisionParts!.set(path, r.xml)
+      doc.side.revisionPartsDirty.add(path)
+    }
+  }
+  if ('error' in body && elsewhere === 0) return { error: body.error }
+  const verb = mode === 'accept' ? 'Accepted' : 'Rejected'
+  const done = 'error' in body ? [] : body.entries
+  const parts: string[] = []
+  if (done.length)
+    parts.push(`${done.length} tracked change(s) (${done.map((e) => e.id).join(', ')})`)
+  if (elsewhere) parts.push(`${elsewhere} in headers, footers and notes`)
+  const left = ops.listRevisionEntries(doc.editor.state.doc)
+  const leftElsewhere = await countRevisionsElsewhere(doc)
+  const still: string[] = []
+  if (left.length) still.push(`Still ${ops.describePending(left)}`)
+  if (leftElsewhere)
+    still.push(
+      `${left.length ? 'and' : 'Still'} ${leftElsewhere} in headers, footers and notes${bodyOnly ? ' (ids address the body; all: true or author / type / before reach them)' : ''}`,
+    )
+  return {
+    output: `${verb} ${parts.join(' and ')}. ${still.length ? `${still.join(' ')}.` : 'No tracked changes remain.'}`,
+  }
 }
 
 /** edit_chart changes live in the chart's own part and its embedded workbook, not in the body XML */
@@ -506,6 +595,14 @@ export async function applyDocOps(
       const r = await setPictureWatermark(doc, op, opts)
       if (r.error) failed = rejected(r.error)
       else results.push({ index, op: name, output: r.output! })
+    } else if (name === 'set_properties') {
+      const r = setDocumentProperties(doc, op)
+      if (r.error) failed = rejected(r.error)
+      else results.push({ index, op: name, output: r.output! })
+    } else if (name === 'accept_changes' || name === 'reject_changes') {
+      const r = await applyRevisionOp(doc, op, name === 'accept_changes' ? 'accept' : 'reject')
+      if (r.error) failed = rejected(r.error)
+      else results.push({ index, op: name, output: r.output! })
     } else {
       const call = HTML_TOOLS.has(name)
         ? { id: `genoffice-${index}`, name, input: htmlToolInput(doc, name, op) }
@@ -536,6 +633,55 @@ export async function applyDocOps(
     }
   }
   return { results, failures, skipped: 0 }
+}
+
+/**
+ * set_properties: the docProps parts (core, extended, custom) are written on
+ * save, so the op only records the change; the document body is untouched.
+ */
+function setDocumentProperties(
+  doc: OpenDocument,
+  op: Record<string, unknown>,
+): { output?: string; error?: string } {
+  let changes: PropertyChanges
+  try {
+    changes = parsePropertyChanges(op)
+  } catch (err) {
+    return { error: (err as Error).message }
+  }
+  doc.side.properties = mergePropertyChanges(doc.side.properties, changes)
+  return { output: `set document properties: ${describePropertyChanges(changes)}` }
+}
+
+/** two set_properties ops in one batch compose: the later value wins, a later clear wipes the earlier values */
+function mergePropertyChanges(
+  current: PropertyChanges | undefined,
+  next: PropertyChanges,
+): PropertyChanges {
+  if (!current || next.clear) return next
+  const merged: PropertyChanges = { ...current }
+  for (const section of ['core', 'app', 'custom'] as const) {
+    const values = next[section]
+    if (!values) continue
+    merged[section] = { ...(current[section] ?? {}), ...values }
+  }
+  return merged
+}
+
+function describePropertyChanges(changes: PropertyChanges): string {
+  const parts: string[] = []
+  if (changes.clear === 'all') parts.push('clear all')
+  for (const section of ['core', 'app', 'custom'] as const) {
+    for (const [key, value] of Object.entries(changes[section] ?? {})) {
+      parts.push(`${section}.${key}=${value === null ? 'null' : JSON.stringify(value)}`)
+    }
+  }
+  return parts.join(', ')
+}
+
+/** the document properties (core, extended/app, custom) of the open document */
+export function listProperties(doc: OpenDocument): DocumentProperties {
+  return doc.parsed.properties
 }
 
 /** insert_content / insert_chart without a position append at the end; the in-app default ("after the cursor") has no meaning headless. */
@@ -1155,6 +1301,7 @@ const CONTENT_OPS = [
   'edit_note',
   'delete_note',
   'delete_comment',
+  'set_properties',
 ] as const
 
 const CONTENT_NOTES: Record<(typeof CONTENT_OPS)[number], string> = {
@@ -1186,7 +1333,7 @@ const CONTENT_NOTES: Record<(typeof CONTENT_OPS)[number], string> = {
   reply_comment: 'ids from `genoffice docs read --comments`; replies attach to the thread root',
   resolve_comment: 'ids from `genoffice docs read --comments`',
   accept_changes:
-    'selector: all: true, ids from `genoffice docs read --revisions` (positional, re-read after every edit), or author / type / blockIndex / blockRange / before; insertions become plain text, deleted text goes',
+    'selector: all: true, ids from `genoffice docs read --revisions` (positional, re-read after every edit), or author / type / blockIndex / blockRange / before; insertions become plain text, deleted text goes, moved text stays at its destination; all / author / type / before also cover headers, footers, footnotes and endnotes',
   reject_changes:
     'same selector as accept_changes; inserted text goes, deleted text comes back, formatting reverts',
   insert_footnote:
@@ -1198,6 +1345,8 @@ const CONTENT_NOTES: Record<(typeof CONTENT_OPS)[number], string> = {
     'kind footnote|endnote and an id from `genoffice docs read --notes`; removes the reference mark too',
   delete_comment:
     'removes the comment and its anchor; a thread root with replies needs withReplies: true, a reply id removes just that reply',
+  set_properties:
+    'the document properties of the file: core (title, subject, creator, keywords, description, lastModifiedBy, revision, created, modified, category, contentStatus, identifier, language, version), app (template, totalTime, pages, words, characters, application, docSecurity, lines, paragraphs, scaleCrop, company, linksUpToDate, charactersWithSpaces, sharedDoc, hyperlinksChanged, appVersion, manager) and custom (by name); a string sets the value, null removes the property, clear: "all" empties all three parts; `genoffice docs read --properties` lists the current ones',
 }
 
 const AFTER_BLOCK_INDEX =
@@ -1211,6 +1360,38 @@ const INSERT_IMAGE_SCHEMA: JsonSchema = {
     afterBlockIndex: { type: 'integer', description: AFTER_BLOCK_INDEX },
   },
   required: ['url'],
+}
+
+/** set_properties: the values of a property part, by key (a string sets, null removes) */
+const PROPERTY_VALUES: JsonSchema = {
+  type: 'object',
+  additionalProperties: { type: ['string', 'null'] },
+}
+
+const SET_PROPERTIES_SCHEMA: JsonSchema = {
+  type: 'object',
+  properties: {
+    core: {
+      ...PROPERTY_VALUES,
+      description:
+        'core properties by friendly key (title, subject, creator, keywords, description, lastModifiedBy, …); a string sets the value, null removes the element',
+    },
+    app: {
+      ...PROPERTY_VALUES,
+      description:
+        'extended (app) properties by friendly key (company, template, application, manager, …); a string sets the value, null removes the element',
+    },
+    custom: {
+      ...PROPERTY_VALUES,
+      description:
+        'custom properties by name (MatterId, Reviewer, …); a string sets the value, null removes the property',
+    },
+    clear: {
+      type: 'string',
+      enum: ['all'],
+      description: 'remove every property of all three parts',
+    },
+  },
 }
 
 /** insert_picture / set_watermark headless: the in-app schema, with the image source widened to local paths */
@@ -1252,15 +1433,19 @@ export async function docsCatalog(): Promise<{ catalog: OpCatalog; htmlRules: st
   const tools = new Map(mods.tools.AGENT_TOOLS.map((t) => [t.name, t]))
   const content: OpEntry[] = CONTENT_OPS.map((op) => {
     const tool = tools.get(op)
-    if (!tool && op !== 'insert_image') throw new Error(`docs op catalog: no tool named ${op}`)
+    if (!tool && op !== 'insert_image' && op !== 'set_properties') {
+      throw new Error(`docs op catalog: no tool named ${op}`)
+    }
     const schema =
       op === 'insert_image'
         ? INSERT_IMAGE_SCHEMA
-        : op === 'insert_picture'
-          ? insertPictureSchema(tool!.inputSchema as JsonSchema)
-          : op === 'set_watermark'
-            ? insertPictureSchema(tool!.inputSchema as JsonSchema, 'image')
-            : cliToolSchema(tool!.inputSchema as JsonSchema)
+        : op === 'set_properties'
+          ? SET_PROPERTIES_SCHEMA
+          : op === 'insert_picture'
+            ? insertPictureSchema(tool!.inputSchema as JsonSchema)
+            : op === 'set_watermark'
+              ? insertPictureSchema(tool!.inputSchema as JsonSchema, 'image')
+              : cliToolSchema(tool!.inputSchema as JsonSchema)
     return {
       op,
       group: 'content',

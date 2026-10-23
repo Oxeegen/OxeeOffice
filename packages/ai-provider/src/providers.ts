@@ -43,7 +43,11 @@ export function opencodeSessionHeaders(
     : {}
 }
 
-/** DeepSeek V4.1 Flash under the Genspark pool spelling, shared by the direct provider so the two lists read alike */
+/**
+ * DeepSeek V4.1 Flash under the Genspark pool spelling. Only the proxy serves
+ * this id; api.deepseek.com knows the model as `deepseek-flash`, so the direct
+ * provider lists the vendor spelling and keeps this one as an accepted alias.
+ */
 export const DEEPSEEK_V41_FLASH = 'deep-seek-v4.1-flash'
 
 // OxeeOffice brand hook: Oxeegen is prepended (oxeegen.ts)
@@ -118,12 +122,14 @@ export const AI_PROVIDERS: AiProviderMeta[] = withOxeegenProviders([
   {
     id: 'deepseek',
     label: 'DeepSeek',
-    // GET api.deepseek.com/v1/models serves `deepseek-v4-pro` and
-    // `deepseek-flash` (verified 2026-09-21); the latter is V4.1 Flash with
-    // native vision. We list it under the Genspark pool spelling so both
-    // providers show the same versioned name; the adapter maps it back to
-    // the unversioned wire id (see DEEPSEEK_WIRE_IDS in registry.ts).
-    models: ['deepseek-v4-pro', DEEPSEEK_V41_FLASH],
+    // GET api.deepseek.com/v1/models and the vendor's quick-start table both
+    // name `deepseek-flash` (served by DeepSeek-V4.1-Flash-1017, native vision)
+    // and `deepseek-v4-pro` (list verified 2026-09-21, docs re-read 2026-10-18).
+    // List the vendor's own ids: this picker is what a user carries into curl
+    // or another client, and `deep-seek-v4.1-flash` is the Genspark pool
+    // spelling, which the direct API does not know. Saved picks of that alias
+    // are still rewritten on load (see RETIRED_MODELS).
+    models: ['deepseek-v4-pro', 'deepseek-flash'],
     defaultModel: 'deepseek-v4-pro',
     keyPlaceholder: 'sk-...',
   },
@@ -238,9 +244,9 @@ export const AI_PROVIDERS: AiProviderMeta[] = withOxeegenProviders([
   {
     id: 'minimax',
     label: 'MiniMax',
-    // M3 is the current agentic/tool-use model; M2.5 moved to the legacy tier
-    models: ['MiniMax-M3', 'MiniMax-M2.7'],
-    defaultModel: 'MiniMax-M3',
+    // Current text choices; saved legacy ids remain valid in provider settings.
+    models: ['MiniMax-M3.1-Flash', 'MiniMax-M3'],
+    defaultModel: 'MiniMax-M3.1-Flash',
     keyPlaceholder: 'eyJ...',
   },
   {
@@ -267,7 +273,9 @@ export const AI_PROVIDERS: AiProviderMeta[] = withOxeegenProviders([
     id: 'openrouter',
     label: 'OpenRouter',
     // vendor-prefixed slugs exactly as openrouter.ai/api/v1/models lists them —
-    // there is no `openai/gpt-5.6` alias there, only the per-tier ids
+    // there is no `openai/gpt-5.6` alias there, only the per-tier ids. Shown
+    // until the live catalog (several hundred ids) replaces them.
+    liveModels: true,
     models: [
       'openrouter/auto',
       'anthropic/claude-opus-5.5',
@@ -277,6 +285,8 @@ export const AI_PROVIDERS: AiProviderMeta[] = withOxeegenProviders([
       'openai/gpt-6-luna',
       'openai/gpt-5.6-sol',
       'moonshotai/kimi-k3',
+      'minimax/minimax-m3.1-flash:free',
+      'minimax/minimax-m3',
     ],
     defaultModel: 'openrouter/auto',
     keyPlaceholder: 'sk-or-...',
@@ -343,7 +353,7 @@ export const AI_PROVIDERS: AiProviderMeta[] = withOxeegenProviders([
     // (2026-10-08, public endpoint, no key needed); the rest of the 117-model
     // catalog works as-is when typed in. Chat, temperature and — for the
     // multimodal ids — data-URI image input are live-verified. The text-only
-    // ids (deepseek-v4-*, glm-5.3, both MiniMax) are listed in
+    // ids (deepseek-v4-*, glm-5.3, MiniMax M3) are listed in
     // modelLacksVision(); Atlas Cloud serves MiniMax M3 text-only even though
     // MiniMax's own API takes images.
     models: [
@@ -356,7 +366,6 @@ export const AI_PROVIDERS: AiProviderMeta[] = withOxeegenProviders([
       'qwen/qwen3.8-max',
       'qwen/qwen3.5-flash',
       'minimaxai/minimax-m3',
-      'minimaxai/minimax-m2.5',
     ],
     defaultModel: 'deepseek-ai/deepseek-v4-pro',
     keyPlaceholder: 'apikey-...',
@@ -381,6 +390,7 @@ export const AI_PROVIDERS: AiProviderMeta[] = withOxeegenProviders([
       'deepseek-v4-pro',
       'deepseek-v4-flash',
       'glm-5.2',
+      'minimax-m3.1-flash-free',
       'minimax-m3',
       'qwen3.6-plus',
     ],
@@ -407,7 +417,6 @@ export const AI_PROVIDERS: AiProviderMeta[] = withOxeegenProviders([
       'qwen3.8-max',
       'qwen3.8-flash',
       'minimax-m3',
-      'minimax-m2.7',
       'mimo-v2.5-pro',
       'mimo-v2.6-pro',
       'mimo-v2.6-flash',
@@ -503,14 +512,14 @@ function activeProviderUpstream(settings: AiSettings): AiProviderId {
 const RETIRED_MODELS: Partial<Record<AiProviderId, Record<string, string>>> = {
   // chat/reasoner retired 2026-07-24 (thinking became a request parameter);
   // V4 Flash and V4 Flash Vision Exp retired 2026-09-10 in favour of V4.1
-  // Flash, which carries vision natively. The vendor's own `deepseek-flash`
-  // id is folded in as well so the stored value matches the listed one.
+  // Flash; every one of them, and the Genspark pool spelling that was the
+  // listed id until 0.11, now resolves to the vendor's own `deepseek-flash`.
   deepseek: {
-    'deepseek-chat': DEEPSEEK_V41_FLASH,
-    'deepseek-reasoner': DEEPSEEK_V41_FLASH,
-    'deepseek-v4-flash': DEEPSEEK_V41_FLASH,
-    'deepseek-v4-flash-vision-exp': DEEPSEEK_V41_FLASH,
-    'deepseek-flash': DEEPSEEK_V41_FLASH,
+    'deepseek-chat': 'deepseek-flash',
+    'deepseek-reasoner': 'deepseek-flash',
+    'deepseek-v4-flash': 'deepseek-flash',
+    'deepseek-v4-flash-vision-exp': 'deepseek-flash',
+    [DEEPSEEK_V41_FLASH]: 'deepseek-flash',
   },
   // proxy stopped serving bare gpt-5.6 (400) and removed the gemini route
   // entirely (405), verified 2026-08-31; gemini selections fall back to the

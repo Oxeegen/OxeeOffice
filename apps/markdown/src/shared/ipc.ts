@@ -18,6 +18,12 @@ export const MARKDOWN_CHANNELS = {
   rememberWikiFragment: 'markdown:remember-wiki-fragment',
   /** take the fragment remembered for a path, '' when there is none */
   takeWikiFragment: 'markdown:take-wiki-fragment',
+  /** list the vault's notes for the `[[` suggester, breadth-first from the root */
+  listWikiNotes: 'markdown:list-wiki-notes',
+  /** notes whose links land on the given path (the backlinks panel) */
+  wikiBacklinks: 'markdown:wiki-backlinks',
+  /** the vault's link graph (nodes + resolved edges, the graph view) */
+  wikiGraph: 'markdown:wiki-graph',
   save: 'markdown:save',
   saveRequest: 'markdown:save-request',
   saveRequestAck: 'markdown:save-request-ack',
@@ -27,6 +33,8 @@ export const MARKDOWN_CHANNELS = {
   closeSaveRequest: 'markdown:close-save-request',
   closeSaveResult: 'markdown:close-save-result',
   fileRenamed: 'markdown:file-renamed',
+  fileChangedOnDisk: 'markdown:file-changed-on-disk',
+  ackFileChangedOnDisk: 'markdown:ack-file-changed-on-disk',
   pickImage: 'markdown:pick-image',
   saveImage: 'markdown:save-image',
   readImage: 'markdown:read-image',
@@ -71,6 +79,55 @@ export interface WikiLinkResolved {
   /** the `#Heading` / `#^block` part, '' when there was none */
   fragment: string
   found: boolean
+}
+
+/** one vault note offered by the `[[` suggester, in the resolver's own order */
+export interface WikiNoteEntry {
+  /** absolute path, the shape `resolveWikiLinks` answers with */
+  path: string
+  /** file name with extension, as `[[Figure 1.png]]` addresses it */
+  file: string
+  /** stem without extension, as a bare `[[Figure 1]]` addresses it */
+  name: string
+  /** path relative to the walk root, shown under the name in the menu */
+  relPath: string
+}
+
+/** a note whose link lands on the asked-for path */
+export interface WikiBacklink {
+  /** absolute path of the note carrying the link */
+  source: string
+  /** the target as written there (`Note`, `Note#Heading`) */
+  target: string
+}
+
+export interface WikiGraphNode {
+  /** absolute path */
+  path: string
+  /** stem, the label a node carries */
+  name: string
+  /** path relative to the vault root, the label's smaller half */
+  relPath: string
+}
+
+export interface WikiGraphEdge {
+  /** absolute path of the linking note */
+  from: string
+  /** absolute path of the linked note */
+  to: string
+}
+
+export interface WikiGraph {
+  nodes: WikiGraphNode[]
+  edges: WikiGraphEdge[]
+  /**
+   * the vault held more notes than the node cap, so this is a slice: the nodes
+   * are the first `MAX_GRAPH_NODES` in walk order and the edges only those among
+   * them. Callers say so rather than presenting a cut graph as the whole vault.
+   */
+  truncated: boolean
+  /** how many notes the walk found in total (never below nodes.length) */
+  totalNotes: number
 }
 
 export type UiTheme = 'light' | 'dark' | 'system'
@@ -145,6 +202,8 @@ export interface SaveMarkdownRequest {
    * Ignored when the document already has a path.
    */
   suggestedName?: string
+  /** write even though the file changed on disk since it was loaded or last saved */
+  overwrite?: boolean
 }
 
 export type SaveMarkdownResult =
@@ -157,7 +216,7 @@ export type SaveMarkdownResult =
       writtenText?: string
     }
   | { ok: true; canceled: true }
-  | { ok: false; error: string }
+  | { ok: false; error: string; conflict?: true }
 
 /** AI channels are app-wide shared ipcMain handlers (shell registers via docs-main registerAiIpc); pass-through only */
 export const AI_CHANNELS = {
@@ -245,6 +304,16 @@ export interface MarkdownApi {
   rememberWikiFragment(path: string, fragment: string): Promise<void>
   /** Take the fragment remembered for `path`; '' when there is none (it is consumed) */
   takeWikiFragment(path: string): Promise<string>
+  /**
+   * List the vault's notes for the `[[` suggester: the resolution root walked
+   * breadth-first (the order the resolver matches in), capped so a huge
+   * library cannot stall the popup.
+   */
+  listWikiNotes(): Promise<WikiNoteEntry[]>
+  /** Notes whose links resolve to `path` (the backlinks panel); '' answers []. */
+  wikiBacklinks(path: string): Promise<WikiBacklink[]>
+  /** The vault's link graph, notes as nodes and resolved links as edges. */
+  wikiGraph(): Promise<WikiGraph>
   /** Headless export mode: the PDF path this hidden renderer must export to, null in normal use */
   consumeHeadlessExport(): Promise<string | null>
   /** Headless export mode: report the export outcome so the main process can quit */
@@ -274,6 +343,10 @@ export interface MarkdownApi {
   sendCloseSaveResult(ok: boolean): void
   /** The file was renamed on disk (Home list rename) — renderer syncs its display path */
   onFileRenamed(handler: (newPath: string) => void): () => void
+  /** Another program wrote the open file; the renderer re-reads and decides whether to reload */
+  onFileChangedOnDisk(handler: (path: string) => void): () => void
+  /** the renderer has read the changed file and decided; a later save is checked against this version */
+  ackFileChangedOnDisk(): void
   /**
    * Pick an image file and copy it into `assets/` next to the open document;
    * returns the relative path to author into the markdown, or null when the
@@ -349,6 +422,12 @@ export interface MarkdownApi {
   onAiSettingsChanged(handler: () => void): () => void
   /** shell only: switch to Home and open Settings › AI Model (rejects in standalone) */
   openAiModelSettings(): Promise<void>
+  /** shell only: switch to Home and open Settings › Integrations (the skills list) */
+  openSkillsSettings(): Promise<void>
+  /** the skills the user installed into GenOffice (userData/skills) */
+  skillsList(): Promise<UserSkillEntry[]>
+  /** the body of one installed skill, by name — the main process resolves the path */
+  skillText(name: string): Promise<string>
   /** Genspark login state (shell-registered ai:gsk-status) — gates generate_image with the cloud-tools toggle */
   aiGskStatus(): Promise<GenSparkAccountStatus>
   aiStream(request: AiStreamRequest): Promise<void>
@@ -365,4 +444,10 @@ export interface MarkdownApi {
     url?: string
     error?: string
   }>
+}
+
+export interface UserSkillEntry {
+  name: string
+  description: string
+  relevant: boolean
 }

@@ -36,6 +36,10 @@ import { ImageExportSessions } from './image-export'
 import { printMarkdownPdf } from './print-pdf'
 import { atomicWriteFile } from './atomic-write'
 import {
+  createDocumentDiskWatcher,
+  type DocumentDiskWatcher,
+} from '@genoffice/electron-utils/disk-watch'
+import {
   copyImageIntoOwnedAssets,
   discardPendingOwnedAssets,
   extractMarkdownImageSources,
@@ -52,8 +56,17 @@ import {
 import { createMarkdownConversionSession, writeMarkdownConversion } from './conversion-lifecycle'
 import { normalizeMarkdownTheme, type MarkdownTheme } from '../shared/markdown-theme'
 import { MARKDOWN_CHANNELS, MAX_PASTED_IMAGE_BYTES } from '../shared/ipc'
-import type { ImageHostConfig, WikiLinkResolveRequest, WikiLinkResolved } from '../shared/ipc'
+import type {
+  ImageHostConfig,
+  WikiBacklink,
+  WikiGraph,
+  WikiLinkResolveRequest,
+  WikiLinkResolved,
+  WikiNoteEntry,
+} from '../shared/ipc'
 import { nodeFs, resolveWikiLinks } from './wiki-resolve'
+import { listWikiNotes } from './wiki-notes'
+import { nodeVaultFs, warmWikiIndex, wikiBacklinks, wikiGraph } from './wiki-index'
 import { rememberWikiFragment, takeWikiFragment } from './wiki-fragment'
 import { isImageHostUsable, normalizeImageHostConfig, uploadImageToHost } from './image-host'
 import {
@@ -397,6 +410,7 @@ const openPathByWc = new Map<number, string>()
 const allowedByWc = new Map<number, Set<string>>()
 /** Current save target per view; absent = untitled document */
 const savePathByWc = new Map<number, string>()
+const diskWatcherByWc = new Map<number, DocumentDiskWatcher>()
 /** Unsaved-changes flags mirrored from the renderer; drives the save prompt before closing a tab/window */
 const dirtyByWc = new Set<number>()
 const closeSaveWaiters = new Map<number, (ok: boolean) => void>()
@@ -456,6 +470,7 @@ export function markdownFileRenamed(contents: WebContents, oldPath: string, newP
   if (openPathByWc.get(wcId) === oldPath) openPathByWc.set(wcId, newPath)
   const allowed = allowedByWc.get(wcId)
   if (allowed?.has(oldPath)) allowed.add(newPath)
+  if (savePathByWc.get(wcId) === newPath) void diskWatcherByWc.get(wcId)?.watch(newPath)
   void renameOwnedAssetDocument(oldPath, newPath).catch((error) => {
     console.warn('[markdown] asset manifest rename sync failed:', error)
   })
@@ -738,7 +753,13 @@ function registerMarkdownIpc(): void {
 
   registerImageProtocol()
 
-  ipcMain.handle(MARKDOWN_CHANNELS.consumePending, (e) => openPathByWc.get(e.sender.id) ?? null)
+  ipcMain.handle(MARKDOWN_CHANNELS.consumePending, (e) => {
+    const pending = openPathByWc.get(e.sender.id) ?? null
+    // the vault root is known from here on: start the index so the backlinks
+    // panel and the graph usually find it already built
+    if (pending) warmWikiIndex(configuredDefaultSaveDir(app))
+    return pending
+  })
 
   // ---- headless export mode (--headless-export) ----
 
@@ -757,6 +778,10 @@ function registerMarkdownIpc(): void {
       ok: state?.ok === true,
       ...(typeof state?.error === 'string' ? { error: state.error } : {}),
     })
+  })
+
+  ipcMain.on(MARKDOWN_CHANNELS.ackFileChangedOnDisk, (e) => {
+    void diskWatcherByWc.get(e.sender.id)?.acknowledge()
   })
 
   ipcMain.handle(MARKDOWN_CHANNELS.readFile, async (e, path: unknown) => {
@@ -791,6 +816,20 @@ function registerMarkdownIpc(): void {
 
   ipcMain.handle(MARKDOWN_CHANNELS.takeWikiFragment, (_e, path: unknown): string =>
     typeof path === 'string' ? takeWikiFragment(path) : '',
+  )
+
+  ipcMain.handle(MARKDOWN_CHANNELS.listWikiNotes, async (): Promise<WikiNoteEntry[]> =>
+    listWikiNotes(configuredDefaultSaveDir(app), nodeFs()),
+  )
+
+  ipcMain.handle(MARKDOWN_CHANNELS.wikiBacklinks, (_e, path: unknown): Promise<WikiBacklink[]> =>
+    typeof path === 'string'
+      ? wikiBacklinks(configuredDefaultSaveDir(app), path, nodeVaultFs())
+      : Promise.resolve([]),
+  )
+
+  ipcMain.handle(MARKDOWN_CHANNELS.wikiGraph, (): Promise<WikiGraph> =>
+    wikiGraph(configuredDefaultSaveDir(app), nodeVaultFs()),
   )
 
   ipcMain.handle(
@@ -838,11 +877,19 @@ function registerMarkdownIpc(): void {
             : null
         const textToWrite = prepared?.text ?? request.text
         const savedImageSources = prepared?.imageSources ?? imageSources
+        const watcher = diskWatcherByWc.get(e.sender.id)
+        if (watcher && !isNewPath && request.overwrite !== true && !(await watcher.isCurrent())) {
+          if (prepared) await rollbackPreparedSaveAsAssets(prepared).catch(() => {})
+          return done({ ok: false, error: 'markdown: file changed on disk', conflict: true })
+        }
+        watcher?.beginOwnWrite()
         try {
           await writeTextAtomic(target, textToWrite)
         } catch (error) {
           if (prepared) await rollbackPreparedSaveAsAssets(prepared).catch(() => {})
           throw error
+        } finally {
+          await watcher?.endOwnWrite(target)
         }
         savePathByWc.set(e.sender.id, target)
         // keep the reload path in sync — a stale openPathByWc would make a
@@ -1218,10 +1265,15 @@ function registerMarkdownIpc(): void {
 
 function grantAndTrack(wc: WebContents, openPath?: string | null): void {
   const wcId = wc.id
+  const watcher = createDocumentDiskWatcher((path) => {
+    if (!wc.isDestroyed()) wc.send(MARKDOWN_CHANNELS.fileChangedOnDisk, path)
+  })
+  diskWatcherByWc.set(wcId, watcher)
   if (openPath && existsSync(openPath)) {
     openPathByWc.set(wcId, openPath)
     savePathByWc.set(wcId, openPath)
     allowedByWc.set(wcId, new Set([openPath]))
+    void watcher.watch(openPath)
   }
   wc.setWindowOpenHandler(({ url }) => {
     const target = safeExternalUrl(url, { allowedProtocols: ['http:', 'https:', 'mailto:'] })
@@ -1232,6 +1284,8 @@ function grantAndTrack(wc: WebContents, openPath?: string | null): void {
     void imageExports
       .dispose(wcId)
       .catch((err) => console.warn('[markdown] image export cleanup:', err))
+    diskWatcherByWc.get(wcId)?.dispose()
+    diskWatcherByWc.delete(wcId)
     openPathByWc.delete(wcId)
     allowedByWc.delete(wcId)
     savePathByWc.delete(wcId)

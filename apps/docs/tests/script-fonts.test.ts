@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { Editor } from '@tiptap/core'
 import { editorExtensions } from '../src/renderer/editor/extensions'
-import { scriptFontHtml } from '../src/renderer/editor/script-fonts'
+import { eastAsianSegments, scriptFontHtml } from '../src/renderer/editor/script-fonts'
 
 const editors: Editor[] = []
 afterEach(() => editors.splice(0).forEach((e) => e.destroy()))
@@ -31,6 +31,25 @@ describe('ScriptFonts decorations', () => {
     expect(decorated(editor)).toEqual(['\u62a5\u544a', '\u4e2d\u6587'])
   })
 
+  // Word probe 2026-10-22: under balanceSingleByteDoubleByteWidth halfwidth kana
+  // take the single-byte grid delta, so they must not share the full-width span
+  it('splits halfwidth kana off the full-width runs', () => {
+    const editor = open(['\u30ab\u30bf\uff76\uff85\u6f22 x'])
+    const spans = [...editor.view.dom.querySelectorAll('.doc-east-asian-font')]
+    expect(
+      spans.map((el) => [el.textContent, el.classList.contains('doc-east-asian-halfwidth')]),
+    ).toEqual([
+      ['\u30ab\u30bf', false],
+      ['\uff76\uff85', true],
+      ['\u6f22', false],
+    ])
+    expect(eastAsianSegments('a\uff76\u3002\uffa1b')).toEqual([
+      { index: 1, text: '\uff76' },
+      { index: 2, text: '\u3002' },
+      { index: 3, text: '\uffa1' },
+    ])
+  })
+
   it('tracks an edit in one block without losing the others', () => {
     const editor = open(['a \u7532 b', 'x', 'c \u4e59 d'])
     // typing into the middle block: earlier ranges map through, later ones too
@@ -55,10 +74,9 @@ describe('ScriptFonts spans stay East-Asian-primary', () => {
    * The decoration span's first available font is what Chromium uses to place
    * the inline box, and the typed-grid strut is built on the spans sharing the
    * EA-primary half-leading geometry — so the rendered declaration must stay
-   * `var(--doc-east-asian-font, inherit)` in both emitters. The IME pre-edit
-   * fix is scoped to compositions in styles.css
-   * (`.ProseMirror-composing .doc-east-asian-font`), which leaves every line
-   * nobody is typing on byte-identical. jsdom resolves neither var() nor font
+   * `var(--doc-east-asian-font, inherit)` in both emitters, and nothing may
+   * swap it while an IME composition is open: that moved every line in the
+   * document on each keystroke. jsdom resolves neither var() nor font
    * fallback, so the declaration itself is the invariant under test.
    */
   const spanFamily = (editor: Editor): string =>
@@ -79,45 +97,5 @@ describe('ScriptFonts spans stay East-Asian-primary', () => {
     expect(htmlSpanFamily('<p><span>\u90fd\u4f1a</span></p>')).toBe(
       'var(--doc-east-asian-font, inherit)',
     )
-  })
-})
-
-describe('ScriptFonts marks the composition window', () => {
-  /**
-   * styles.css switches the span to the Latin chain only while
-   * `.ProseMirror-composing` sits on the editor root. prosemirror-view never
-   * sets that class (it toggles `input.composing` and nothing else), so the
-   * editor has to, from the composition events. These dispatch the events
-   * rather than touching classList: the plumbing is the thing under test.
-   */
-  const COMPOSING = 'ProseMirror-composing'
-
-  const composing = (editor: Editor): boolean => editor.view.dom.classList.contains(COMPOSING)
-
-  const fire = (editor: Editor, type: 'compositionstart' | 'compositionend'): void => {
-    editor.view.dom.dispatchEvent(new CompositionEvent(type, { bubbles: true, data: '' }))
-  }
-
-  it('adds the class on compositionstart and drops it on compositionend', () => {
-    const editor = open(['\u90fd\u4f1a'])
-    expect(composing(editor)).toBe(false)
-    fire(editor, 'compositionstart')
-    expect(composing(editor)).toBe(true)
-    // our handlers return false, so prosemirror-view still flips its own flag —
-    // swallowing the event would break view.composing everywhere else
-    expect(editor.view.composing).toBe(true)
-    fire(editor, 'compositionend')
-    expect(composing(editor)).toBe(false)
-    expect(editor.view.composing).toBe(false)
-  })
-
-  it('drops the class when the editor is destroyed mid-composition', () => {
-    const editor = open(['\u90fd\u4f1a'])
-    fire(editor, 'compositionstart')
-    expect(composing(editor)).toBe(true)
-    const dom = editor.view.dom
-    editors.splice(editors.indexOf(editor), 1) // already destroyed; skip the afterEach
-    editor.destroy()
-    expect(dom.classList.contains(COMPOSING)).toBe(false)
   })
 })

@@ -1886,7 +1886,7 @@ body.vib .slide-list {
 .ai-msg {
   position: relative;
   margin: 0;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
@@ -2638,7 +2638,7 @@ body.vib .slide-list {
    * with the content, so clipped lines would sit flush against chips/footer */
   padding: 0 14px;
   margin: 12px 0 4px;
-  font-size: 16px;
+  font-size: 14px;
   font-family: inherit;
   line-height: 24px;
   outline: none;
@@ -9349,4 +9349,106 @@ body.show-curtain::after {
   background: var(--bullet-img) center / contain no-repeat;
   user-select: none;
   pointer-events: none;
+}
+
+/* ── Slide Show > Record: the recording bar ─────────────────────── */
+
+.slideshow .ss-record {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--slides-show-pill-bg);
+  border: 1px solid var(--slides-show-line-15);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-variant-numeric: tabular-nums;
+  color: var(--slides-show-ink);
+  z-index: 2;
+}
+
+.slideshow .ss-record-failed {
+  pointer-events: none;
+}
+
+.slideshow .ss-record-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--slides-show-ink-60);
+}
+
+.slideshow .ss-record-dot.on {
+  background: var(--danger);
+}
+
+.slideshow .ss-record-state {
+  font-size: 13px;
+}
+
+.slideshow .ss-record-cur {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.slideshow .ss-record-total {
+  color: var(--slides-show-ink-60);
+  font-size: 12px;
+}
+
+.slideshow .ss-record-btn {
+  font: inherit;
+  font-size: 12px;
+  color: var(--slides-show-ink);
+  background: transparent;
+  border: 1px solid var(--slides-show-line-15);
+  border-radius: 4px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+
+/* ── 3D models: the rotation handle and the live model while it turns ── */
+
+.m3d-turn {
+  position: absolute;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.m3d-turn canvas {
+  width: 100%;
+  height: 100%;
+  visibility: hidden;
+}
+
+.m3d-turn.turning canvas {
+  visibility: visible;
+}
+
+.m3d-turn-handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--slides-shadow-badge);
+  cursor: grab;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.m3d-turn.turning .m3d-turn-handle {
+  cursor: grabbing;
 }
