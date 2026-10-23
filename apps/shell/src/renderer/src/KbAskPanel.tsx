@@ -929,7 +929,8 @@ export function KbAskPanel({
           </div>
         ))}
       </div>
-      {messages.length > 0 && (
+      {/* OxeeOffice brand hook: conversations are kept now (project-store), so no "not saved" notice */}
+      {messages.length > 0 && !oxeegenLayerEnabled() && (
         <p className="kb-ask-nosave">
           <IconInfo />
           {t('askNoSave')}

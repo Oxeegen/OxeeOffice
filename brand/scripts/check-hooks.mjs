@@ -224,6 +224,11 @@ const HOOKS = [
     must: ["{gskEmail === null && provider === 'genspark' && !oxeegenLayerEnabled() && ("],
   },
   {
+    file: 'apps/shell/src/renderer/src/KbAskPanel.tsx',
+    why: 'no stale "conversation is not saved" notice (threads are kept since 0.12.29)',
+    must: ['{messages.length > 0 && !oxeegenLayerEnabled() && ('],
+  },
+  {
     file: 'apps/sheets/native/xlsx-engine/src/lib.rs',
     why: 'encrypted-workbook error names no product (native strings are not renamed)',
     must: ['Encrypted workbooks cannot be'],
