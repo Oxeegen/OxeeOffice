@@ -5,6 +5,58 @@ What changed in each OxeeOffice release. Installers are on the
 
 ---
 
+## OxeeOffice 0.12.29 — 2026-10-22
+
+Windows x64, Linux x64
+
+### Ask AI on Home
+
+- **Builds and edits real files:** ask for a document, spreadsheet or deck and Ask AI
+  creates it through the bundled command line, with a task card and labelled tool steps;
+  attach files to a question.
+- **Conversations are kept** across restarts and listed at the top of the panel: start a
+  new one, go back to an earlier one, or delete it.
+- The model picker chip sits in the Ask AI composer, as in every editor.
+
+### Skills
+
+- **Settings ▸ Skills:** import a document skill from a folder, a zip or a single
+  `SKILL.md`, or pick from 40 recommended ones (business plan, meeting minutes, NDA,
+  lesson plan, budget planner and more). The composer menu attaches a skill to a request.
+  Importing a skill never runs anything.
+
+### New in the editors
+
+- **Docs:** page breaks land where Word puts them on many more documents; Ctrl+click adds
+  another selection range; drag a table row's border to set its height and the corner
+  handle to resize the table; edit header and footer table cells in place and insert
+  pictures there; the AI and the command line can read and set the document's properties
+  (title, author, company, custom fields), for example to clear them before sharing.
+- **Sheets:** embed a picture in a cell; VLOOKUP over a table or name no longer goes blank
+  after a save; CSV export writes the real values; the status bar shows Sum and Average
+  again; password-protected workbooks are reported as such; large workbooks open with
+  much less memory.
+- **Slides:** **Slide Show ▸ Record** narrates the show slide by slide; real 3D models,
+  stored as PowerPoint stores them; charts carry their workbook, so PowerPoint's Edit Data
+  works; chart labels, data tables and legends match PowerPoint.
+- **Markdown:** `[[` note completion, `![[embeds]]`, a backlinks panel and a graph view
+  of your notes; a file reloads when another program changes it.
+- **PDF:** signing with Windows certificate-store keys works in place, and visible
+  signatures verify in Acrobat.
+- **App:** the window remembers its position and size; **Settings ▸ General ▸ Sleep
+  inactive tabs** frees the memory of tabs you have not looked at for a while (never
+  pinned or unsaved ones); one **Settings** entry (Ctrl+,) in every app's menu; on Linux,
+  `.deb` and `.rpm` installs keep each file type's own icon.
+- **Search:** Keenable is available as a web-search backend.
+
+### Oxeegen AI
+
+Unchanged: Oxee models with the picker in every AI panel, slide pages generated one at a
+time with reasoning off, layout checks and long writing with reasoning off, Brave search,
+and OpenAI `gpt-image-2.5-flare` images. Ask AI uses the same Oxeegen settings.
+
+---
+
 ## OxeeOffice 0.11.829 — 2026-10-15
 
 Windows x64, Linux x64
