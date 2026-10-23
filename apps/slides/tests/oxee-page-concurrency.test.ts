@@ -34,7 +34,6 @@ function measure(oxee?: { concurrency: number; references: boolean }, failures: 
       pages = markers.length
       return { ok: true, pages }
     },
-    isCloudPageGenEnabled: async () => false,
     generatePageLocal: async (args) => {
       seen.push({ page: args.pageIndex, refs: args.references?.map((r) => r.pageIndex) })
       inFlight += 1
