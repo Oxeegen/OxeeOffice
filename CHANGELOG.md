@@ -5,6 +5,48 @@ What changed in each OxeeOffice release. Installers are on the
 
 ---
 
+## OxeeOffice 0.12.115 — 2026-10-26
+
+Windows x64, Linux x64
+
+### New in the editors
+
+- **Docs:** a **Mailings** tab merges a local data source into letters, envelopes and
+  labels; compare two documents into a tracked-changes redline; bullets, numbering and
+  indents inside text boxes and shapes; accepting or rejecting a formatting change no
+  longer leaves residue; inline equations no longer pick up the first-line indent.
+- **Sheets:** password-protected workbooks open, save and can change their password;
+  pictures in notes; standard deviation and variance in PivotTable Summarize By; hide
+  cells from the AI; superscript and subscript display properly; many more Excel
+  shortcuts (Shift+Home, Ctrl+Shift+*, Ctrl+2/3/4, Ctrl+Shift+Enter, Alt+↓ and others).
+- **Slides:** A4/A3 paper sizes, portrait and custom slide sizes; an editing ribbon for
+  the slide master; a save interrupted midway leaves the previous file intact.
+- **PDF:** add and edit links (Edit ▸ Link); a comments panel listing every note;
+  match-case and whole-word search; text and images drawn through reusable page
+  elements can now be selected and edited.
+- **Markdown:** footnotes, `==highlight==`, word and character counts in the status bar,
+  and clicking a link to a missing note creates it.
+- **HTML:** the AI can search for and generate images; justify alignment.
+
+### App
+
+- **Settings ▸ General ▸ Reopen documents from last time** brings back the documents that
+  were open when you quit.
+- **Settings ▸ About ▸ Check for updates automatically** can be turned off; **Help ▸
+  Check for Updates** still works.
+- Turkish interface; the Home sidebar can be resized by dragging its edge; no white
+  flash while a window loads.
+- **Linux:** `.deb` and `.rpm` installs now set up the sandbox helper and the AppArmor
+  profile that Ubuntu 24.04 and later need to start the app.
+
+### Oxeegen AI
+
+Unchanged: Oxee models with the picker in every AI panel, slide pages generated one at a
+time with reasoning off, layout checks and long writing with reasoning off, Brave search,
+and OpenAI `gpt-image-2.5-flare` images, now also in the HTML editor.
+
+---
+
 ## OxeeOffice 0.12.29 — 2026-10-22
 
 Windows x64, Linux x64
