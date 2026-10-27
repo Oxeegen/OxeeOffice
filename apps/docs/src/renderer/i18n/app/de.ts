@@ -399,6 +399,7 @@ export const de = {
   appLangHindi: 'Hindi',
   appLangTraditionalChinese: 'Traditionelles Chinesisch',
   appLangVietnamese: 'Vietnamesisch',
+  appLangTurkish: 'Türkisch',
   appWrapTextMenu: 'Textumbruch',
   appViewImage: 'Bild anzeigen',
   appSaveImageAs: 'Bild speichern unter…',
@@ -554,4 +555,7 @@ export const de = {
     'Diese Formatvorlage mit der Formatierung der aktuellen Auswahl aktualisieren (wird in styles.xml zurückgeschrieben)',
   appNewStyleFromSelection: 'Neue Formatvorlage aus der aktuellen Auswahl',
   appStyleNamePlaceholder: 'Name der Formatvorlage',
+  appMergeSourceLoaded: '{name} geladen ({n} Datensätze)',
+  appMergeWritten: '{n} Dokumente geschrieben',
+  appMergeNothingToWrite: 'Es gibt nichts zu schreiben',
 } satisfies Record<keyof typeof zh, string>

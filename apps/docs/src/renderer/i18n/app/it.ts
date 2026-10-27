@@ -393,6 +393,7 @@ export const it = {
   appLangHindi: 'hindi',
   appLangTraditionalChinese: 'cinese tradizionale',
   appLangVietnamese: 'vietnamita',
+  appLangTurkish: 'turco',
   appWrapTextMenu: 'Disponi testo',
   appViewImage: 'Visualizza immagine',
   appSaveImageAs: 'Salva immagine con nome…',
@@ -546,4 +547,7 @@ export const it = {
   appUpdateStyleTip: 'Aggiorna questo stile con la selezione corrente (riscritto in styles.xml)',
   appNewStyleFromSelection: 'Nuovo stile dalla selezione corrente',
   appStyleNamePlaceholder: 'Nome dello stile',
+  appMergeSourceLoaded: '{name} caricato ({n} record)',
+  appMergeWritten: '{n} documenti scritti',
+  appMergeNothingToWrite: "Non c'è nulla da scrivere",
 } satisfies Record<keyof typeof zh, string>

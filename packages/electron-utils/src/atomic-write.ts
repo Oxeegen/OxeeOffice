@@ -27,8 +27,10 @@ const isRetryableRename = (error: unknown) => RETRYABLE_RENAME_CODES.has(errorCo
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 const sleepSync = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 
+// No leading dot: the macOS SMB client marks dot-files hidden and the flag
+// survives the rename onto the real document (genoffice#2145).
 const tempPathBeside = (filePath: string) =>
-  join(dirname(filePath), `.${basename(filePath)}.${randomBytes(6).toString('hex')}.tmp`)
+  join(dirname(filePath), `${basename(filePath)}.${randomBytes(6).toString('hex')}.tmp`)
 
 async function syncFileBestEffort(path: string): Promise<void> {
   let handle
@@ -121,6 +123,38 @@ export async function atomicCopyFile(source: string, filePath: string): Promise<
   }
   // Keep the completed temp until the fallback lands, as atomicWriteFile does.
   await copyFile(source, filePath)
+  await unlink(tmp).catch(() => {})
+}
+
+/**
+ * The same contract for output that is produced as a stream rather than held
+ * in one Buffer: `write` fills the sibling temp path (a large deck streams out
+ * of JSZip chunk by chunk and never fits atomicWriteFile's single buffer), and
+ * only a temp that `write` completed is synced and renamed over the target. A
+ * writer that throws part-way leaves the target untouched, so a save that dies
+ * mid-stream keeps the previous file on disk instead of a truncated one
+ * (genoffice#2123).
+ */
+export async function atomicWriteVia(
+  filePath: string,
+  write: (tempPath: string) => Promise<void>,
+): Promise<void> {
+  const tmp = tempPathBeside(filePath)
+  try {
+    await write(tmp)
+    await syncFileBestEffort(tmp)
+  } catch (error) {
+    await unlink(tmp).catch(() => {})
+    throw error
+  }
+  try {
+    await renameWithRetry(tmp, filePath)
+    return
+  } catch {
+    // fall through to the in-place copy
+  }
+  // Keep the completed temp until the fallback lands, as atomicWriteFile does.
+  await copyFile(tmp, filePath)
   await unlink(tmp).catch(() => {})
 }
 

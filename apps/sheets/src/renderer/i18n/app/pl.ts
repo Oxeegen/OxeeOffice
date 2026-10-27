@@ -1,6 +1,21 @@
 import type { zh } from './zh'
 
 export const pl = {
+  // ── Withholding cells from the model ──
+  redactMenuLabel: 'Ukryj zaznaczenie przed AI',
+  redactDialogDesc:
+    'Zaznaczona zawartość zostaje w dokumencie i w pliku; model widzi tylko symbol. Nadaj mu nazwę, by wiedział, co oznacza.',
+  redactDialogScope:
+    'Ukrywanie dotyczy tylko AI w tej aplikacji. CLI, narzędzia MCP i eksport bez okienka czytują plik bezpośrednio i nadal widzą te słowa.',
+  redactDialogPlaceholder: 'Nazwa symbolu, np. telefon klienta',
+  redactCancel: 'Anuluj',
+  redactInsert: 'Ukryj',
+  redactEnable: 'Kliknij prawym na zaznaczeniu, aby ukryć je przed modelem.',
+  redactNeedsSavedRow:
+    'Ten wiersz nie jest jeszcze w pliku. Zapisz najpierw, a potem ukryj komórkę.',
+  redactRecoveredFromNames:
+    'Inna aplikacja zapisała ten plik od nowa i usunęła rejestr tego, co jest ukryte. Ukryte komórki odtworzono z nazw w skoroszycie; zapisanie przywraca pełny rejestr.',
+
   appMergeWorkbooks: 'Scal skoroszyty',
   appMergeWorkbooksTip: 'Dodaj arkusze z innych plików Excel do tego skoroszytu',
   appMergeWorkbooksPicking: 'Wybierz pliki do scalenia…',
@@ -746,7 +761,6 @@ export const pl = {
   appLinkPlaceholder: 'https://example.com lub Sheet1!A1',
   appRemoveLink: 'Usuń link',
   appNotAvailableYet: 'Jeszcze niedostępne',
-  appComingSoon: 'Wkrótce',
   appGroupChartLayouts: 'Układy wykresu',
   appAddChartElement: 'Dodaj element wykresu',
   appAddChartElementTitle: 'Tytuły, etykiety danych, legenda',
@@ -1297,6 +1311,21 @@ export const pl = {
   appOpenFileFirst: 'Najpierw otwórz plik',
   appNoPassword: 'Bez hasła',
   appProtectWorkbook: 'Chroń skoroszyt',
+  appChangePassword: 'Zmień hasło',
+  appWorkbookPasswordChanged: 'Hasło skoroszytu zostało zaktualizowane.',
+  appEncryptedOpenTitle: 'Otwórz skoroszyt chroniony hasłem',
+  appEncryptedOpenCopy: 'Wprowadź hasło, aby odblokować ten skoroszyt.',
+  appEncryptedPasswordLabel: 'Hasło',
+  appEncryptedOpen: 'Otwórz',
+  appChangePasswordTitle: 'Zmień hasło skoroszytu',
+  appChangePasswordCopy: 'Wybierz nowe hasło i potwierdź je poniżej.',
+  appNewPasswordLabel: 'Nowe hasło',
+  appConfirmPasswordLabel: 'Potwierdź nowe hasło',
+  appPasswordsMismatch: 'Hasła nie są zgodne.',
+  appPasswordUpdateFailed: 'Nie udało się zaktualizować hasła skoroszytu.',
+  appPasswordUpdating: 'Aktualizowanie…',
+  appUpdatePassword: 'Aktualizuj hasło',
+  appWorkbookNotPasswordProtected: 'Ten skoroszyt nie jest chroniony hasłem otwarcia.',
   appAllowEditRanges: 'Zezwalaj na edytowanie zakresów',
   appGroupClipboard: 'Schowek',
   appPaste: 'Wklej',
@@ -1485,6 +1514,10 @@ export const pl = {
   appNotePicturesNone: 'Żadna notatka w tym skoroszycie nie zawiera obrazu.',
   appNotePictureUnavailable: 'Tego obrazu nie można wyświetlić.',
   appNotePicturesToggle: 'Obrazy notatek',
+  appNoteInsertPicture: 'Wstaw obraz',
+  appNotePictureInserted: 'Dodano obraz do notatki w {cell}. Zapisz, aby zapisać go w pliku.',
+  appNotePictureRemoved: 'Usunięto obraz z notatki w {cell}.',
+  appNotePictureRemove: 'Usuń obraz',
   appCommentsPaneTitle: 'Komentarze',
   appThreadReply: 'Odpowiedz',
   appThreadReplyPlaceholder: 'Odpowiedz…',

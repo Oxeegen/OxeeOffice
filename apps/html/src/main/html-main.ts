@@ -74,6 +74,7 @@ import {
 } from './asset-mime'
 import { buildPreviewDocument } from './preview-document'
 import { inlineImagesForSingleFile, singleFileExportBaseName } from './single-file-html'
+import { registerHtmlAiSearchIpc } from './ai-search-ipc'
 import {
   assetBaseHref,
   previewUrlFor,
@@ -172,6 +173,31 @@ const tDlg = createI18n({
     errImageNoText:
       'Tệp đính kèm hình ảnh không có văn bản; hình ảnh được gửi cùng với tin nhắn của người dùng',
     errNotImage: 'loại hình ảnh không được hỗ trợ',
+  },
+  tr: {
+    dlgSaveTitle: 'HTML belgesini kaydet',
+    filterHtml: 'HTML belgeleri',
+    dlgPickImage: 'Bir görsel seçin',
+    filterImages: 'Görseller',
+    untitledFile: 'Adsız',
+    closeUnsavedMsg: 'Bu belge kaydedilmemiş değişiklikler içeriyor.',
+    closeUnsavedDetail: 'Kapatmadan önce değişiklikleri kaydetmek istiyor musunuz?',
+    btnSave: 'Kaydet',
+    btnDontSave: 'Kaydetme',
+    btnCancel: 'İptal',
+    dlgAddAttachment: 'Ek dosya ekle',
+    filterSupported: 'Desteklenen dosyalar',
+    filterAll: 'Tüm dosyalar',
+    errUnsupportedExt: '.{ext} dosyaları desteklenmiyor',
+    errNotFile: 'bir dosya değil',
+    errTooLarge: '{mb}MB sınırını aşıyor',
+    errImageTooLarge: 'görsel 5MB sınırını aşıyor',
+    errUnreadable: 'okunamıyor',
+    errFileTooLarge: 'Dosya boyut sınırını aşıyor',
+    errParseFailed: 'Dosya ayrıştırılamadı',
+    errImageNoText:
+      'Görsel ekleri metin sağlamaz; görsel kullanıcının mesajıyla birlikte gönderilir',
+    errNotImage: 'desteklenmeyen görsel türü',
   },
   ja: {
     dlgSaveTitle: 'HTML ドキュメントを保存',
@@ -1991,6 +2017,8 @@ export function startHtmlStandalone(): void {
   void app.whenReady().then(() => {
     installRendererProtocol({ html: join(__dirname, '../renderer') })
     registerHtmlIpc()
+    // shell mode leaves the shared ai:* search channels to docs-main registerAiIpc
+    registerHtmlAiSearchIpc()
     const win = new BrowserWindow({
       width: 1200,
       height: 850,

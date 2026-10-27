@@ -1,6 +1,20 @@
 import type { zh } from './zh'
 
 export const he = {
+  // ── Withholding cells from the model ──
+  redactMenuLabel: 'הסתרת הבחירה מהמודל',
+  redactDialogDesc:
+    'הבחירה נשארת במסמך ובקובץ; המודל רואה רק את הסימון. תן לו שם כדי שיהיה ברור מה הוא מייצג.',
+  redactDialogScope:
+    'ההסתרה חלה רק על המודל באפליקציה הזו. CLI, כלי MCP וייצוא ללא ממשק קוראים את הקובץ ישירות ועדיין רואים את המילות האלה.',
+  redactDialogPlaceholder: 'שם הסימון, לדוגמה: טלפון הלקוח',
+  redactCancel: 'ביטול',
+  redactInsert: 'הסתר',
+  redactEnable: 'לחיצה ימנית על טקסט נבחר מסתיר אותו מהמודל.',
+  redactNeedsSavedRow: 'השורה הזו עדיין אינה בקובץ. שמור תחילה, ואז הסתר את התא.',
+  redactRecoveredFromNames:
+    'יישום אחר כתב מחדש את הקובץ הזה והשמיט את הרשומה של מה מוסתר. התאים המוסתרים שוחזרו מהשמות שבחוברת העבודה; שמירה משחזרת את הרשומה המלאה.',
+
   appMergeWorkbooks: 'מיזוג חוברות עבודה',
   appMergeWorkbooksTip: 'הוספת גיליונות מקובצי Excel אחרים לחוברת העבודה הזו',
   appMergeWorkbooksPicking: 'בחרו קבצים למיזוג…',
@@ -666,7 +680,6 @@ export const he = {
   appLinkPlaceholder: 'https://example.com או Sheet1!A1',
   appRemoveLink: 'הסר קישור',
   appNotAvailableYet: 'לא זמין עדיין',
-  appComingSoon: 'בקרוב',
   appGroupChartLayouts: 'פריסות תרשים',
   appAddChartElement: 'הוסף רכיב תרשים',
   appAddChartElementTitle: 'כותרות, תוויות נתונים, מקרא',
@@ -1214,6 +1227,21 @@ export const he = {
   appOpenFileFirst: 'פתח קובץ תחילה',
   appNoPassword: 'ללא סיסמה',
   appProtectWorkbook: 'הגן על חוברת עבודה',
+  appChangePassword: 'שינוי סיסמה',
+  appWorkbookPasswordChanged: 'סיסמת חוברת העבודה עודכנה.',
+  appEncryptedOpenTitle: 'פתיחת חוברת עבודה מוגנת בסיסמה',
+  appEncryptedOpenCopy: 'הזן את הסיסמה כדי לבטל את נעילת חוברת העבודה.',
+  appEncryptedPasswordLabel: 'סיסמה',
+  appEncryptedOpen: 'פתח',
+  appChangePasswordTitle: 'שינוי סיסמת חוברת העבודה',
+  appChangePasswordCopy: 'בחר סיסמה חדשה ואשר אותה למטה.',
+  appNewPasswordLabel: 'סיסמה חדשה',
+  appConfirmPasswordLabel: 'אישור הסיסמה החדשה',
+  appPasswordsMismatch: 'הסיסמאות אינן תואמות.',
+  appPasswordUpdateFailed: 'לא ניתן לעדכן את סיסמת חוברת העבודה.',
+  appPasswordUpdating: 'מעדכן…',
+  appUpdatePassword: 'עדכן סיסמה',
+  appWorkbookNotPasswordProtected: 'חוברת עבודה זו אינה מוגנת בסיסמת פתיחה.',
   appAllowEditRanges: 'אפשר עריכת טווחים',
   appGroupClipboard: 'לוח',
   appPaste: 'הדבק',
@@ -1397,6 +1425,10 @@ export const he = {
   appNotePicturesNone: 'אין פתק בחוברת העבודה הזאת שמציג תמונה.',
   appNotePictureUnavailable: 'לא ניתן להציג תמונה זו.',
   appNotePicturesToggle: 'תמונות פתקים',
+  appNoteInsertPicture: 'הוספת תמונה',
+  appNotePictureInserted: 'התמונה נוספה להערה ב-{cell}. שמור כדי לכתוב אותה לקובץ.',
+  appNotePictureRemoved: 'התמונה הוסרה מההערה ב-{cell}.',
+  appNotePictureRemove: 'הסרת תמונה',
   appCommentsPaneTitle: 'הערות',
   appThreadReply: 'השב',
   appThreadReplyPlaceholder: 'השב…',

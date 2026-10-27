@@ -1,6 +1,20 @@
 import type { zh } from './zh'
 
 export const ar = {
+  // ── Withholding cells from the model ──
+  redactMenuLabel: 'إخفاء التحديد عن الذكاء الاصطناعي',
+  redactDialogDesc:
+    'يبقى ما تختاره في المستند وفي الملف؛ يرى النموذج العلامة أدناه. سمِّها ليعرف ما تمثّله.',
+  redactDialogScope:
+    'الإخفاء يشمل الذكاء الاصطناعي في هذا التطبيق فقط. أما CLI وأدوات MCP والتصدير بدون واجهة فيقرأون الملف مباشرة، وما زالوا يرون هذه الكلمات.',
+  redactDialogPlaceholder: 'اسم العنصر، مثال: هاتف العميل',
+  redactCancel: 'إلغاء',
+  redactInsert: 'إخفاء',
+  redactEnable: 'انقر بزر الفأرة الأيمن على النص المحدد لإخفائه عن النموذج.',
+  redactNeedsSavedRow: 'هذا الصف ليس في الملف بعد. احفظ الملف أولاً ثم أخفِ الخلية.',
+  redactRecoveredFromNames:
+    'أعاد تطبيق آخر كتابة هذا الملف وأسقط سجل ما هو مخفي. استُعيدت الخلايا المخفية من الأسماء في المصنف؛ ويؤدي الحفظ إلى استعادة السجل الكامل.',
+
   appMergeWorkbooks: 'دمج المصنفات',
   appMergeWorkbooksTip: 'إضافة أوراق من ملفات Excel أخرى إلى هذا المصنف',
   appMergeWorkbooksPicking: 'اختر الملفات المراد دمجها…',
@@ -688,7 +702,6 @@ export const ar = {
   appLinkPlaceholder: 'مثل https://example.com أو Sheet1!A1',
   appRemoveLink: 'إزالة الارتباط',
   appNotAvailableYet: 'غير متوفر بعد',
-  appComingSoon: 'قريبًا',
   appGroupChartLayouts: 'تخطيطات المخططات',
   appAddChartElement: 'إضافة عنصر مخطط',
   appAddChartElementTitle: 'العناوين وتسميات البيانات ووسيلة الإيضاح',
@@ -1236,6 +1249,21 @@ export const ar = {
   appOpenFileFirst: 'افتح ملفًا أولاً',
   appNoPassword: 'بدون كلمة مرور',
   appProtectWorkbook: 'حماية المصنف',
+  appChangePassword: 'تغيير كلمة المرور',
+  appWorkbookPasswordChanged: 'تم تحديث كلمة مرور المصنف.',
+  appEncryptedOpenTitle: 'فتح مصنف محمي بكلمة مرور',
+  appEncryptedOpenCopy: 'أدخل كلمة المرور لإلغاء قفل هذا المصنف.',
+  appEncryptedPasswordLabel: 'كلمة المرور',
+  appEncryptedOpen: 'فتح',
+  appChangePasswordTitle: 'تغيير كلمة مرور المصنف',
+  appChangePasswordCopy: 'اختر كلمة مرور جديدة وأكّدها أدناه.',
+  appNewPasswordLabel: 'كلمة المرور الجديدة',
+  appConfirmPasswordLabel: 'تأكيد كلمة المرور الجديدة',
+  appPasswordsMismatch: 'كلمتا المرور غير متطابقتين.',
+  appPasswordUpdateFailed: 'تعذّر تحديث كلمة مرور المصنف.',
+  appPasswordUpdating: 'جارٍ التحديث…',
+  appUpdatePassword: 'تحديث كلمة المرور',
+  appWorkbookNotPasswordProtected: 'هذا المصنف غير محمي بكلمة مرور للفتح.',
   appAllowEditRanges: 'السماح بتحرير النطاقات',
   appGroupClipboard: 'الحافظة',
   appPaste: 'لصق',
@@ -1420,6 +1448,10 @@ export const ar = {
   appNotePicturesNone: 'لا توجد ملاحظة في هذا المصنف تعرض صورة.',
   appNotePictureUnavailable: 'تعذر عرض هذه الصورة.',
   appNotePicturesToggle: 'صور الملاحظات',
+  appNoteInsertPicture: 'إدراج صورة',
+  appNotePictureInserted: 'أُضيفت الصورة إلى التعليق في {cell}. احفظ لكتابتها في الملف.',
+  appNotePictureRemoved: 'أُزيلت الصورة من التعليق في {cell}.',
+  appNotePictureRemove: 'إزالة الصورة',
   appCommentsPaneTitle: 'التعليقات',
   appThreadReply: 'رد',
   appThreadReplyPlaceholder: 'رد…',

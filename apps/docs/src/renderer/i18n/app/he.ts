@@ -379,6 +379,7 @@ export const he = {
   appLangHindi: 'הינדית',
   appLangTraditionalChinese: 'סינית מסורתית',
   appLangVietnamese: 'וייטנאמית',
+  appLangTurkish: 'טורקית',
   appWrapTextMenu: 'גלישת טקסט',
   appViewImage: 'הצג תמונה',
   appSaveImageAs: 'שמור תמונה בשם…',
@@ -532,4 +533,7 @@ export const he = {
   appUpdateStyleTip: 'עדכון סגנון זה לפי הקטע המסומן הנוכחי (נכתב חזרה אל styles.xml)',
   appNewStyleFromSelection: 'סגנון חדש מהקטע המסומן הנוכחי',
   appStyleNamePlaceholder: 'שם הסגנון',
+  appMergeSourceLoaded: '{name} נטען ({n} רשומות)',
+  appMergeWritten: 'נכתבו {n} מסמכים',
+  appMergeNothingToWrite: 'אין מה לכתוב',
 } satisfies Record<keyof typeof zh, string>

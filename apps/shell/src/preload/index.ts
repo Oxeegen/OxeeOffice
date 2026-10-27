@@ -63,6 +63,7 @@ const UI_LANGUAGES: readonly UiLanguage[] = [
   'hi',
   'zh-TW',
   'vi',
+  'tr',
 ]
 
 function isUiLanguage(value: unknown): value is UiLanguage {
@@ -340,6 +341,14 @@ const homeApi: HomeApi = {
     if (channel !== 'stable' && channel !== 'beta') throw new Error('Invalid update channel.')
     await ipcRenderer.invoke(HOME_CHANNELS.setUpdateChannel, channel)
   },
+  async getAutoUpdateCheck() {
+    const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.getAutoUpdateCheck)
+    return result !== false
+  },
+  async setAutoUpdateCheck(on) {
+    if (typeof on !== 'boolean') throw new Error('Invalid update check setting.')
+    await ipcRenderer.invoke(HOME_CHANNELS.setAutoUpdateCheck, on)
+  },
   async accountStatus() {
     const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.accountStatus)
     return (result ?? { loggedIn: false }) as AccountStatus
@@ -423,6 +432,14 @@ const homeApi: HomeApi = {
   async setTabSleepEnabled(on) {
     if (typeof on !== 'boolean') throw new Error('Invalid tab sleep setting.')
     await ipcRenderer.invoke(HOME_CHANNELS.setTabSleepEnabled, on)
+  },
+  async getRestoreLastSession() {
+    const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.getRestoreLastSession)
+    return result === true
+  },
+  async setRestoreLastSession(on) {
+    if (typeof on !== 'boolean') throw new Error('Invalid restore session setting.')
+    await ipcRenderer.invoke(HOME_CHANNELS.setRestoreLastSession, on)
   },
   async setAutoSaveDefault(on) {
     if (typeof on !== 'boolean') throw new Error('Invalid AutoSave default.')

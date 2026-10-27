@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { DragEvent as ReactDragEvent, ReactElement } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type {
+  DragEvent as ReactDragEvent,
+  PointerEvent as ReactPointerEvent,
+  ReactElement,
+} from 'react'
 import logoLockup from './assets/genoffice-logo.svg'
 import { KbAskPanel } from './KbAskPanel'
 import { FileBadge } from './file-badge'
+import { placeFolderMenu } from './folder-menu-position'
 import type {
   AccountStatus,
   CloudProjectKind,
@@ -66,6 +71,19 @@ const DRAG_PATHS_MIME = 'application/x-genoffice-paths'
 const DRAG_EXPAND_DELAY_MS = 600
 /** expanded folders survive a home reload; the selection is per session */
 const TREE_STATE_KEY = 'home.folderTree'
+/** user-dragged sidebar width; unset keeps the stylesheet's default (genoffice#2169) */
+const SIDEBAR_WIDTH_KEY = 'home.sidebarWidth'
+const SIDEBAR_MIN_WIDTH = 180
+const SIDEBAR_MAX_WIDTH = 480
+
+function readSidebarWidth(): number | null {
+  try {
+    const n = Number(localStorage.getItem(SIDEBAR_WIDTH_KEY))
+    return n >= SIDEBAR_MIN_WIDTH && n <= SIDEBAR_MAX_WIDTH ? n : null
+  } catch {
+    return null
+  }
+}
 
 /**
  * Width of the viewport that `position: fixed` elements anchor to. The layout
@@ -1482,6 +1500,8 @@ export function Home() {
   /** sidebar Recent / Starred counts under the active type filter */
   const [navCounts, setNavCounts] = useState({ recent: 0, starred: 0 })
   const [loadingMore, setLoadingMore] = useState(false)
+  const [sidebarWidth, setSidebarWidth] = useState(readSidebarWidth)
+  const sidebarRef = useRef<HTMLElement>(null)
   const [view, setView] = useState<'recent' | 'starred'>('recent')
   // Genspark web projects take over the content area (like a selected folder)
   const [cloudMode, setCloudMode] = useState(false)
@@ -1567,12 +1587,15 @@ export function Home() {
   const [folderMenu, setFolderMenu] = useState<{
     path: string
     where: 'tree' | 'table'
-    top: number
-    right: number
+    x: number
+    y: number
+    above: number
+    align: 'start' | 'end'
   } | null>(null)
   const menuOpenAt = (where: 'tree' | 'table', path: string) =>
     folderMenu?.where === where && folderMenu.path === path
   const folderMenuWrapRef = useRef<HTMLDivElement>(null)
+  const folderMenuPopRef = useRef<HTMLDivElement>(null)
   const [folderRenaming, setFolderRenaming] = useState<{
     path: string
     where: 'tree' | 'table'
@@ -1837,6 +1860,18 @@ export function Home() {
     const close = () => setFolderMenu(null)
     window.addEventListener('scroll', close, true)
     return () => window.removeEventListener('scroll', close, true)
+  }, [folderMenu])
+  // open to the right of the anchor, flipped above when short of room below, clamped to the viewport
+  useLayoutEffect(() => {
+    const el = folderMenuPopRef.current
+    if (!folderMenu || !el) return
+    const { left, top } = placeFolderMenu(
+      folderMenu,
+      { width: el.offsetWidth, height: el.offsetHeight },
+      { width: fixedViewportWidth(), height: document.documentElement.clientHeight },
+    )
+    el.style.left = `${left}px`
+    el.style.top = `${top}px`
   }, [folderMenu])
 
   // Escape closes the row menu and the confirm dialogs
@@ -2343,19 +2378,17 @@ export function Home() {
           setFolderMenu({
             path: entry.path,
             where: 'tree',
-            top: rect.bottom + 4,
-            right: fixedViewportWidth() - rect.right,
+            x: rect.right,
+            y: rect.bottom + 4,
+            above: rect.top - 4,
+            align: 'end',
           })
         }}
       >
         <MoreDots />
       </button>
       {folderMenu && menuOpenAt('tree', entry.path) && (
-        <div
-          className="folder-menu"
-          role="menu"
-          style={{ top: folderMenu.top, right: folderMenu.right }}
-        >
+        <div className="folder-menu" role="menu" ref={folderMenuPopRef}>
           {editableAt(entry.path) && (
             <button role="menuitem" onClick={() => startCreateFolder(entry.path)}>
               {t('newSubfolder')}
@@ -2473,8 +2506,10 @@ export function Home() {
             setFolderMenu({
               path: entry.path,
               where: 'tree',
-              top: e.clientY + 2,
-              right: fixedViewportWidth() - e.clientX,
+              x: e.clientX + 2,
+              y: e.clientY + 2,
+              above: e.clientY + 2,
+              align: 'start',
             })
           }}
           draggable={!isRoot && !isRenaming}
@@ -2830,8 +2865,10 @@ export function Home() {
             setFolderMenu({
               path: entry.path,
               where: 'table',
-              top: e.clientY + 2,
-              right: fixedViewportWidth() - e.clientX,
+              x: e.clientX + 2,
+              y: e.clientY + 2,
+              above: e.clientY + 2,
+              align: 'start',
             })
           }}
         >
@@ -2882,19 +2919,17 @@ export function Home() {
                 setFolderMenu({
                   path: entry.path,
                   where: 'table',
-                  top: rect.bottom + 4,
-                  right: fixedViewportWidth() - rect.right,
+                  x: rect.right,
+                  y: rect.bottom + 4,
+                  above: rect.top - 4,
+                  align: 'end',
                 })
               }}
             >
               <MoreDots />
             </button>
             {folderMenu && menuOpenAt('table', entry.path) && (
-              <div
-                className="folder-menu"
-                role="menu"
-                style={{ top: folderMenu.top, right: folderMenu.right }}
-              >
+              <div className="folder-menu" role="menu" ref={folderMenuPopRef}>
                 <button
                   role="menuitem"
                   onClick={() => {
@@ -3406,15 +3441,49 @@ export function Home() {
       return parent?.folders.some((f) => f.path === p) ?? false
     })
 
+  const activeNav = !selectedFolder && !cloudMode ? (askMode ? 'ask' : view) : null
+
+  const onSidebarResizeStart = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const startX = e.clientX
+    const startW = sidebarRef.current?.getBoundingClientRect().width ?? SIDEBAR_MIN_WIDTH
+    const sign = getComputedStyle(e.currentTarget).direction === 'rtl' ? -1 : 1
+    const el = e.currentTarget
+    el.setPointerCapture(e.pointerId)
+    let next = startW
+    const move = (ev: PointerEvent) => {
+      next = Math.min(
+        SIDEBAR_MAX_WIDTH,
+        Math.max(SIDEBAR_MIN_WIDTH, startW + sign * (ev.clientX - startX)),
+      )
+      setSidebarWidth(next)
+    }
+    const up = () => {
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerup', up)
+      try {
+        localStorage.setItem(SIDEBAR_WIDTH_KEY, String(Math.round(next)))
+      } catch {
+        // quota / private mode: the width lasts for this session only
+      }
+    }
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', up)
+  }
+
   return (
     <div className="home">
-      <aside className="sidebar">
+      <aside
+        className="sidebar"
+        ref={sidebarRef}
+        style={sidebarWidth === null ? undefined : { width: sidebarWidth }}
+      >
         <div className="sidebar-logo">
           <img className="logo-lockup" src={logoLockup} alt="GenOffice" />
         </div>
         <nav className="sidebar-nav">
           <button
-            className={`nav-item${view === 'recent' && !selectedFolder && !cloudMode ? ' active' : ''}`}
+            className={`nav-item${activeNav === 'recent' ? ' active' : ''}`}
+            aria-current={activeNav === 'recent' ? 'page' : undefined}
             onClick={() => changeView('recent')}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -3430,7 +3499,8 @@ export function Home() {
             <span className="nav-count">{navCounts.recent}</span>
           </button>
           <button
-            className={`nav-item${view === 'starred' && !selectedFolder && !cloudMode ? ' active' : ''}`}
+            className={`nav-item${activeNav === 'starred' ? ' active' : ''}`}
+            aria-current={activeNav === 'starred' ? 'page' : undefined}
             onClick={() => changeView('starred')}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -3445,7 +3515,8 @@ export function Home() {
             <span className="nav-count">{navCounts.starred}</span>
           </button>
           <button
-            className={`nav-item${askMode && !selectedFolder && !cloudMode ? ' active' : ''}`}
+            className={`nav-item${activeNav === 'ask' ? ' active' : ''}`}
+            aria-current={activeNav === 'ask' ? 'page' : undefined}
             onClick={() => {
               setAskMode(true)
               setSelectedFolder(null)
@@ -3517,6 +3588,7 @@ export function Home() {
           openRequest={settingsRequest}
         />
       </aside>
+      <div className="sidebar-resizer" onPointerDown={onSidebarResizeStart} />
       {selectedFolder && rootOf(selectedFolder, roots)?.readable ? (
         renderFolderContent()
       ) : askMode ? (

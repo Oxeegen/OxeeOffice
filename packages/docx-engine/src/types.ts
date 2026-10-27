@@ -293,6 +293,14 @@ export interface SdtShell {
   /** programmatic tag (w:sdtPr/w:tag @w:val), may be empty */
   tag: string
   /**
+   * lock state (w:sdtPr/w:lock @w:val): 'sdtLocked' (the control cannot be
+   * deleted), 'contentLocked' (its content cannot be edited),
+   * 'sdtContentLocked' (both) or 'unlocked'; empty when the control has no lock
+   */
+  lock: string
+  /** control id (w:sdtPr/w:id @w:val), empty when the control carries none */
+  id: string
+  /**
    * control type: 'text' = plain/rich text, 'date' = date picker,
    * 'dropdown' = drop-down list/combo box, 'checkbox' = Word 2013 checkbox,
    * 'unknown' = unrecognised sdtPr content
@@ -1521,6 +1529,15 @@ export interface NewImage {
    */
   posOffsetEmu?: { x: number; y: number; relativeTo?: 'page' | 'margin' }
   /**
+   * margin-relative align pair (Word position-gallery presets; only with
+   * `wrap`): written as <wp:align> relative to the margin box — the same
+   * bytes the original-image patch path (imagePatchOf.posH/posV) produces.
+   * Ignored when `posOffsetEmu` is set (numeric offsets win, like the patch
+   * path); needs both axes to take effect.
+   */
+  posH?: 'left' | 'center' | 'right'
+  posV?: 'top' | 'center' | 'bottom'
+  /**
    * stacking rank among anchored drawings (only with `wrap`): written as
    * relativeHeight base + zOrder, so overlapping behindDoc anchors keep a
    * deterministic paint order (higher = in front). Absent = base value.
@@ -1774,11 +1791,21 @@ export interface Block {
   paraMarkDel?: { author: string; date?: string; dateUtc?: string; id?: string }
   /** Tracked insertion of the paragraph mark (w:pPr/w:rPr/w:ins): rejecting joins the paragraph into the next one. */
   paraMarkIns?: { author: string; date?: string; dateUtc?: string; id?: string }
+  /** Tracked formatting change of the paragraph mark (w:pPr/w:rPr/w:rPrChange). */
+  paraMarkRPrChange?: { author: string; date?: string; dateUtc?: string; id?: string }
 }
 
 /** numbering marker of a textbox paragraph, resolved at parse time (display only) */
 export interface TextboxListMarker {
   text: string
+  /** list identity for save-back (w:numPr): which numbering definition this
+   * marker comes from; absent on synthesized/edited markers is fine — the
+   * editor sets it when the user toggles a list inside the box */
+  numId?: string
+  ilvl?: number
+  /** 'bullet' | 'ordered', from the numbering level's numFmt; drives the
+   * sub-editor's list toggle state */
+  kind?: 'bullet' | 'ordered'
   /** bullet declared in a symbol-encoded font: drawn with the substitute-glyph styling */
   symbol?: boolean
   /** picture bullet (w:lvlPicBulletId): data URL drawn in place of the text */
@@ -1991,6 +2018,8 @@ export interface GeneratedBlock {
   /** JSON paragraph-mark revision; null = accepted/rejected, strip the w:del / w:ins from the mark's rPr */
   paraMarkDel?: string | null
   paraMarkIns?: string | null
+  /** null = accepted (record dropped); JSON with resolved:'reject' = the old mark rPr comes back */
+  paraMarkRPrChange?: string | null
   /** Used by editor dirty detection; SaveBlock carries the actual wrapper metadata. */
   blockRevision?: ({ kind: 'ins' | 'del' } & RevisionInfo) | null
 }

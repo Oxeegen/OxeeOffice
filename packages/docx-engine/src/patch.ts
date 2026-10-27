@@ -79,6 +79,7 @@ import type {
   SdtShell,
   SectionSettings,
   SourceInfo,
+  StyleInfo,
   ThemeColors,
   ThemeFonts,
 } from './types'
@@ -86,6 +87,7 @@ import { PAGE_MARK, TOTAL_PAGES_MARK } from './types'
 import { patchParagraphTexts } from './text-patch'
 import { balanceFieldChars } from './field-balance'
 import {
+  builtInHeadingStyleUpsert,
   mergeDefaultFontsXml,
   upsertStyleXml,
   type DefaultFonts,
@@ -101,6 +103,11 @@ import {
   type Watermark,
 } from './watermark'
 import { escapeXmlAttr, escapeXmlText } from './xml-utils'
+import {
+  buildContentControlXml,
+  nextContentControlId,
+  type ContentControlSpec,
+} from './content-control'
 import {
   CUSTOM_PROPERTIES_CONTENT_TYPE,
   CUSTOM_PROPERTIES_PATH,
@@ -344,6 +351,13 @@ export const nextFreeRelId = (relsXml: string): string => {
 
 export type ParsedDocFull = ParsedDoc & { extras: ParseExtras }
 
+/** the original body block a save block came from, when it has one */
+function saveBlockDocxIndex(fb: SaveBlock): number | undefined {
+  if (fb.kind === 'original') return fb.docxIndex
+  if (fb.kind === 'generated' || fb.kind === 'xml') return fb.docxIndex
+  return undefined
+}
+
 /** Body content in final editor order (hidden trailing elements are appended automatically). */
 export type SaveBlock = (
   | { kind: 'original'; docxIndex: number }
@@ -374,6 +388,18 @@ export type SaveBlock = (
 export interface SaveOptions {
   /** save timestamp (ISO), written to docProps/core.xml dcterms:modified; default = now */
   savedAt?: string
+  /**
+   * Block-level content controls (w:sdt) for the saved body. `wrap` puts the
+   * listed body blocks into one new control (the blocks stay individually
+   * editable), `unwrap` removes the wrapper of the control with that tag and
+   * leaves its blocks as plain body children.
+   */
+  contentControls?: {
+    wrap?: Array<{ docxIndexes: number[]; spec: ContentControlSpec }>
+    unwrap?: Array<{ tag: string }>
+  }
+  /** first revision id the save may mint; a caller that assigned ids itself passes the one after its last */
+  revisionIdFloor?: number
   /** total page count at save time: the cached result written into NUMPAGES fields (viewers that do not recompute fields show it); default 1 */
   pageCount?: number
   /** bytes of pictures the editor placed inside existing paragraphs (table cells),
@@ -654,13 +680,41 @@ function patchCoreProps(xml: string, savedAt?: string): string | null {
   return out === xml ? null : out
 }
 
+/** the paragraph style unstyled paragraphs resolve to (w:default), by id */
+function defaultParagraphStyleId(styles: ReadonlyMap<string, StyleInfo>): string | undefined {
+  for (const info of styles.values())
+    if (info.type === 'paragraph' && info.isDefault) return info.styleId
+  return undefined
+}
+
+/**
+ * Heading levels the generated body uses that the document has no heading
+ * style for. An explicit styleId (a custom heading style) and an outline-only
+ * heading (written as w:outlineLvl) carry themselves.
+ */
+export function missingHeadingLevels(
+  blocks: readonly SaveBlock[],
+  headingStyleIds: ReadonlyMap<number, string>,
+): number[] {
+  const missing = new Set<number>()
+  for (const fb of blocks) {
+    if (fb.kind !== 'generated') continue
+    const { block } = fb
+    if (block.type !== 'heading' || block.outlineOnly || block.styleId) continue
+    const level = Math.min(Math.max(block.level ?? 1, 1), 9)
+    if (!headingStyleIds.has(level)) missing.add(level)
+  }
+  return [...missing].sort((a, b) => a - b)
+}
+
 /**
  * Paragraph-patch save.
  *
  * - Blocks marked 'original' are copied as the exact substring of the original
  *   word/document.xml (byte-for-byte after UTF-8 re-encode).
  * - Blocks marked 'generated' become fresh OOXML fragments referencing only
- *   styles that already exist in the document.
+ *   styles that exist in the document — a heading level the document has no
+ *   style for gets Word's built-in definition added to word/styles.xml.
  * - 'xml' blocks are self-contained fragments inserted verbatim; 'image' blocks
  *   additionally add media entries and relationships.
  * - Every other zip entry is copied without modification.
@@ -716,6 +770,7 @@ export async function saveDocx(
     options.themeFonts === undefined &&
     options.themeColors === undefined &&
     options.properties === undefined &&
+    options.contentControls === undefined &&
     (options.partXml === undefined || Object.keys(options.partXml).length === 0) &&
     (options.partBinary === undefined || Object.keys(options.partBinary).length === 0)
   if (isUnchanged && !scrubPersonalInfo) return originalBytes
@@ -769,12 +824,27 @@ export async function saveDocx(
     return rId
   }
 
+  // A heading the editor made in a document whose styles.xml has no heading
+  // style for that level (converter output, lean generators) would otherwise
+  // save as a bare paragraph and reopen as body text: the generator writes a
+  // heading as its level's style reference, and the gallery/AI leave styleId
+  // empty for a level the document does not define. Create Word's built-in
+  // definition for each such level so the paragraph carries it.
+  const headingStyleIds = new Map(parsed.headingStyleIds)
+  const headingUpserts: StyleUpsert[] = []
+  for (const level of missingHeadingLevels(finalBlocks, headingStyleIds)) {
+    const up = builtInHeadingStyleUpsert(level, defaultParagraphStyleId(parsed.styles))
+    headingUpserts.push(up)
+    headingStyleIds.set(level, up.styleId)
+  }
+  const styleUpserts = [...(options.styleUpserts ?? []), ...headingUpserts]
+
   const genCtx = {
-    headingStyleIds: parsed.headingStyleIds,
+    headingStyleIds,
     listParagraphStyleId: parsed.listParagraphStyleId,
     allocateHyperlinkRel,
     allocateBookmarkId: nextBookmarkIdAllocator(documentXml),
-    allocateRevisionId: nextRevisionIdAllocator(documentXml),
+    allocateRevisionId: nextRevisionIdAllocator(documentXml, options.revisionIdFloor),
   }
 
   const newMedia: Array<{ path: string; base64: string }> = []
@@ -846,8 +916,15 @@ export async function saveDocx(
     const pPr = spacing || jc ? `<w:pPr>${spacing}${jc}</w:pPr>` : ''
     const drawing = inlinePictureDrawingXml({ ...image, rId, docPrId })
     const xml = `<w:p>${pPr}<w:r>${drawing}</w:r></w:p>`
+    // posH/posV are the margin-relative align pair (Word position presets);
+    // applyImageWrap itself prefers posOffset when both are set, mirroring the
+    // original-image patch path (imagePatchOf)
+    const marginAlign =
+      image.posOffsetEmu === undefined && image.posH && image.posV
+        ? { h: image.posH, v: image.posV }
+        : undefined
     return image.wrap
-      ? applyImageWrap(xml, image.wrap, image.posOffsetEmu, undefined, image.zOrder)
+      ? applyImageWrap(xml, image.wrap, image.posOffsetEmu, marginAlign, image.zOrder)
       : xml
   }
   /** Pictures the editor inserted into existing paragraphs (table cells) carry
@@ -1311,13 +1388,13 @@ export async function saveDocx(
   // ---- styles: surgical upsert of word/styles.xml (create/modify styles) ----
   const stylesPath = 'word/styles.xml'
   let stylesXmlOut: string | null = null
-  if ((options.styleUpserts?.length ?? 0) > 0 || options.defaultFonts !== undefined) {
+  if (styleUpserts.length > 0 || options.defaultFonts !== undefined) {
     const file = zip.file(stylesPath)
     let xml = file
       ? await file.async('string')
       : '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n' +
         '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"></w:styles>'
-    for (const up of options.styleUpserts ?? []) xml = upsertStyleXml(xml, up)
+    for (const up of styleUpserts) xml = upsertStyleXml(xml, up)
     stylesXmlOut = options.defaultFonts ? mergeDefaultFontsXml(xml, options.defaultFonts) : xml
   }
 
@@ -1523,6 +1600,42 @@ export async function saveDocx(
     }
   }
 
+  // Block-level content controls: a new control wraps the blocks of one range,
+  // an unwrap drops the wrapper of the control with that tag. Both work on the
+  // emitted bytes, so the blocks inside stay individually editable.
+  const unwrapTags = new Set((options.contentControls?.unwrap ?? []).map((u) => u.tag))
+  // an edited block saves as its original xml (shell bytes included), so the
+  // shell is stripped by content, whichever block kind carries it
+  const unwrapShells = parsed.blocks
+    .map((b) => b.sdtShell)
+    .filter((shell): shell is NonNullable<typeof shell> => !!shell && unwrapTags.has(shell.tag))
+  const stripUnwrappedShell = (xml: string): string => {
+    for (const shell of unwrapShells) {
+      if (shell.openXml && xml.startsWith(shell.openXml)) xml = xml.slice(shell.openXml.length)
+      if (shell.closeXml && xml.endsWith(shell.closeXml))
+        xml = xml.slice(0, xml.length - shell.closeXml.length)
+    }
+    return xml
+  }
+  let nextControlId = nextContentControlId(documentXml)
+  const controlWraps = (options.contentControls?.wrap ?? []).map((w) => {
+    const shell = buildContentControlXml({
+      ...w.spec,
+      id: w.spec.id ?? String(nextControlId++),
+    })
+    const indexes = new Set(w.docxIndexes)
+    // the first and the last emitted block of the range carry the wrapper
+    let first = -1
+    let last = -1
+    for (let i = 0; i < finalBlocks.length; i++) {
+      const docxIndex = saveBlockDocxIndex(finalBlocks[i]!)
+      if (docxIndex === undefined || !indexes.has(docxIndex)) continue
+      if (first === -1) first = i
+      last = i
+    }
+    return { indexes, shell, first, last }
+  })
+
   const parts: string[] = [...detachedOpaque]
   for (let i = 0; i < finalBlocks.length; i++) {
     const fb = finalBlocks[i]
@@ -1533,15 +1646,17 @@ export async function saveDocx(
       if (!el) throw new Error(`invalid docxIndex ${fb.docxIndex}`)
       xml = documentXml.slice(el.start, el.end)
       fbDocxIndex = fb.docxIndex
+      if (unwrapShells.length > 0) xml = stripUnwrappedShell(xml)
     } else if (fb.kind === 'generated') {
       if (fb.docxIndex !== undefined) fbDocxIndex = fb.docxIndex
       xml = generateParagraphXml(fb.block, genCtx)
       // If the original paragraph was inside a w:sdt shell, re-wrap it
-      if (fb.block.sdtShell) {
-        xml = fb.block.sdtShell.openXml + xml + fb.block.sdtShell.closeXml
+      const shell = fb.block.sdtShell
+      if (shell && !unwrapTags.has(shell.tag)) {
+        xml = shell.openXml + xml + shell.closeXml
       }
     } else if (fb.kind === 'xml') {
-      xml = fb.xml
+      xml = unwrapShells.length > 0 ? stripUnwrappedShell(fb.xml) : fb.xml
       fbDocxIndex = fb.docxIndex
       if (fb.replaceImage) xml = retargetImageBlip(xml, embedImageMedia(fb.replaceImage))
     } else if (fb.kind === 'chart') {
@@ -1586,6 +1701,12 @@ export async function saveDocx(
       const leadingOpaque = (opaqueBefore.get(fbDocxIndex) ?? []).join('')
       const trailingOpaque = (opaqueAfter.get(fbDocxIndex) ?? []).join('')
       if (leadingOpaque || trailingOpaque) xml = leadingOpaque + xml + trailingOpaque
+    }
+    // a new block-level content control opens before the first block of its
+    // range and closes after the last one
+    for (const wrap of controlWraps) {
+      if (wrap.first === i) xml = wrap.shell.openXml + xml
+      if (wrap.last === i) xml = xml + wrap.shell.closeXml
     }
     parts.push(xml)
   }
@@ -2843,8 +2964,8 @@ function nextBookmarkIdAllocator(documentXml: string): (name: string) => number 
 }
 
 /** revision w:id is unique across every annotation in the part, so start above all existing ids */
-function nextRevisionIdAllocator(documentXml: string): () => string {
-  let next = 9001
+function nextRevisionIdAllocator(documentXml: string, floor = 0): () => string {
+  let next = Math.max(9001, floor)
   for (const m of documentXml.matchAll(/\bw:id\s*=\s*["'](\d+)["']/g))
     next = Math.max(next, parseInt(m[1], 10) + 1)
   return () => String(next++)

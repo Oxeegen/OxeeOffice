@@ -1,6 +1,21 @@
 import type { zh } from './zh'
 
 export const pt = {
+  // ── Withholding cells from the model ──
+  redactMenuLabel: 'Ocultar a seleção da IA',
+  redactDialogDesc:
+    'O conteúdo selecionado continua no documento e no arquivo; o modelo vê apenas o marcador. Dê-lhe um nome para que saiba o que representa.',
+  redactDialogScope:
+    'Isso se aplica apenas à IA deste aplicativo. A CLI, as ferramentas MCP e a exportação sem interface leem o arquivo diretamente e ainda veem essas palavras.',
+  redactDialogPlaceholder: 'Nome do marcador, ex.: telefone do cliente',
+  redactCancel: 'Cancelar',
+  redactInsert: 'Ocultar',
+  redactEnable: 'Clique com o botão direito numa seleção para ocultá-la do modelo.',
+  redactNeedsSavedRow:
+    'Esta linha ainda não está no ficheiro. Guarde primeiro e depois oculte a célula.',
+  redactRecoveredFromNames:
+    'Outra aplicação reescreveu este ficheiro e descartou o registo do que está oculto. As células ocultas foram recuperadas a partir dos nomes na pasta de trabalho; guardar restaura o registo completo.',
+
   appMergeWorkbooks: 'Mesclar pastas de trabalho',
   appMergeWorkbooksTip: 'Adicionar planilhas de outros arquivos do Excel a esta pasta de trabalho',
   appMergeWorkbooksPicking: 'Escolha os arquivos para mesclar…',
@@ -759,7 +774,6 @@ export const pt = {
   appLinkPlaceholder: 'https://example.com ou Sheet1!A1',
   appRemoveLink: 'Remover Link',
   appNotAvailableYet: 'Ainda não disponível',
-  appComingSoon: 'Em breve',
   appGroupChartLayouts: 'Layouts de gráfico',
   appAddChartElement: 'Adicionar Elemento de Gráfico',
   appAddChartElementTitle: 'Títulos, rótulos de dados, legenda',
@@ -1310,6 +1324,22 @@ export const pt = {
   appOpenFileFirst: 'Abra um arquivo primeiro',
   appNoPassword: 'Sem senha',
   appProtectWorkbook: 'Proteger Pasta de Trabalho',
+  appChangePassword: 'Alterar Senha',
+  appWorkbookPasswordChanged: 'A senha da pasta de trabalho foi atualizada.',
+  appEncryptedOpenTitle: 'Abrir pasta de trabalho protegida por senha',
+  appEncryptedOpenCopy: 'Digite a senha para desbloquear esta pasta de trabalho.',
+  appEncryptedPasswordLabel: 'Senha',
+  appEncryptedOpen: 'Abrir',
+  appChangePasswordTitle: 'Alterar a senha da pasta de trabalho',
+  appChangePasswordCopy: 'Escolha uma nova senha e confirme-a abaixo.',
+  appNewPasswordLabel: 'Nova senha',
+  appConfirmPasswordLabel: 'Confirmar nova senha',
+  appPasswordsMismatch: 'As senhas não coincidem.',
+  appPasswordUpdateFailed: 'Não foi possível atualizar a senha da pasta de trabalho.',
+  appPasswordUpdating: 'Atualizando…',
+  appUpdatePassword: 'Atualizar senha',
+  appWorkbookNotPasswordProtected:
+    'Esta pasta de trabalho não está protegida por uma senha de abertura.',
   appAllowEditRanges: 'Permitir Edição de Intervalos',
   appGroupClipboard: 'Área de Transferência',
   appPaste: 'Colar',
@@ -1499,6 +1529,10 @@ export const pt = {
   appNotePicturesNone: 'Nenhuma anotação desta pasta de trabalho exibe uma imagem.',
   appNotePictureUnavailable: 'Não é possível exibir esta imagem.',
   appNotePicturesToggle: 'Imagens das anotações',
+  appNoteInsertPicture: 'Inserir imagem',
+  appNotePictureInserted: 'Imagem adicionada à nota em {cell}. Salve para gravá-la no ficheiro.',
+  appNotePictureRemoved: 'Imagem removida da nota em {cell}.',
+  appNotePictureRemove: 'Remover imagem',
   appCommentsPaneTitle: 'Comentários',
   appThreadReply: 'Responder',
   appThreadReplyPlaceholder: 'Responder…',

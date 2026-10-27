@@ -382,6 +382,7 @@ export const ar = {
   appLangHindi: 'الهندية',
   appLangTraditionalChinese: 'الصينية التقليدية',
   appLangVietnamese: 'الفيتنامية',
+  appLangTurkish: 'التركية',
   appWrapTextMenu: 'التفاف النص',
   appViewImage: 'عرض الصورة',
   appSaveImageAs: 'حفظ الصورة باسم…',
@@ -535,4 +536,7 @@ export const ar = {
   appUpdateStyleTip: 'تحديث هذا النمط بتنسيق التحديد الحالي (يُكتب مرة أخرى في styles.xml)',
   appNewStyleFromSelection: 'نمط جديد من التحديد الحالي',
   appStyleNamePlaceholder: 'اسم النمط',
+  appMergeSourceLoaded: 'تم تحميل {name} ({n} سجلًا)',
+  appMergeWritten: 'تمت كتابة {n} مستندًا',
+  appMergeNothingToWrite: 'لا يوجد ما يكتب',
 } satisfies Record<keyof typeof zh, string>

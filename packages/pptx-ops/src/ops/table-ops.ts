@@ -289,11 +289,11 @@ function resolveTableStyle(op: Op): ResolvedTableStyle {
   if (
     op.shadingColor != null &&
     op.shadingColor !== 'none' &&
-    !HEX_RE.test(String(op.shadingColor))
+    !HEX_RE.test(String(op.shadingColor).trim())
   ) {
     throw new GuidedError('op "setTableStyle": shadingColor must be #RRGGBB or "none".')
   }
-  if (op.borderColor != null && !HEX_RE.test(String(op.borderColor))) {
+  if (op.borderColor != null && !HEX_RE.test(String(op.borderColor).trim())) {
     throw new GuidedError('op "setTableStyle": borderColor must be #RRGGBB.')
   }
   if (op.borderWidthPt != null) {
@@ -319,8 +319,8 @@ function resolveTableStyle(op: Op): ResolvedTableStyle {
       ...(op.bandCol != null ? { bandCol: Boolean(op.bandCol) } : {}),
       ...(op.bandRow != null ? { bandRow: Boolean(op.bandRow) } : {}),
       ...(op.rtl != null ? { rtl: Boolean(op.rtl) } : {}),
-      ...(op.shadingColor != null ? { shadingColor: String(op.shadingColor) } : {}),
-      ...(op.borderColor != null ? { borderColor: String(op.borderColor) } : {}),
+      ...(op.shadingColor != null ? { shadingColor: String(op.shadingColor).trim() } : {}),
+      ...(op.borderColor != null ? { borderColor: String(op.borderColor).trim() } : {}),
       ...(op.borderWidthPt != null
         ? { borderWidthEmu: Math.round(Number(op.borderWidthPt) * EMU_PER_PT) }
         : {}),

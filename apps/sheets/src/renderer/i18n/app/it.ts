@@ -1,6 +1,20 @@
 import type { zh } from './zh'
 
 export const it = {
+  // ── Withholding cells from the model ──
+  redactMenuLabel: 'Nascondi la selezione all’IA',
+  redactDialogDesc:
+    'Il contenuto selezionato resta nel documento e nel file; il modello vede solo il segnaposto. Dai un nome perché sappia cosa rappresenta.',
+  redactDialogScope:
+    'Nascondere vale solo per l’IA di questa app. La CLI, gli strumenti MCP e l’esportazione senza interfaccia leggono direttamente il file e vedono comunque queste parole.',
+  redactDialogPlaceholder: 'Nome del segnaposto, es. telefono del cliente',
+  redactCancel: 'Annulla',
+  redactInsert: 'Nascondi',
+  redactEnable: 'Clic destro su una selezione per nasconderla al modello.',
+  redactNeedsSavedRow: 'Questa riga non è ancora nel file. Salva prima, poi nascondi la cella.',
+  redactRecoveredFromNames:
+    "Un'altra app ha riscritto questo file e ha perso il registro di ciò che è nascosto. Le celle nascoste sono state recuperate dai nomi del foglio di lavoro; salvando il file viene ripristinato il registro completo.",
+
   appMergeWorkbooks: 'Unisci cartelle di lavoro',
   appMergeWorkbooksTip: 'Aggiungi i fogli di altri file Excel a questa cartella di lavoro',
   appMergeWorkbooksPicking: 'Scegli i file da unire…',
@@ -758,7 +772,6 @@ export const it = {
   appLinkPlaceholder: 'https://example.com o Sheet1!A1',
   appRemoveLink: 'Rimuovi collegamento',
   appNotAvailableYet: 'Non ancora disponibile',
-  appComingSoon: 'Prossimamente',
   appGroupChartLayouts: 'Layout grafici',
   appAddChartElement: 'Aggiungi elemento grafico',
   appAddChartElementTitle: 'Titoli, etichette dati, legenda',
@@ -1310,6 +1323,22 @@ export const it = {
   appOpenFileFirst: 'Apri prima un file',
   appNoPassword: 'Nessuna password',
   appProtectWorkbook: 'Proteggi cartella di lavoro',
+  appChangePassword: 'Cambia password',
+  appWorkbookPasswordChanged: 'La password della cartella di lavoro è stata aggiornata.',
+  appEncryptedOpenTitle: 'Apri cartella di lavoro protetta da password',
+  appEncryptedOpenCopy: 'Inserisci la password per sbloccare questa cartella di lavoro.',
+  appEncryptedPasswordLabel: 'Password',
+  appEncryptedOpen: 'Apri',
+  appChangePasswordTitle: 'Cambia la password della cartella di lavoro',
+  appChangePasswordCopy: 'Scegli una nuova password e confermala qui sotto.',
+  appNewPasswordLabel: 'Nuova password',
+  appConfirmPasswordLabel: 'Conferma nuova password',
+  appPasswordsMismatch: 'Le password non corrispondono.',
+  appPasswordUpdateFailed: 'Impossibile aggiornare la password della cartella di lavoro.',
+  appPasswordUpdating: 'Aggiornamento…',
+  appUpdatePassword: 'Aggiorna password',
+  appWorkbookNotPasswordProtected:
+    'Questa cartella di lavoro non è protetta da una password di apertura.',
   appAllowEditRanges: 'Consenti modifica intervalli',
   appGroupClipboard: 'Appunti',
   appPaste: 'Incolla',
@@ -1499,6 +1528,10 @@ export const it = {
   appNotePicturesNone: "Nessuna nota di questa cartella di lavoro contiene un'immagine.",
   appNotePictureUnavailable: 'Non è possibile mostrare questa immagine.',
   appNotePicturesToggle: 'Immagini delle note',
+  appNoteInsertPicture: 'Inserisci immagine',
+  appNotePictureInserted: 'Immagine aggiunta alla nota in {cell}. Salva per scriverla nel file.',
+  appNotePictureRemoved: 'Immagine rimossa dalla nota in {cell}.',
+  appNotePictureRemove: 'Rimuovi immagine',
   appCommentsPaneTitle: 'Commenti',
   appThreadReply: 'Rispondi',
   appThreadReplyPlaceholder: 'Rispondi…',

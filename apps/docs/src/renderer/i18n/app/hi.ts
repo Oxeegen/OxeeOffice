@@ -387,6 +387,7 @@ export const hi = {
   appLangHindi: 'हिंदी',
   appLangTraditionalChinese: 'पारंपरिक चीनी',
   appLangVietnamese: 'वियतनामी',
+  appLangTurkish: 'तुर्की',
   appWrapTextMenu: 'टेक्स्ट रैप करें',
   appViewImage: 'छवि देखें',
   appSaveImageAs: 'छवि इस रूप में सहेजें…',
@@ -540,4 +541,7 @@ export const hi = {
   appUpdateStyleTip: 'वर्तमान चयन से इस शैली को अपडेट करें (styles.xml में वापस लिखा जाता है)',
   appNewStyleFromSelection: 'वर्तमान चयन से नई शैली',
   appStyleNamePlaceholder: 'शैली का नाम',
+  appMergeSourceLoaded: '{name} लोड हुई ({n} रिकॉर्ड)',
+  appMergeWritten: '{n} दस्तावेज़ लिखे गए',
+  appMergeNothingToWrite: 'लिखने के लिए कुछ नहीं है',
 } satisfies Record<keyof typeof zh, string>

@@ -392,6 +392,7 @@ export const pl = {
   appLangHindi: 'hindi',
   appLangTraditionalChinese: 'tradycyjny chiński',
   appLangVietnamese: 'wietnamski',
+  appLangTurkish: 'turecki',
   appWrapTextMenu: 'Zawijaj tekst',
   appViewImage: 'Wyświetl obraz',
   appSaveImageAs: 'Zapisz obraz jako…',
@@ -546,4 +547,7 @@ export const pl = {
     'Zaktualizuj ten styl formatem bieżącego zaznaczenia (zapisywane z powrotem do styles.xml)',
   appNewStyleFromSelection: 'Nowy styl z bieżącego zaznaczenia',
   appStyleNamePlaceholder: 'Nazwa stylu',
+  appMergeSourceLoaded: 'Wczytano {name} ({n} rekordów)',
+  appMergeWritten: 'Zapisano dokumentów: {n}',
+  appMergeNothingToWrite: 'Nie ma czego zapisać',
 } satisfies Record<keyof typeof zh, string>

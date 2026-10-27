@@ -219,6 +219,24 @@ describe('initAutoUpdater', () => {
     expect(checkForUpdates).toHaveBeenCalledTimes(2)
   })
 
+  it('skips background checks while automatic checking is off, and resumes when it is back on', async () => {
+    let auto = false
+    const { initAutoUpdater, checkForUpdatesNow } = await loadUpdater()
+    initAutoUpdater(
+      () => null,
+      'stable',
+      () => auto,
+    )
+    vi.advanceTimersByTime(FIRST_CHECK_DELAY_MS + RECHECK_INTERVAL_MS)
+    expect(checkForUpdates).not.toHaveBeenCalled()
+    // an explicit Help › Check for Updates… still asks the feed
+    void checkForUpdatesNow()
+    expect(checkForUpdates).toHaveBeenCalledTimes(1)
+    auto = true
+    vi.advanceTimersByTime(RECHECK_INTERVAL_MS)
+    expect(checkForUpdates).toHaveBeenCalledTimes(2)
+  })
+
   it('is idempotent across repeated init calls', async () => {
     const { initAutoUpdater } = await loadUpdater()
     initAutoUpdater(() => null)

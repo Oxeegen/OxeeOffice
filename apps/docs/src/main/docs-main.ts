@@ -145,10 +145,13 @@ import type {
   DecryptOpenResult,
   DocsTabInfo,
   MenuCommand,
+  MergeOutputRequest,
   OpenDocxResult,
   SpellLanguages,
 } from '../shared/ipc'
 import { ATTACHMENT_IMAGE_EXTS, MARKDOWN_MEDIA_DIR_TOKEN, type MarkdownImage } from '../shared/ipc'
+import { MERGE_DATA_SOURCE_EXTENSIONS, readMergeDataSource } from './merge-data-source'
+import { mergeOutputFileName, mergeOutputPath } from './merge-output'
 import { ClickClaims } from '../shared/context-menu-claims'
 import {
   OPENABLE_DOC_EXTENSIONS,
@@ -237,6 +240,8 @@ const tMain = createI18n({
     btnOverwrite: '覆盖',
     dlgInsertImage: '插入图片',
     filterImages: '图片',
+    dlgMergeDataSource: '选择收件人列表',
+    filterMergeDataSource: 'Excel 或 CSV',
     dlgAddAttachment: '添加附件',
     filterSupported: '支持的文件',
     filterAll: '所有文件',
@@ -377,6 +382,8 @@ const tMain = createI18n({
     btnOverwrite: 'Overwrite',
     dlgInsertImage: 'Insert Image',
     filterImages: 'Images',
+    dlgMergeDataSource: 'Select Recipient List',
+    filterMergeDataSource: 'Excel or CSV',
     dlgAddAttachment: 'Add Attachments',
     filterSupported: 'Supported Files',
     filterAll: 'All Files',
@@ -519,6 +526,8 @@ const tMain = createI18n({
     btnOverwrite: 'Ghi đè',
     dlgInsertImage: 'Chèn hình ảnh',
     filterImages: 'Hình ảnh',
+    dlgMergeDataSource: 'Chọn danh sách người nhận',
+    filterMergeDataSource: 'Excel hoặc CSV',
     dlgAddAttachment: 'Thêm tệp đính kèm',
     filterSupported: 'Các tệp được hỗ trợ',
     filterAll: 'Tất cả các tệp',
@@ -635,6 +644,150 @@ const tMain = createI18n({
     menuHelp: 'Trợ giúp',
     menuShortcuts: 'Phím tắt bàn phím',
   },
+  tr: {
+    dlgOpenDoc: 'Belge Aç',
+    filterWord: 'Word Belgeleri',
+    odtImportMsg: 'Bu .{ext} belgesi dönüştürülsün mü?',
+    odtImportDetail:
+      'GenOffice ODF değil .docx düzenler. Gövde metni, başlıklar, listeler, tablolar ve resimler aktarılır; dipnotlar, açıklamalar ve metin kutuları tam olarak korunmaz. Özgün dosya hiçbir zaman değiştirilmez; dönüştürülen .docx, sonraki kaydetmelerin yazıldığı ayrı bir kopyadır.',
+    odtImportConvertBtn: 'Dönüştür ve aç',
+    dlgSaveAs: 'Farklı Kaydet',
+    closeUnsavedMsg: 'Bu belgede kaydedilmemiş değişiklikler var.',
+    closeUnsavedDetail: 'Kapatmadan önce kaydetmek ister misiniz?',
+    closeNoReplyMsg: 'Belge yanıt vermiyor ve kaydedilmemiş değişiklikler içeriyor olabilir.',
+    closeNoReplyDetail: 'Yine de kapatılsın mı? Kaydedilmemiş değişiklikler kaybolacak.',
+    btnCloseAnyway: 'Yine de Kapat',
+    autosaveFoundTitle: 'Kurtarılan sürüm bulundu',
+    autosaveDiskNewer:
+      'Not: diskteki dosya bu kurtarma kopyası kaydedildikten sonra değiştirilmiş. Geri yüklemek bu daha yeni değişikliklerin yerini alır.',
+    autosaveFoundBody:
+      'Son oturumunuzdan kaydedilmemiş değişiklikler var. Otomatik kaydedilen sürüm geri yüklensin mi?',
+    autosaveRestore: 'Geri Yükle',
+    autosaveDiscard: 'At',
+    btnDontSave: 'Kaydetme',
+    btnCancel: 'İptal',
+    extModifiedMsg: 'Dosya başka bir program tarafından değiştirildi.',
+    extModifiedDetail: 'Yine de kaydedilip diskteki değişikliklerin üzerine yazılsın mı?',
+    btnOverwrite: 'Üzerine Yaz',
+    dlgInsertImage: 'Resim Ekle',
+    filterImages: 'Resimler',
+    dlgMergeDataSource: 'Alıcı Listesi Seç',
+    filterMergeDataSource: 'Excel veya CSV',
+    dlgAddAttachment: 'Ek Ekle',
+    filterSupported: 'Desteklenen Dosyalar',
+    filterAll: 'Tüm Dosyalar',
+    dlgExportPdf: 'PDF Olarak Dışa Aktar',
+    dlgExportHtml: 'HTML Olarak Dışa Aktar',
+    dlgExportMarkdown: 'Markdown Olarak Dışa Aktar',
+    dlgPickExportDir: 'Dışa Aktarma Klasörünü Seç',
+    errUnsupportedExt: '.{ext} dosyaları desteklenmiyor',
+    errNotFile: 'bir dosya değil',
+    errTooLarge: '{mb}MB sınırını aşıyor',
+    errImageTooLarge: 'resim 5MB sınırını aşıyor',
+    errUnreadable: 'okunamıyor',
+    errFileTooLarge: 'Dosya boyut sınırını aşıyor',
+    errParseFailed: 'Dosya ayrıştırılamadı',
+    errImageNoText: 'Resim eklerinde metin yok; resim kullanıcı iletisiyle birlikte gönderilir',
+    errNotImage: 'desteklenen bir resim türü değil',
+    errGskNotLoggedIn:
+      "Genspark'a giriş yapılmadı: aşağıdaki “Genspark'a giriş yap” düğmesine tıklayın, giriş yapın ve yeniden deneyin",
+    errNoApiKey: '{provider} için API anahtarı yapılandırılmamış',
+    errAiRegion:
+      'Bu modelin sağlayıcısı bulunduğunuz bölgeye hizmet vermiyor — başka bir model seçin veya ağınızı değiştirin',
+    errAiBusy: 'AI hizmeti şu anda yoğun — lütfen biraz sonra yeniden deneyin',
+    errNoModel: 'Model adı yapılandırılmamış',
+    menuFile: 'Dosya',
+    menuNewDoc: 'Yeni Belge',
+    menuNewWindow: 'Yeni Pencere',
+    menuOpen: 'Aç…',
+    menuOpenRecent: 'Son Kullanılanları Aç',
+    menuNoRecent: 'Son Kullanılan Belge Yok',
+    menuClose: 'Kapat',
+    menuSave: 'Kaydet',
+    menuSaveAs: 'Farklı Kaydet…',
+    menuPageSetup: 'Sayfa Yapısı…',
+    menuExportPdf: 'PDF Olarak Dışa Aktar…',
+    menuExportHtml: 'HTML Olarak Dışa Aktar…',
+    menuExportMarkdown: 'Markdown Olarak Dışa Aktar…',
+    menuExportImages: 'Resim Olarak Dışa Aktar…',
+    menuPrint: 'Yazdır…',
+    menuEdit: 'Düzenle',
+    menuUndo: 'Geri Al',
+    menuRedo: 'Yinele',
+    menuCut: 'Kes',
+    menuCopy: 'Kopyala',
+    menuPaste: 'Yapıştır',
+    menuPasteMatch: 'Stili Eşleştirerek Yapıştır',
+    menuFindReplace: 'Bul ve Değiştir…',
+    menuGoTo: 'Git…',
+    menuSelectAll: 'Tümünü Seç',
+    menuView: 'Görünüm',
+    menuZoom: 'Yakınlaştır',
+    menuZoomIn: 'Yakınlaştır',
+    menuZoomOut: 'Uzaklaştır',
+    menuZoom100: 'Gerçek Boyut (%100)',
+    menuPageWidth: 'Sayfa Genişliği',
+    menuWholePage: 'Tüm Sayfa',
+    menuMultiPage: 'Birden Çok Sayfa',
+    menuAiSidebar: 'AI Kenar Çubuğu',
+    menuDarkMode: 'Koyu Mod',
+    menuFullscreen: 'Tam Ekrana Geç',
+    menuInsert: 'Ekle',
+    menuInsertTable: 'Tablo…',
+    menuInsertImage: 'Resim…',
+    menuInsertPageBreak: 'Sayfa Sonu',
+    menuInsertLink: 'Köprü…',
+    menuInsertEquation: 'Denklem…',
+    menuComment: 'Açıklama',
+    menuFormat: 'Biçim',
+    menuBold: 'Kalın',
+    menuItalic: 'İtalik',
+    menuUnderline: 'Altı Çizili',
+    menuAlign: 'Hizala',
+    menuAlignLeft: 'Sola Hizala',
+    menuAlignCenter: 'Ortala',
+    menuAlignRight: 'Sağa Hizala',
+    menuAlignJustify: 'İki Yana Yasla',
+    menuFont: 'Yazı Tipi…',
+    menuParagraph: 'Paragraf…',
+    menuTools: 'Araçlar',
+    menuTable: 'Tablo',
+    menuTableInsert: 'Ekle',
+    menuTableInsertTable: 'Tablo…',
+    menuTableColsLeft: 'Sola Sütun',
+    menuTableColsRight: 'Sağa Sütun',
+    menuTableRowsAbove: 'Üste Satır',
+    menuTableRowsBelow: 'Alta Satır',
+    menuTableCells: 'Hücreler…',
+    menuTableDelete: 'Sil',
+    menuTableDeleteTable: 'Tablo',
+    menuTableDeleteColumns: 'Sütunlar',
+    menuTableDeleteRows: 'Satırlar',
+    menuTableSelect: 'Seç',
+    menuTableSelectCell: 'Hücre',
+    menuTableSelectColumn: 'Sütun',
+    menuTableSelectRow: 'Satır',
+    menuTableSelectTable: 'Tablo',
+    menuTableMergeCells: 'Hücreleri Birleştir',
+    menuTableSplitCells: 'Hücreleri Böl…',
+    menuTableSplitTable: 'Tabloyu Böl',
+    menuTableAutoFit: 'Otomatik Sığdır ve Dağıt',
+    menuTableAutoFitContents: 'İçeriğe Otomatik Sığdır',
+    menuTableAutoFitWindow: 'Pencereye Otomatik Sığdır',
+    menuTableFixedWidth: 'Sabit Sütun Genişliği',
+    menuTableDistributeRows: 'Satırları Eşit Dağıt',
+    menuTableDistributeColumns: 'Sütunları Eşit Dağıt',
+    menuTableRepeatHeader: 'Başlık Satırlarını Yinele',
+    menuTableGridlines: 'Kılavuz Çizgilerini Göster',
+    menuTableProperties: 'Tablo Özellikleri…',
+    menuWordCount: 'Sözcük Sayısı…',
+    menuAutoCorrect: 'Otomatik Düzelt Seçenekleri…',
+    menuPreferences: 'Tercihler…',
+    menuAiProofread: 'AI Düzeltme Okuması',
+    menuWindow: 'Pencere',
+    menuHelp: 'Yardım',
+    menuShortcuts: 'Klavye Kısayolları',
+  },
   ja: {
     dlgOpenDoc: '文書を開く',
     filterWord: 'Word 文書',
@@ -661,6 +814,8 @@ const tMain = createI18n({
     btnOverwrite: '上書き',
     dlgInsertImage: '画像の挿入',
     filterImages: '画像',
+    dlgMergeDataSource: '受信者リストを選択',
+    filterMergeDataSource: 'Excel または CSV',
     dlgAddAttachment: '添付ファイルの追加',
     filterSupported: 'サポートされているファイル',
     filterAll: 'すべてのファイル',
@@ -804,6 +959,8 @@ const tMain = createI18n({
     btnOverwrite: '덮어쓰기',
     dlgInsertImage: '그림 삽입',
     filterImages: '그림',
+    dlgMergeDataSource: '받는 사람 목록 선택',
+    filterMergeDataSource: 'Excel 또는 CSV',
     dlgAddAttachment: '첨부 파일 추가',
     filterSupported: '지원되는 파일',
     filterAll: '모든 파일',
@@ -948,6 +1105,8 @@ const tMain = createI18n({
     btnOverwrite: 'Écraser',
     dlgInsertImage: 'Insérer une image',
     filterImages: 'Images',
+    dlgMergeDataSource: 'Sélectionner une liste de destinataires',
+    filterMergeDataSource: 'Excel ou CSV',
     dlgAddAttachment: 'Ajouter des pièces jointes',
     filterSupported: 'Fichiers pris en charge',
     filterAll: 'Tous les fichiers',
@@ -1092,6 +1251,8 @@ const tMain = createI18n({
     btnOverwrite: 'Überschreiben',
     dlgInsertImage: 'Bild einfügen',
     filterImages: 'Bilder',
+    dlgMergeDataSource: 'Empfängerliste auswählen',
+    filterMergeDataSource: 'Excel oder CSV',
     dlgAddAttachment: 'Anlagen hinzufügen',
     filterSupported: 'Unterstützte Dateien',
     filterAll: 'Alle Dateien',
@@ -1235,6 +1396,8 @@ const tMain = createI18n({
     btnOverwrite: 'Sobrescribir',
     dlgInsertImage: 'Insertar imagen',
     filterImages: 'Imágenes',
+    dlgMergeDataSource: 'Seleccionar lista de destinatarios',
+    filterMergeDataSource: 'Excel o CSV',
     dlgAddAttachment: 'Agregar datos adjuntos',
     filterSupported: 'Archivos compatibles',
     filterAll: 'Todos los archivos',
@@ -1378,6 +1541,8 @@ const tMain = createI18n({
     btnOverwrite: 'เขียนทับ',
     dlgInsertImage: 'แทรกรูปภาพ',
     filterImages: 'รูปภาพ',
+    dlgMergeDataSource: 'เลือกรายชื่อผู้รับ',
+    filterMergeDataSource: 'Excel หรือ CSV',
     dlgAddAttachment: 'เพิ่มสิ่งที่แนบ',
     filterSupported: 'ไฟล์ที่รองรับ',
     filterAll: 'ไฟล์ทั้งหมด',
@@ -1521,6 +1686,8 @@ const tMain = createI18n({
     btnOverwrite: 'Timpa',
     dlgInsertImage: 'Sisipkan Gambar',
     filterImages: 'Gambar',
+    dlgMergeDataSource: 'Pilih daftar penerima',
+    filterMergeDataSource: 'Excel atau CSV',
     dlgAddAttachment: 'Tambahkan Lampiran',
     filterSupported: 'File yang Didukung',
     filterAll: 'Semua File',
@@ -1663,6 +1830,8 @@ const tMain = createI18n({
     btnOverwrite: 'Перезаписать',
     dlgInsertImage: 'Вставить рисунок',
     filterImages: 'Изображения',
+    dlgMergeDataSource: 'Выбрать список получателей',
+    filterMergeDataSource: 'Excel или CSV',
     dlgAddAttachment: 'Добавить вложения',
     filterSupported: 'Поддерживаемые файлы',
     filterAll: 'Все файлы',
@@ -1806,6 +1975,8 @@ const tMain = createI18n({
     btnOverwrite: 'استبدال',
     dlgInsertImage: 'إدراج صورة',
     filterImages: 'الصور',
+    dlgMergeDataSource: 'اختيار قائمة المستلمين',
+    filterMergeDataSource: 'Excel أو CSV',
     dlgAddAttachment: 'إضافة مرفقات',
     filterSupported: 'الملفات المدعومة',
     filterAll: 'كل الملفات',
@@ -1949,6 +2120,8 @@ const tMain = createI18n({
     btnOverwrite: 'Sobrescrever',
     dlgInsertImage: 'Inserir Imagem',
     filterImages: 'Imagens',
+    dlgMergeDataSource: 'Selecionar lista de destinatários',
+    filterMergeDataSource: 'Excel ou CSV',
     dlgAddAttachment: 'Adicionar Anexos',
     filterSupported: 'Arquivos Compatíveis',
     filterAll: 'Todos os Arquivos',
@@ -2092,6 +2265,8 @@ const tMain = createI18n({
     btnOverwrite: 'Sovrascrivi',
     dlgInsertImage: 'Inserisci immagine',
     filterImages: 'Immagini',
+    dlgMergeDataSource: 'Seleziona elenco destinatari',
+    filterMergeDataSource: 'Excel o CSV',
     dlgAddAttachment: 'Aggiungi allegati',
     filterSupported: 'File supportati',
     filterAll: 'Tutti i file',
@@ -2235,6 +2410,8 @@ const tMain = createI18n({
     btnOverwrite: 'Nadpisz',
     dlgInsertImage: 'Wstaw obraz',
     filterImages: 'Obrazy',
+    dlgMergeDataSource: 'Wybierz listę odbiorców',
+    filterMergeDataSource: 'Excel lub CSV',
     dlgAddAttachment: 'Dodaj załączniki',
     filterSupported: 'Obsługiwane pliki',
     filterAll: 'Wszystkie pliki',
@@ -2378,6 +2555,8 @@ const tMain = createI18n({
     btnOverwrite: 'Přepsat',
     dlgInsertImage: 'Vložit obrázek',
     filterImages: 'Obrázky',
+    dlgMergeDataSource: 'Vybrat seznam příjemců',
+    filterMergeDataSource: 'Excel nebo CSV',
     dlgAddAttachment: 'Přidat přílohy',
     filterSupported: 'Podporované soubory',
     filterAll: 'Všechny soubory',
@@ -2521,6 +2700,8 @@ const tMain = createI18n({
     btnOverwrite: 'Overschrijven',
     dlgInsertImage: 'Afbeelding invoegen',
     filterImages: 'Afbeeldingen',
+    dlgMergeDataSource: 'Ontvangerslijst selecteren',
+    filterMergeDataSource: 'Excel of CSV',
     dlgAddAttachment: 'Bijlagen toevoegen',
     filterSupported: 'Ondersteunde bestanden',
     filterAll: 'Alle bestanden',
@@ -2664,6 +2845,8 @@ const tMain = createI18n({
     btnOverwrite: 'Tulis Ganti',
     dlgInsertImage: 'Sisipkan Imej',
     filterImages: 'Imej',
+    dlgMergeDataSource: 'Pilih senarai penerima',
+    filterMergeDataSource: 'Excel atau CSV',
     dlgAddAttachment: 'Tambah Lampiran',
     filterSupported: 'Fail yang Disokong',
     filterAll: 'Semua Fail',
@@ -2806,6 +2989,8 @@ const tMain = createI18n({
     btnOverwrite: 'דרוס',
     dlgInsertImage: 'הוספת תמונה',
     filterImages: 'תמונות',
+    dlgMergeDataSource: 'בחירת רשימת נמענים',
+    filterMergeDataSource: 'Excel או CSV',
     dlgAddAttachment: 'הוספת קבצים מצורפים',
     filterSupported: 'קבצים נתמכים',
     filterAll: 'כל הקבצים',
@@ -2947,6 +3132,8 @@ const tMain = createI18n({
     btnOverwrite: 'अधिलेखित करें',
     dlgInsertImage: 'छवि सम्मिलित करें',
     filterImages: 'छवियाँ',
+    dlgMergeDataSource: 'प्राप्तकर्ता सूची चुनें',
+    filterMergeDataSource: 'Excel या CSV',
     dlgAddAttachment: 'अनुलग्नक जोड़ें',
     filterSupported: 'समर्थित फ़ाइलें',
     filterAll: 'सभी फ़ाइलें',
@@ -3088,6 +3275,8 @@ const tMain = createI18n({
     btnOverwrite: '覆寫',
     dlgInsertImage: '插入圖片',
     filterImages: '圖片',
+    dlgMergeDataSource: '選擇收件人清單',
+    filterMergeDataSource: 'Excel 或 CSV',
     dlgAddAttachment: '新增附件',
     filterSupported: '支援的檔案',
     filterAll: '所有檔案',
@@ -5244,6 +5433,68 @@ export function registerDocsIpc(): void {
       base64: readFileSync(filePath).toString('base64'),
       mime,
       name: basename(filePath),
+    }
+  })
+
+  // Mailings tab: pick a local recipient list and read it as a data source.
+  // The file is read here, in the main process, where the file system is.
+  ipcMain.handle('docs:merge-data-source', async (event) => {
+    const result = await openDialog(event, {
+      title: tm('dlgMergeDataSource'),
+      filters: [
+        {
+          name: tm('filterMergeDataSource'),
+          extensions: [...MERGE_DATA_SOURCE_EXTENSIONS],
+        },
+      ],
+      properties: ['openFile'],
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    try {
+      return { ok: true, source: await readMergeDataSource(result.filePaths[0]) }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
+
+  // Mailings tab: write the merged documents. One file for the whole merge
+  // goes where the user says; one file per record goes into a folder they
+  // pick, every name kept unique so two records of the same name do not
+  // overwrite each other. The bytes carry the document's lazily served
+  // pictures, so they are materialized first — the merged file is a document
+  // of its own, not a view of the open one.
+  ipcMain.handle('docs:merge-output', async (event, request: MergeOutputRequest) => {
+    const files = Array.isArray(request?.files) ? request.files : []
+    if (files.length === 0) return { ok: false, error: 'nothing to write' }
+    const write = async (path: string, data: ArrayBuffer): Promise<void> => {
+      const { bytes } = await materializeLazyDocx(Buffer.from(data))
+      await writeFile(path, bytes)
+    }
+    try {
+      if (request.mode === 'single') {
+        const file = files[0]!
+        const name = mergeOutputFileName(file.name)
+        const result = await saveDialog(event, {
+          title: tm('dlgSaveAs'),
+          defaultPath: name,
+          filters: [{ name: tm('filterWord'), extensions: ['docx'] }],
+        })
+        if (result.canceled || !result.filePath) return { ok: false, canceled: true }
+        await write(result.filePath, file.data)
+        return { ok: true, path: result.filePath, count: 1 }
+      }
+      const result = await openDialog(event, {
+        title: tm('dlgPickExportDir'),
+        properties: ['openDirectory', 'createDirectory'],
+      })
+      if (result.canceled || result.filePaths.length === 0) return { ok: false, canceled: true }
+      const folder = result.filePaths[0]!
+      for (const file of files) {
+        await write(mergeOutputPath(folder, file.name), file.data)
+      }
+      return { ok: true, folder, count: files.length }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
     }
   })
 

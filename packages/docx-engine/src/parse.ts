@@ -2370,6 +2370,7 @@ function buildTextParagraph(
   }
   const paraMarkDel = paraMarkRevision('w:del') ?? paraMarkRevision('w:moveFrom')
   const paraMarkIns = paraMarkRevision('w:ins') ?? paraMarkRevision('w:moveTo')
+  const paraMarkRPrChange = paraMarkRevision('w:rPrChange')
 
   // character-unit indents scale with the first text run, so the full
   // resolution waits for the runs
@@ -2403,6 +2404,7 @@ function buildTextParagraph(
     ...(pPrChangeInfo ? { pPrChangeInfo } : {}),
     ...(paraMarkDel ? { paraMarkDel } : {}),
     ...(paraMarkIns ? { paraMarkIns } : {}),
+    ...(paraMarkRPrChange ? { paraMarkRPrChange } : {}),
   }
   if (listRef) {
     const kind = listKindOf(ctx, listRef.numId, listRef.ilvl)
@@ -2542,6 +2544,13 @@ function txbxContentParas(
     const level = ctx.numbering.get(ref.numId ?? '')?.levels[Math.max(0, ref.ilvl)]
     para.listMarker = {
       text: info.text,
+      // identity + kind ride along so an edit inside the sub-editor can keep,
+      // clear or re-point the paragraph's w:numPr on save
+      ...(ref.numId != null ? { numId: ref.numId } : {}),
+      ilvl: Math.max(0, ref.ilvl),
+      ...(level
+        ? { kind: level.numFmt === 'bullet' ? ('bullet' as const) : ('ordered' as const) }
+        : {}),
       ...(info.symbolFont ? { symbol: true } : {}),
       ...(info.picBulletSrc ? { picBulletSrc: info.picBulletSrc } : {}),
       ...(level?.indentLeft !== undefined ? { indentLeft: level.indentLeft } : {}),
@@ -4297,6 +4306,18 @@ function extractRuns(
           } else if (eqField(fieldInstr)) {
             const eq = eqField(fieldInstr)!
             pushRun({ ...resultFormat(), text: eq.text, math: { omml: eq.omml } }, rev)
+          } else if (fieldInstr.trim() === '') {
+            // an instruction-less field (genoffice#2099 left citations this way)
+            // keeps its result as an empty-instruction run, not a passthrough
+            pushRun(
+              {
+                ...resultFormat(),
+                text: fieldCached || ' ',
+                instrField: '',
+                ...(link ? { link } : {}),
+              },
+              rev,
+            )
           } else if (fieldCachedRuns.length > 0) {
             // any other field (HYPERLINK with switches, ASK / FILLIN, the
             // mail-merge control fields NEXT / SKIPIF...): the cached result is

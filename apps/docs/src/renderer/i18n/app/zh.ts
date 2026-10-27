@@ -395,6 +395,7 @@ export const zh = {
   appLangHindi: '印地文',
   appLangTraditionalChinese: '繁体中文',
   appLangVietnamese: '越南文',
+  appLangTurkish: '土耳其文',
   appWrapTextMenu: '环绕文字',
   appViewImage: '查看图片',
   appSaveImageAs: '图片另存为…',
@@ -553,4 +554,7 @@ export const zh = {
   appUpdateStyleTip: '用当前选区的格式更新此样式(写回 styles.xml)',
   appNewStyleFromSelection: '从当前选区新建样式',
   appStyleNamePlaceholder: '样式名称',
+  appMergeSourceLoaded: '已加载数据源 {name}（{n} 条记录）',
+  appMergeWritten: '已写出 {n} 个文档',
+  appMergeNothingToWrite: '没有可写出的文档',
 }

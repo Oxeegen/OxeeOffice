@@ -387,6 +387,7 @@ export const cs = {
   appLangHindi: 'hindi',
   appLangTraditionalChinese: 'tradiční čínština',
   appLangVietnamese: 'vietnamština',
+  appLangTurkish: 'turečtina',
   appWrapTextMenu: 'Obtékání textu',
   appViewImage: 'Zobrazit obrázek',
   appSaveImageAs: 'Uložit obrázek jako…',
@@ -540,4 +541,7 @@ export const cs = {
   appUpdateStyleTip: 'Aktualizovat tento styl podle aktuálního výběru (zapíše se do styles.xml)',
   appNewStyleFromSelection: 'Nový styl z aktuálního výběru',
   appStyleNamePlaceholder: 'Název stylu',
+  appMergeSourceLoaded: 'Načteno {name} ({n} záznamů)',
+  appMergeWritten: 'Zapsáno dokumentů: {n}',
+  appMergeNothingToWrite: 'Není co zapsat',
 } satisfies Record<keyof typeof zh, string>

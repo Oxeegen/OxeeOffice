@@ -407,6 +407,7 @@ export const ja = {
   appLangHindi: 'ヒンディー語',
   appLangTraditionalChinese: '繁体字中国語',
   appLangVietnamese: 'ベトナム語',
+  appLangTurkish: 'トルコ語',
   appWrapTextMenu: '文字列の折り返し',
   appViewImage: '画像を表示',
   appSaveImageAs: '名前を付けて画像を保存…',
@@ -566,4 +567,7 @@ export const ja = {
   appUpdateStyleTip: '現在の選択範囲の書式でこのスタイルを更新します(styles.xml に書き戻し)',
   appNewStyleFromSelection: '選択範囲から新しいスタイルを作成',
   appStyleNamePlaceholder: 'スタイル名',
+  appMergeSourceLoaded: '{name}（{n} 件）を読み込みました',
+  appMergeWritten: '{n} 個のドキュメントを書き出しました',
+  appMergeNothingToWrite: '書き出すものがありません',
 } satisfies Record<keyof typeof zh, string>

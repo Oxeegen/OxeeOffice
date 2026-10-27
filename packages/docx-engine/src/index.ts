@@ -11,6 +11,15 @@ export {
 export { decodeEntities } from './parse-xml-text'
 export { sdtCheckboxGlyphs, sdtCheckboxIsChecked } from './checkbox-control'
 export {
+  buildContentControlXml,
+  isContentControlLock,
+  nextContentControlId,
+  CONTENT_CONTROL_LOCKS,
+  type ContentControlLock,
+  type ContentControlShell,
+  type ContentControlSpec,
+} from './content-control'
+export {
   parseDocx,
   reconcileGridColumns,
   paraCsFormat,
@@ -25,9 +34,11 @@ export {
   ifBranch,
   mergeBlockTree,
   mergeDataFromRows,
+  mergeFieldInstruction,
   mergeFieldName,
   mergeFieldSwitches,
   mergeFieldText,
+  mergeOutputFileName,
   mergeRecords,
   placeholderText,
   splitInstruction,
@@ -64,6 +75,7 @@ export {
 export {
   saveDocx,
   findChartWorkbookPath,
+  missingHeadingLevels,
   readDocxPartBase64,
   type SaveBlock,
   type SaveOptions,
@@ -93,6 +105,7 @@ export {
   setPPrChange,
   stripPPrChange,
   stripParaMarkRevision,
+  resolveParaMarkRPrChange,
   paraMarkColor,
   stripParaMarkColor,
   patchFieldParagraphXml,
@@ -183,6 +196,7 @@ export {
   type WatermarkSpec,
 } from './watermark'
 export {
+  builtInHeadingStyleUpsert,
   mergeStyleXml,
   mergeDefaultFontsXml,
   type DefaultFonts,
@@ -254,3 +268,13 @@ export {
   type ResolveDiff,
   type TableCond,
 } from './resolve-props'
+export {
+  compareBlocks,
+  compareDocuments,
+  DEFAULT_COMPARE_AUTHOR,
+  type CompareGranularity,
+  type CompareIgnore,
+  type CompareOptions,
+  type CompareResult,
+  type CompareSummary,
+} from './compare'

@@ -375,6 +375,7 @@ export const zhTW = {
   appLangHindi: '印地文',
   appLangTraditionalChinese: '繁體中文',
   appLangVietnamese: '越南文',
+  appLangTurkish: '土耳其文',
   appWrapTextMenu: '文繞圖',
   appViewImage: '檢視圖片',
   appSaveImageAs: '另存圖片為…',
@@ -527,4 +528,7 @@ export const zhTW = {
   appUpdateStyleTip: '用目前選取範圍的格式更新此樣式(寫回 styles.xml)',
   appNewStyleFromSelection: '從目前選取範圍建立新樣式',
   appStyleNamePlaceholder: '樣式名稱',
+  appMergeSourceLoaded: '已載入資料來源 {name}（{n} 筆記錄）',
+  appMergeWritten: '已寫出 {n} 個文件',
+  appMergeNothingToWrite: '沒有可寫出的文件',
 } satisfies Record<keyof typeof zh, string>

@@ -385,6 +385,7 @@ export const vi = {
   appLangHindi: 'Tiếng Hindi',
   appLangTraditionalChinese: 'Tiếng Trung (Phồn thể)',
   appLangVietnamese: 'Tiếng Việt',
+  appLangTurkish: 'Tiếng Thổ Nhĩ Kỳ',
   appWrapTextMenu: 'Ngắt dòng văn bản',
   appViewImage: 'Xem hình ảnh',
   appSaveImageAs: 'Lưu hình ảnh thành…',
@@ -538,4 +539,7 @@ export const vi = {
   appUpdateStyleTip: 'Cập nhật kiểu này từ vùng chọn hiện tại (ghi lại vào styles.xml)',
   appNewStyleFromSelection: 'Tạo kiểu mới từ vùng chọn hiện tại',
   appStyleNamePlaceholder: 'Tên kiểu',
+  appMergeSourceLoaded: 'Đã tải {name} ({n} bản ghi)',
+  appMergeWritten: 'Đã ghi {n} tài liệu',
+  appMergeNothingToWrite: 'Không có gì để ghi',
 } satisfies Record<keyof typeof zh, string>

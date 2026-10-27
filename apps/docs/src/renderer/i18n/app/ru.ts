@@ -391,6 +391,7 @@ export const ru = {
   appLangHindi: 'хинди',
   appLangTraditionalChinese: 'китайский (традиционный)',
   appLangVietnamese: 'вьетнамский',
+  appLangTurkish: 'турецкий',
   appWrapTextMenu: 'Обтекание текстом',
   appViewImage: 'Открыть изображение',
   appSaveImageAs: 'Сохранить изображение как…',
@@ -546,4 +547,7 @@ export const ru = {
     'Обновить этот стиль по формату текущего выделения (записывается обратно в styles.xml)',
   appNewStyleFromSelection: 'Создать стиль из текущего выделения',
   appStyleNamePlaceholder: 'Имя стиля',
+  appMergeSourceLoaded: 'Загружено {name} (записей: {n})',
+  appMergeWritten: 'Записано документов: {n}',
+  appMergeNothingToWrite: 'Нечего записывать',
 } satisfies Record<keyof typeof zh, string>

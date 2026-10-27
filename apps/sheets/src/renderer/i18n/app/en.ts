@@ -1,6 +1,20 @@
 import type { zh } from './zh'
 
 export const en = {
+  // ── Withholding cells from the model ──
+  redactMenuLabel: 'Hide the selection from AI',
+  redactDialogDesc:
+    'The selection stays in the document and in the file; the model sees the placeholder below instead. Name it so the model knows what it stands for.',
+  redactDialogScope:
+    "Hiding covers this app's AI. The CLI, MCP tools and headless export read the file directly, and they still see these words.",
+  redactDialogPlaceholder: 'Placeholder name, e.g. client phone',
+  redactCancel: 'Cancel',
+  redactInsert: 'Hide',
+  redactEnable: 'Right-click a selection to hide it from the model.',
+  redactNeedsSavedRow: 'This row is not in the file yet. Save first, then hide a cell in it.',
+  redactRecoveredFromNames:
+    'Another app rewrote this file and dropped the record of what is hidden. The hidden cells were recovered from the names in the workbook; saving restores the full record.',
+
   appMergeWorkbooks: 'Merge Workbooks',
   appMergeWorkbooksTip: 'Append sheets from other Excel files into this workbook',
   appMergeWorkbooksPicking: 'Choose files to merge…',
@@ -700,7 +714,6 @@ export const en = {
   appLinkPlaceholder: 'https://example.com or Sheet1!A1',
   appRemoveLink: 'Remove Link',
   appNotAvailableYet: 'Not available yet',
-  appComingSoon: 'Coming soon',
   appGroupChartLayouts: 'Chart layouts',
   appAddChartElement: 'Add Chart Element',
   appAddChartElementTitle: 'Titles, data labels, legend',
@@ -1250,6 +1263,21 @@ export const en = {
   appOpenFileFirst: 'Open a file first',
   appNoPassword: 'No password',
   appProtectWorkbook: 'Protect Workbook',
+  appChangePassword: 'Change Password',
+  appWorkbookPasswordChanged: 'Workbook password updated.',
+  appEncryptedOpenTitle: 'Open password-protected workbook',
+  appEncryptedOpenCopy: 'Enter the password to unlock this workbook.',
+  appEncryptedPasswordLabel: 'Password',
+  appEncryptedOpen: 'Open',
+  appChangePasswordTitle: 'Change workbook password',
+  appChangePasswordCopy: 'Choose a new password and confirm it below.',
+  appNewPasswordLabel: 'New password',
+  appConfirmPasswordLabel: 'Confirm new password',
+  appPasswordsMismatch: 'The passwords do not match.',
+  appPasswordUpdateFailed: 'Could not update the workbook password.',
+  appPasswordUpdating: 'Updating…',
+  appUpdatePassword: 'Update Password',
+  appWorkbookNotPasswordProtected: 'This workbook is not protected by an open password.',
   appAllowEditRanges: 'Allow Edit Ranges',
   appGroupClipboard: 'Clipboard',
   appPaste: 'Paste',
@@ -1437,6 +1465,10 @@ export const en = {
   appNotePicturesNone: 'No note on this workbook is showing a picture.',
   appNotePictureUnavailable: 'This picture cannot be shown.',
   appNotePicturesToggle: 'Note pictures',
+  appNoteInsertPicture: 'Insert picture',
+  appNotePictureInserted: 'Picture added to the note in {cell}. Save to write it into the file.',
+  appNotePictureRemoved: 'Picture removed from the note in {cell}.',
+  appNotePictureRemove: 'Remove picture',
   appCommentsPaneTitle: 'Comments',
   appThreadReply: 'Reply',
   appThreadReplyPlaceholder: 'Reply…',

@@ -1,6 +1,21 @@
 import type { zh } from './zh'
 
 export const ko = {
+  // ── Withholding cells from the model ──
+  redactMenuLabel: '선택한 부분을 AI에서 숨기기',
+  redactDialogDesc:
+    '선택한 내용은 그대로 두고 AI에게는 아래 자리표시자만 보냅니다. 이름을 붙이면 AI가 무엇을 뜻하는지 알 수 있습니다.',
+  redactDialogScope:
+    '이 앱의 AI에만 적용됩니다. CLI, MCP 도구, 창 없는 내보내기는 파일을 직접 읽으므로 이 단어들은 여전히 보입니다.',
+  redactDialogPlaceholder: '자리표시자 이름, 예: 고객 전화',
+  redactCancel: '취소',
+  redactInsert: '숨기기',
+  redactEnable: '선택한 부분을 오른쪽 클릭해 AI에서 숨깁니다.',
+  redactNeedsSavedRow:
+    '이 행은 아직 파일에 저장되지 않았습니다. 먼저 저장한 다음 셀을 숨겨 주세요.',
+  redactRecoveredFromNames:
+    '다른 앱이 이 파일을 다시 저장하며 숨겨진 내용을 기록한 부품이 사라졌습니다. 숨겨진 셀은 통합 문서의 이름에서 복구되었습니다. 저장하면 전체 기록이 다시 기록됩니다.',
+
   appMergeWorkbooks: '통합 문서 병합',
   appMergeWorkbooksTip: '다른 Excel 파일의 시트를 현재 통합 문서에 추가합니다',
   appMergeWorkbooksPicking: '병합할 파일 선택…',
@@ -737,7 +752,6 @@ export const ko = {
   appRemoveLink: '링크 제거',
   // Ribbon common
   appNotAvailableYet: '아직 사용할 수 없음',
-  appComingSoon: '곧 제공 예정',
   // Chart Design tab
   appGroupChartLayouts: '차트 레이아웃',
   appAddChartElement: '차트 요소 추가',
@@ -1293,6 +1307,21 @@ export const ko = {
   appOpenFileFirst: '먼저 파일을 여십시오',
   appNoPassword: '암호 없음',
   appProtectWorkbook: '통합 문서 보호',
+  appChangePassword: '암호 변경',
+  appWorkbookPasswordChanged: '통합 문서 암호를 업데이트했습니다.',
+  appEncryptedOpenTitle: '암호로 보호된 통합 문서 열기',
+  appEncryptedOpenCopy: '이 통합 문서를 잠금 해제할 암호를 입력하세요.',
+  appEncryptedPasswordLabel: '암호',
+  appEncryptedOpen: '열기',
+  appChangePasswordTitle: '통합 문서 암호 변경',
+  appChangePasswordCopy: '새 암호를 입력하고 아래에서 확인하세요.',
+  appNewPasswordLabel: '새 암호',
+  appConfirmPasswordLabel: '새 암호 확인',
+  appPasswordsMismatch: '암호가 일치하지 않습니다.',
+  appPasswordUpdateFailed: '통합 문서 암호를 업데이트할 수 없습니다.',
+  appPasswordUpdating: '업데이트 중…',
+  appUpdatePassword: '암호 업데이트',
+  appWorkbookNotPasswordProtected: '이 통합 문서에는 열기 암호가 설정되어 있지 않습니다.',
   appAllowEditRanges: '범위 편집 허용',
   // Home tab
   appGroupClipboard: '클립보드',
@@ -1479,6 +1508,10 @@ export const ko = {
   appNotePicturesNone: '이 통합 문서의 노트 중 이미지가 표시된 노트가 없습니다.',
   appNotePictureUnavailable: '이 이미지를 표시할 수 없습니다.',
   appNotePicturesToggle: '노트 이미지',
+  appNoteInsertPicture: '이미지 삽입',
+  appNotePictureInserted: '{cell} 메모에 이미지를 추가했습니다. 저장하면 파일에 기록됩니다.',
+  appNotePictureRemoved: '{cell} 메모에서 이미지를 제거했습니다.',
+  appNotePictureRemove: '이미지 제거',
   appCommentsPaneTitle: '메모',
   appThreadReply: '회신',
   appThreadReplyPlaceholder: '회신…',

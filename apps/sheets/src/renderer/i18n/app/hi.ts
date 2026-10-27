@@ -1,6 +1,20 @@
 import type { zh } from './zh'
 
 export const hi = {
+  // ── Withholding cells from the model ──
+  redactMenuLabel: 'चयन को AI से छिपाएँ',
+  redactDialogDesc:
+    'चुनी हुई सामग्री दस्तावेज़ और फ़ाइल में बनी रहती है; मॉडल को केवल नीचे वाला प्लेसहोल्डर दिखता है। नाम दें ताकि उसे पता चले कि यह किसका स्थान है।',
+  redactDialogScope:
+    'यह छिपाना केवल इस ऐप के AI पर लागू होता है। CLI, MCP टूल और बिना इंटरफ़ेस वाला निर्यात फ़ाइल को सीधे पढ़ते हैं, इसलिए ये शब्द उन्हें अब भी दिखते हैं।',
+  redactDialogPlaceholder: 'प्लेसहोल्डर का नाम, जैसे ग्राहक का फ़ोन',
+  redactCancel: 'रद्द करें',
+  redactInsert: 'छिपाएँ',
+  redactEnable: 'चयनित पाठ पर राइट-क्लिक करके इसे मॉडल से छिपाएँ।',
+  redactNeedsSavedRow: 'यह पंक्ति अभी फ़ाइल में नहीं है। पहले सहेजें, फिर सेल छिपाएँ।',
+  redactRecoveredFromNames:
+    'किसी अन्य ऐप ने इस फ़ाइल को दोबारा लिखा और छिपे हुए चीज़ों का रिकॉर्ड हटा दिया। छिपे हुए सेल वर्कबुक के नामों से वापस मिला लिए गए थे; सहेजने पर पूरा रिकॉर्ड वापस आ जाता है।',
+
   appMergeWorkbooks: 'वर्कबुक मर्ज करें',
   appMergeWorkbooksTip: 'अन्य Excel फ़ाइलों की शीट इस वर्कबुक में जोड़ें',
   appMergeWorkbooksPicking: 'मर्ज करने के लिए फ़ाइलें चुनें…',
@@ -720,7 +734,6 @@ export const hi = {
   appLinkPlaceholder: 'https://example.com या Sheet1!A1',
   appRemoveLink: 'लिंक निकालें',
   appNotAvailableYet: 'अभी उपलब्ध नहीं',
-  appComingSoon: 'जल्द आ रहा है',
   appGroupChartLayouts: 'चार्ट लेआउट',
   appAddChartElement: 'चार्ट तत्व जोड़ें',
   appAddChartElementTitle: 'शीर्षक, डेटा लेबल, लीजेंड',
@@ -1270,6 +1283,21 @@ export const hi = {
   appOpenFileFirst: 'पहले एक फ़ाइल खोलें',
   appNoPassword: 'कोई पासवर्ड नहीं',
   appProtectWorkbook: 'कार्यपुस्तिका सुरक्षित करें',
+  appChangePassword: 'पासवर्ड बदलें',
+  appWorkbookPasswordChanged: 'कार्यपुस्तिका का पासवर्ड अपडेट किया गया।',
+  appEncryptedOpenTitle: 'पासवर्ड से सुरक्षित वर्कबुक खोलें',
+  appEncryptedOpenCopy: 'इस वर्कबुक को अनलॉक करने के लिए पासवर्ड दर्ज करें।',
+  appEncryptedPasswordLabel: 'पासवर्ड',
+  appEncryptedOpen: 'खोलें',
+  appChangePasswordTitle: 'वर्कबुक पासवर्ड बदलें',
+  appChangePasswordCopy: 'नया पासवर्ड चुनें और नीचे उसकी पुष्टि करें।',
+  appNewPasswordLabel: 'नया पासवर्ड',
+  appConfirmPasswordLabel: 'नए पासवर्ड की पुष्टि करें',
+  appPasswordsMismatch: 'पासवर्ड मेल नहीं खाते।',
+  appPasswordUpdateFailed: 'वर्कबुक पासवर्ड अपडेट नहीं किया जा सका।',
+  appPasswordUpdating: 'अपडेट हो रहा है…',
+  appUpdatePassword: 'पासवर्ड अपडेट करें',
+  appWorkbookNotPasswordProtected: 'यह वर्कबुक खोलने वाले पासवर्ड से सुरक्षित नहीं है।',
   appAllowEditRanges: 'श्रेणियाँ संपादित करने दें',
   appGroupClipboard: 'क्लिपबोर्ड',
   appPaste: 'चिपकाएँ',
@@ -1457,6 +1485,10 @@ export const hi = {
   appNotePicturesNone: 'इस कार्यपुस्तिका में ऐसा कोई नोट नहीं है जो चित्र दिखा रहा हो।',
   appNotePictureUnavailable: 'यह चित्र प्रदर्शित नहीं किया जा सकता।',
   appNotePicturesToggle: 'नोट चित्र',
+  appNoteInsertPicture: 'चित्र सम्मिलित करें',
+  appNotePictureInserted: '{cell} की टिप्पणी में चित्र जोड़ा गया। फ़ाइल में लिखने के लिए सहेजें।',
+  appNotePictureRemoved: '{cell} की टिप्पणी से चित्र हटा दिया गया।',
+  appNotePictureRemove: 'चित्र हटाएँ',
   appCommentsPaneTitle: 'टिप्पणियाँ',
   appThreadReply: 'उत्तर दें',
   appThreadReplyPlaceholder: 'उत्तर दें…',

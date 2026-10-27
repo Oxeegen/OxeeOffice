@@ -1,5 +1,19 @@
 /** app strings, zh: defines the key set every other locale shard must match. */
 export const zh = {
+  // ── Withholding cells from the model ──
+  redactMenuLabel: '把选中的内容对 AI 隐藏',
+  redactDialogDesc:
+    '选中的内容会留在文档和文件里，AI 读到的却是下面的标记。给它起个名字，AI 才知道它是什么。',
+  redactDialogScope:
+    '这只针对本应用的 AI。命令行、MCP 工具和无界面导出会直接读取文件，仍然看得到这些文字。',
+  redactDialogPlaceholder: '占位名称，例如：客户电话',
+  redactCancel: '取消',
+  redactInsert: '隐藏',
+  redactEnable: '选中文字后右键，即可对 AI 隐藏。',
+  redactNeedsSavedRow: '这一行还没存进文件。请先存盘，再隐藏其中的单元格。',
+  redactRecoveredFromNames:
+    '这个文件被别的软件改写过，隐藏记录的部件被丢掉了。已从工作簿里的名称把隐藏单元格找回来；存一次盘就能恢复完整记录。',
+
   appMergeWorkbooks: '合并工作簿',
   appMergeWorkbooksTip: '将其他 Excel 文件的工作表并入当前工作簿',
   appMergeWorkbooksPicking: '选择要合并的文件…',
@@ -654,7 +668,6 @@ export const zh = {
   appRemoveLink: '删除链接',
   // Ribbon common
   appNotAvailableYet: '暂不可用',
-  appComingSoon: '即将推出',
   // Chart Design tab
   appGroupChartLayouts: '图表布局',
   appAddChartElement: '添加图表元素',
@@ -1210,6 +1223,21 @@ export const zh = {
   appOpenFileFirst: '请先打开文件',
   appNoPassword: '无密码',
   appProtectWorkbook: '保护工作簿',
+  appChangePassword: '更改密码',
+  appWorkbookPasswordChanged: '工作簿密码已更新。',
+  appEncryptedOpenTitle: '打开受密码保护的工作簿',
+  appEncryptedOpenCopy: '输入密码以解锁此工作簿。',
+  appEncryptedPasswordLabel: '密码',
+  appEncryptedOpen: '打开',
+  appChangePasswordTitle: '更改工作簿密码',
+  appChangePasswordCopy: '请输入新密码并在下方确认。',
+  appNewPasswordLabel: '新密码',
+  appConfirmPasswordLabel: '确认新密码',
+  appPasswordsMismatch: '两次输入的密码不一致。',
+  appPasswordUpdateFailed: '无法更新工作簿密码。',
+  appPasswordUpdating: '正在更新…',
+  appUpdatePassword: '更新密码',
+  appWorkbookNotPasswordProtected: '此工作簿没有设置打开密码。',
   appAllowEditRanges: '允许编辑区域',
   // Home tab
   appGroupClipboard: '剪贴板',
@@ -1393,6 +1421,10 @@ export const zh = {
   appNotePicturesNone: '本工作簿没有带图片的批注。',
   appNotePictureUnavailable: '这张图片无法显示。',
   appNotePicturesToggle: '批注图片',
+  appNoteInsertPicture: '插入图片',
+  appNotePictureInserted: '已把图片放进 {cell} 的注释。保存后写入文件。',
+  appNotePictureRemoved: '已移除 {cell} 注释里的图片。',
+  appNotePictureRemove: '移除图片',
   appCommentsPaneTitle: '批注',
   appThreadReply: '回复',
   appThreadReplyPlaceholder: '回复…',

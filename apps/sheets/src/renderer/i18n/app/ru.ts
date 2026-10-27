@@ -1,6 +1,20 @@
 import type { zh } from './zh'
 
 export const ru = {
+  // ── Withholding cells from the model ──
+  redactMenuLabel: 'Скрыть выделение от ИИ',
+  redactDialogDesc:
+    'Выбранное остается в документе и в файле, а модель видит только метку. Дайте ей имя, чтобы было понятно, что она обозначает.',
+  redactDialogScope:
+    'Это касается только ИИ в этом приложении. CLI, инструменты MCP и экспорт без интерфейса читают файл напрямую и по-прежнему видят эти слова.',
+  redactDialogPlaceholder: 'Имя метки, напр. телефон клиента',
+  redactCancel: 'Отмена',
+  redactInsert: 'Скрыть',
+  redactEnable: 'Правый клик по выделению скрывает его от модели.',
+  redactNeedsSavedRow: 'Этой строки ещё нет в файле. Сначала сохраните, затем скройте ячейку.',
+  redactRecoveredFromNames:
+    'Другая программа переписала этот файл и потеряла запись о том, что скрыто. Скрытые ячейки восстановлены по именам в книге; сохранение возвращает полную запись.',
+
   appMergeWorkbooks: 'Объединить книги',
   appMergeWorkbooksTip: 'Добавить листы из других файлов Excel в эту книгу',
   appMergeWorkbooksPicking: 'Выберите файлы для объединения…',
@@ -739,7 +753,6 @@ export const ru = {
   appLinkPlaceholder: 'напр. https://example.com или Sheet1!A1',
   appRemoveLink: 'Удалить ссылку',
   appNotAvailableYet: 'Пока недоступно',
-  appComingSoon: 'Скоро будет',
   appGroupChartLayouts: 'Макеты диаграмм',
   appAddChartElement: 'Добавить элемент диаграммы',
   appAddChartElementTitle: 'Названия, подписи данных, легенда',
@@ -1290,6 +1303,21 @@ export const ru = {
   appOpenFileFirst: 'Сначала откройте файл',
   appNoPassword: 'Без пароля',
   appProtectWorkbook: 'Защитить книгу',
+  appChangePassword: 'Изменить пароль',
+  appWorkbookPasswordChanged: 'Пароль книги обновлён.',
+  appEncryptedOpenTitle: 'Открыть книгу, защищённую паролем',
+  appEncryptedOpenCopy: 'Введите пароль, чтобы разблокировать эту книгу.',
+  appEncryptedPasswordLabel: 'Пароль',
+  appEncryptedOpen: 'Открыть',
+  appChangePasswordTitle: 'Изменить пароль книги',
+  appChangePasswordCopy: 'Введите новый пароль и подтвердите его ниже.',
+  appNewPasswordLabel: 'Новый пароль',
+  appConfirmPasswordLabel: 'Подтвердите новый пароль',
+  appPasswordsMismatch: 'Пароли не совпадают.',
+  appPasswordUpdateFailed: 'Не удалось обновить пароль книги.',
+  appPasswordUpdating: 'Обновление…',
+  appUpdatePassword: 'Обновить пароль',
+  appWorkbookNotPasswordProtected: 'Эта книга не защищена паролем на открытие.',
   appAllowEditRanges: 'Разрешить изменение диапазонов',
   appGroupClipboard: 'Буфер обмена',
   appPaste: 'Вставить',
@@ -1476,6 +1504,11 @@ export const ru = {
   appNotePicturesNone: 'Ни одна заметка в этой книге не содержит изображения.',
   appNotePictureUnavailable: 'Это изображение не может быть показано.',
   appNotePicturesToggle: 'Изображения заметок',
+  appNoteInsertPicture: 'Вставить изображение',
+  appNotePictureInserted:
+    'Изображение добавлено в примечание в {cell}. Сохраните, чтобы записать его в файл.',
+  appNotePictureRemoved: 'Изображение удалено из примечания в {cell}.',
+  appNotePictureRemove: 'Убрать изображение',
   appCommentsPaneTitle: 'Примечания',
   appThreadReply: 'Ответить',
   appThreadReplyPlaceholder: 'Ответить…',

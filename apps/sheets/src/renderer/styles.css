@@ -3452,6 +3452,60 @@ textarea:focus {
   box-shadow: var(--shadow-modal);
 }
 
+.encrypted-workbook-password-dialog {
+  width: min(420px, calc(100vw - 32px));
+  min-width: 0;
+  gap: 14px;
+  padding: 18px;
+}
+
+.format-cells-dialog.encrypted-workbook-password-dialog header {
+  font-size: 15px;
+}
+
+.encrypted-workbook-password-dialog .dialog-body {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+}
+
+.encrypted-workbook-password-copy {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.encrypted-workbook-password-dialog label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.encrypted-workbook-password-dialog input[type='password'] {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-small);
+  color: var(--text);
+  background: var(--surface);
+  font-size: 13px;
+}
+
+.encrypted-workbook-password-dialog input[type='password']:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--sheets-focus-ring);
+}
+
+.encrypted-workbook-password-dialog .dialog-error {
+  margin: 0;
+}
+
 .format-cells-dialog header {
   font-size: 14px;
   font-weight: 600;
@@ -7143,6 +7197,36 @@ body > div:has([data-u-comp='find-replace-dialog']) {
   align-self: flex-start;
 }
 
+/* ── Withholding cells from the model ─────────────────────────────────────
+ * The dialog itself wears the app's .modal-backdrop / .modal chrome; only
+ * the three pieces unique to a redaction are added here. The placeholder
+ * preview is the important one: it is the literal text the model will read,
+ * so the reader has to see it before committing to the mark. */
+.redact-dialog-desc {
+  display: block;
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.redact-dialog-range {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.redact-dialog-preview {
+  margin: 0 0 12px;
+  padding: 6px 8px;
+  border-radius: var(--radius-small);
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
+  color: var(--color-brand-secondary);
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border-default);
+}
+
 /* A note's picture has nowhere to go inside Univer's note popup, so it gets a
    pane of its own. Both panes want the right edge, so each steps aside while
    the other is open rather than covering it. */
@@ -7244,6 +7328,23 @@ body:has(.note-pictures-pane) .threaded-comments-pane {
 .note-pictures-pane .np-author {
   color: var(--text-muted);
   font-size: 12px;
+}
+
+.note-pictures-pane .np-remove {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 5px;
+  border-radius: var(--radius-small);
+  cursor: pointer;
+}
+
+.note-pictures-pane .np-remove:hover {
+  background: var(--hover);
+  color: var(--text);
 }
 
 .note-pictures-pane .np-image {

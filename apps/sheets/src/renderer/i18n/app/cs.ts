@@ -1,6 +1,20 @@
 import type { zh } from './zh'
 
 export const cs = {
+  // ── Withholding cells from the model ──
+  redactMenuLabel: 'Skrýt výběr před AI',
+  redactDialogDesc:
+    'Vybraný obsah zůstane v dokumentu i v souboru; model uvidí jen zástupný symbol. Pojmenujte ho, aby věděl, co zastupuje.',
+  redactDialogScope:
+    'Skrýtí se týká jen AI v této aplikaci. CLI, nástroje MCP a headless export čtou soubor přímo a tato slova stále vidí.',
+  redactDialogPlaceholder: 'Název zástupného symbolu, např. telefon zákazníka',
+  redactCancel: 'Zrušit',
+  redactInsert: 'Skrýt',
+  redactEnable: 'Pravým klikem na výběr jej skryjete před modelem.',
+  redactNeedsSavedRow: 'Tento řádek zatím není v souboru. Nejprve uložte, pak buňku skryjte.',
+  redactRecoveredFromNames:
+    'Jiná aplikace tento soubor přepsala a zahodila záznam o tom, co je skrytoé. Skryté buňky byly obnoveny z názvů v sešitě; uložením se obnoví celý záznam.',
+
   appMergeWorkbooks: 'Sloučit sešity',
   appMergeWorkbooksTip: 'Připojit listy z jiných souborů Excelu do tohoto sešitu',
   appMergeWorkbooksPicking: 'Vyberte soubory ke sloučení…',
@@ -721,7 +735,6 @@ export const cs = {
   appLinkPlaceholder: 'https://example.com nebo List1!A1',
   appRemoveLink: 'Odebrat odkaz',
   appNotAvailableYet: 'Zatím není k dispozici',
-  appComingSoon: 'Již brzy',
   appGroupChartLayouts: 'Rozložení grafu',
   appAddChartElement: 'Přidat prvek grafu',
   appAddChartElementTitle: 'Názvy, popisky dat, legenda',
@@ -1272,6 +1285,21 @@ export const cs = {
   appOpenFileFirst: 'Nejprve otevřete soubor',
   appNoPassword: 'Bez hesla',
   appProtectWorkbook: 'Zamknout sešit',
+  appChangePassword: 'Změnit heslo',
+  appWorkbookPasswordChanged: 'Heslo sešitu bylo aktualizováno.',
+  appEncryptedOpenTitle: 'Otevřít sešit chráněný heslem',
+  appEncryptedOpenCopy: 'Zadejte heslo pro odemknutí tohoto sešitu.',
+  appEncryptedPasswordLabel: 'Heslo',
+  appEncryptedOpen: 'Otevřít',
+  appChangePasswordTitle: 'Změnit heslo sešitu',
+  appChangePasswordCopy: 'Zvolte nové heslo a potvrďte je níže.',
+  appNewPasswordLabel: 'Nové heslo',
+  appConfirmPasswordLabel: 'Potvrdit nové heslo',
+  appPasswordsMismatch: 'Hesla se neshodují.',
+  appPasswordUpdateFailed: 'Heslo sešitu se nepodařilo aktualizovat.',
+  appPasswordUpdating: 'Aktualizuje se…',
+  appUpdatePassword: 'Aktualizovat heslo',
+  appWorkbookNotPasswordProtected: 'Tento sešit není chráněn heslem pro otevření.',
   appAllowEditRanges: 'Povolit úpravy oblastí',
   appGroupClipboard: 'Schránka',
   appPaste: 'Vložit',
@@ -1459,6 +1487,10 @@ export const cs = {
   appNotePicturesNone: 'Žádná poznámka v tomto sešitě neobsahuje obrázek.',
   appNotePictureUnavailable: 'Tento obrázek nelze zobrazit.',
   appNotePicturesToggle: 'Obrázky poznámek',
+  appNoteInsertPicture: 'Vložit obrázek',
+  appNotePictureInserted: 'Obrázek byl přidán do poznámky v {cell}. Uložením se zapíše do souboru.',
+  appNotePictureRemoved: 'Obrázek byl odebrán z poznámky v {cell}.',
+  appNotePictureRemove: 'Odebrat obrázek',
   appCommentsPaneTitle: 'Komentáře',
   appThreadReply: 'Odpovědět',
   appThreadReplyPlaceholder: 'Odpovědět…',

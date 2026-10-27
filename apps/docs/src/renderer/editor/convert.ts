@@ -4,6 +4,7 @@ import {
   setPPrChange,
   stripPPrChange,
   stripParaMarkRevision,
+  resolveParaMarkRPrChange,
   paraMarkColor,
   stripParaMarkColor,
   ommlToLatex,
@@ -927,6 +928,9 @@ function blockToPmNode(
           pPrChange: block.pPrChangeInfo ? JSON.stringify(block.pPrChangeInfo) : null,
           paraMarkDel: block.paraMarkDel ? JSON.stringify(block.paraMarkDel) : null,
           paraMarkIns: block.paraMarkIns ? JSON.stringify(block.paraMarkIns) : null,
+          paraMarkRPrChange: block.paraMarkRPrChange
+            ? JSON.stringify(block.paraMarkRPrChange)
+            : null,
           blockRevision: block.blockRevision ?? null,
           ...formatAttrs(block.format, block.runs),
         },
@@ -949,6 +953,9 @@ function blockToPmNode(
           pPrChange: block.pPrChangeInfo ? JSON.stringify(block.pPrChangeInfo) : null,
           paraMarkDel: block.paraMarkDel ? JSON.stringify(block.paraMarkDel) : null,
           paraMarkIns: block.paraMarkIns ? JSON.stringify(block.paraMarkIns) : null,
+          paraMarkRPrChange: block.paraMarkRPrChange
+            ? JSON.stringify(block.paraMarkRPrChange)
+            : null,
           blockRevision: block.blockRevision ?? null,
           ...formatAttrs(block.format, block.runs),
         },
@@ -970,6 +977,9 @@ function blockToPmNode(
           pPrChange: block.pPrChangeInfo ? JSON.stringify(block.pPrChangeInfo) : null,
           paraMarkDel: block.paraMarkDel ? JSON.stringify(block.paraMarkDel) : null,
           paraMarkIns: block.paraMarkIns ? JSON.stringify(block.paraMarkIns) : null,
+          paraMarkRPrChange: block.paraMarkRPrChange
+            ? JSON.stringify(block.paraMarkRPrChange)
+            : null,
           blockRevision: block.blockRevision ?? null,
           ...formatAttrs(block.format, block.runs),
         },
@@ -2115,12 +2125,11 @@ export function normalizeZoteroFieldParts(doc: PmNode): PmNode {
     lostId.add(ref)
   }
   const groups = new Map<number, ZoteroTextRef[]>()
-  const idsInBlock = new Map<number, Set<number>>()
-  for (const ref of refs) {
-    const id = ref.fieldId!
-    groups.set(id, [...(groups.get(id) ?? []), ref])
-    idsInBlock.set(ref.blockIndex, new Set([...(idsInBlock.get(ref.blockIndex) ?? []), id]))
-  }
+  const order = new Map<ZoteroTextRef, number>()
+  refs.forEach((ref, index) => {
+    order.set(ref, index)
+    groups.set(ref.fieldId!, [...(groups.get(ref.fieldId!) ?? []), ref])
+  })
   const isParagraphBlock = (index: number) => {
     const type = blocks[index]?.type
     return type === 'docParagraph' || type === 'docHeading' || type === 'docListItem'
@@ -2131,10 +2140,13 @@ export function normalizeZoteroFieldParts(doc: PmNode): PmNode {
     for (let i = 1; i < members.length; i++) {
       const prev = members[i - 1]
       const cur = members[i]
-      let split = false
+      // a field pasted between two runs (into a citation's result or a
+      // bibliography paragraph) ends this field there instead of nesting
+      let split = refs
+        .slice(order.get(prev)! + 1, order.get(cur)!)
+        .some((between) => between.fieldId !== id)
       for (let b = prev.blockIndex + 1; b < cur.blockIndex && !split; b++) {
-        const others = idsInBlock.get(b)
-        split = !isParagraphBlock(b) || (others !== undefined && [...others].some((o) => o !== id))
+        split = !isParagraphBlock(b)
       }
       if (split) segments.push([cur])
       else segments[segments.length - 1].push(cur)
@@ -2627,8 +2639,10 @@ export function pmDocToSavePlan(inputDoc: PmNode, originalBlocks: Block[]): Save
         if (node.attrs.imageHeightPx) image.heightPx = Number(node.attrs.imageHeightPx)
         const align = node.attrs.imageAlign as NewImage['align'] | null
         if (align) image.align = align
-        const wrap = node.attrs.imageWrap as ImageWrap | null
-        if (wrap) image.wrap = wrap
+        // the attrs carry the live state (wrap/drag/position-preset edits
+        // mutate them, not the insert-time genImage payload): re-derive the
+        // floating position or the drag is silently lost on save
+        applyImageFloatAttrs(image, node.attrs)
         if (node.attrs.imageZOrder != null) image.zOrder = Number(node.attrs.imageZOrder)
         if (node.attrs.imageRotDeg) image.rotDeg = Number(node.attrs.imageRotDeg)
         if (node.attrs.imageFlipH) image.flipH = true
@@ -2803,6 +2817,49 @@ export function pmDocToSavePlan(inputDoc: PmNode, originalBlocks: Block[]): Save
   }
 }
 
+/**
+ * Floating-position payload (wrap + placement) from the live node attrs — the
+ * editor's source of truth after wrap/drag/position-preset edits, which mutate
+ * the attrs but never the insert-time genImage payload. Writes posOffsetEmu
+ * from the drag offsets, or the margin-relative align pair for Word position
+ * presets, and clears stale fields so e.g. back-to-inline drops the anchor.
+ */
+function applyImageFloatAttrs(image: NewImage, attrs: Record<string, unknown>): void {
+  const wrap = (attrs.imageWrap as ImageWrap | null) ?? null
+  if (wrap) image.wrap = wrap
+  else delete image.wrap
+  const offX = attrs.imageOffsetXEmu != null ? Number(attrs.imageOffsetXEmu) : undefined
+  const offY = attrs.imageOffsetYEmu != null ? Number(attrs.imageOffsetYEmu) : undefined
+  if (wrap && offX !== undefined && offY !== undefined) {
+    // NewImage.posOffsetEmu carries one basis for both axes: page wins over
+    // margin (relH/relV are only set for page/margin-pinned floats; plain
+    // drags keep the column/paragraph defaults applyImageWrap uses)
+    const relH = attrs.imageRelH as string | null | undefined
+    const relV = attrs.imageRelV as string | null | undefined
+    const relativeTo =
+      relH === 'page' || relV === 'page'
+        ? 'page'
+        : relH === 'margin' || relV === 'margin'
+          ? 'margin'
+          : undefined
+    image.posOffsetEmu = { x: offX, y: offY, ...(relativeTo ? { relativeTo } : {}) }
+  } else {
+    delete image.posOffsetEmu
+  }
+  const posH = attrs.imagePosH as NewImage['posH'] | null
+  const posV = attrs.imagePosV as NewImage['posV'] | null
+  if (wrap && image.posOffsetEmu === undefined && posH && posV) {
+    // margin-relative wp:align pair — the same bytes imagePatchOf produces for
+    // original images via applyImageWrap's marginAlign (numeric offsets win
+    // when both are present, matching applyImageWrap's own priority)
+    image.posH = posH
+    image.posV = posV
+  } else {
+    delete image.posH
+    delete image.posV
+  }
+}
+
 /** rebuild a pasted image copy from its preview bytes; null when not materializable */
 function imageFromProtectedAttrs(node: PmNode): NewImage | null {
   if (node.attrs?.blockType !== 'image') return null
@@ -2817,8 +2874,7 @@ function imageFromProtectedAttrs(node: PmNode): NewImage | null {
     : { base64: m![2], mime: m![1] as NewImage['mime'], widthPx, heightPx }
   const align = node.attrs?.imageAlign as NewImage['align'] | null
   if (align) image.align = align
-  const wrap = node.attrs?.imageWrap as ImageWrap | null
-  if (wrap) image.wrap = wrap
+  applyImageFloatAttrs(image, node.attrs)
   if (node.attrs?.imageZOrder != null) image.zOrder = Number(node.attrs.imageZOrder)
   if (node.attrs?.imageRotDeg) image.rotDeg = Number(node.attrs.imageRotDeg)
   if (node.attrs?.imageFlipH) image.flipH = true
@@ -3066,9 +3122,19 @@ function nestedTextsDiff(
   return changed ? grid : null
 }
 
-/** rich-run signature of one textbox paragraph, for per-paragraph change detection */
+/** rich-run signature of one textbox paragraph, for per-paragraph change detection.
+ * List identity (numId/ilvl/kind) participates: toggling a list on or off must
+ * reach the byte patch even when the runs are untouched; the marker TEXT stays
+ * out — its per-box counters are recomputed on both sides and may drift. */
 export function textboxParaSignature(para: TextboxDisplay['paras'][number]): string {
-  return JSON.stringify([para.align ?? null, normalizedRuns(para.runs)])
+  const m = para.listMarker
+  const list = m ? [m.numId ?? null, m.ilvl ?? null, m.kind ?? null] : null
+  return JSON.stringify([
+    para.align ?? null,
+    para.indentLeft ?? null,
+    normalizedRuns(para.runs),
+    list,
+  ])
 }
 
 /** all-empty sub-editor content counts as "still no text" for a paras:[] box */
@@ -3103,13 +3169,32 @@ function textboxParasPatch(node: PmNode, original: Block): TextboxParasPatchSet 
         ) {
           return null
         }
-        // align is always explicit so a removed alignment also clears w:jc
-        return { runs: mergeRuns(p.runs), align: p.align ?? null }
+        // align/numPr are always explicit so a removed alignment or list
+        // membership also clears w:jc / w:numPr
+        const m = p.listMarker
+        // indentLeft may be inherited (style character units), so it is only
+        // written when the editor moved it; align/numPr stay always explicit
+        const origIndent = origParas[j]?.indentLeft ?? null
+        const indent = p.indentLeft ?? null
+        return {
+          runs: mergeRuns(p.runs),
+          align: p.align ?? null,
+          numPr: m?.numId != null ? { numId: m.numId, ilvl: m.ilvl ?? 0 } : null,
+          ...(indent !== origIndent ? { indentLeft: indent } : {}),
+        }
       })
     } else if (origBox.shapeId) {
       inject.push({
         shapeId: origBox.shapeId,
-        paras: box.paras.map((p) => ({ runs: mergeRuns(p.runs), align: p.align ?? null })),
+        paras: box.paras.map((p) => ({
+          runs: mergeRuns(p.runs),
+          align: p.align ?? null,
+          numPr:
+            p.listMarker?.numId != null
+              ? { numId: p.listMarker.numId, ilvl: p.listMarker.ilvl ?? 0 }
+              : null,
+          ...(p.indentLeft != null ? { indentLeft: p.indentLeft } : {}),
+        })),
       })
     }
   })
@@ -3261,6 +3346,11 @@ function applyRawPPr(generated: GeneratedBlock, original: Block): void {
     rawPPr = stripParaMarkRevision(rawPPr, 'del')
   if (generated.paraMarkIns === null && original.paraMarkIns)
     rawPPr = stripParaMarkRevision(rawPPr, 'ins')
+  if (original.paraMarkRPrChange) {
+    if (generated.paraMarkRPrChange === null) rawPPr = resolveParaMarkRPrChange(rawPPr, 'accept')
+    else if (generated.paraMarkRPrChange?.includes('"resolved":"reject"'))
+      rawPPr = resolveParaMarkRPrChange(rawPPr, 'reject')
+  }
   const markColor = paraMarkColor(rawPPr)
   if (markColor && generated.runs.some((r) => r.text)) {
     const hasColor = (runs: Run[] | undefined) =>
@@ -3463,10 +3553,13 @@ export function pmNodeToGeneratedBlock(node: PmNode): GeneratedBlock {
 }
 
 /** null = no pending paragraph-mark revision; applyRawPPr strips the record the original carried */
-function paraMarkRevisions(node: PmNode): Pick<GeneratedBlock, 'paraMarkDel' | 'paraMarkIns'> {
+function paraMarkRevisions(
+  node: PmNode,
+): Pick<GeneratedBlock, 'paraMarkDel' | 'paraMarkIns' | 'paraMarkRPrChange'> {
   return {
     paraMarkDel: (node.attrs?.paraMarkDel as string | null | undefined) ?? null,
     paraMarkIns: (node.attrs?.paraMarkIns as string | null | undefined) ?? null,
+    paraMarkRPrChange: (node.attrs?.paraMarkRPrChange as string | null | undefined) ?? null,
   }
 }
 
@@ -3956,6 +4049,7 @@ export function signatureOfBlock(block: Block): string {
     pPrChange: block.pPrChangeInfo ? JSON.stringify(block.pPrChangeInfo) : null,
     paraMarkDel: block.paraMarkDel ? JSON.stringify(block.paraMarkDel) : null,
     paraMarkIns: block.paraMarkIns ? JSON.stringify(block.paraMarkIns) : null,
+    paraMarkRPrChange: block.paraMarkRPrChange ? JSON.stringify(block.paraMarkRPrChange) : null,
     blockRevision: block.blockRevision ?? null,
   })
 }
@@ -3976,6 +4070,7 @@ export function signatureOfGenerated(block: GeneratedBlock): string {
     pPrChange: block.pPrChange ?? null,
     paraMarkDel: block.paraMarkDel ?? null,
     paraMarkIns: block.paraMarkIns ?? null,
+    paraMarkRPrChange: block.paraMarkRPrChange ?? null,
     blockRevision: block.blockRevision ?? null,
   })
 }

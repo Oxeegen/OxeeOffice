@@ -252,6 +252,7 @@ import { InactiveSelectionExtension } from './inactive-selection'
 import { FieldCodesExtension } from './field-codes'
 import { AiQueueAnchorsExtension } from './ai-queue-anchors'
 import { CheckboxToggleExtension } from './checkbox-toggle'
+import { OutlineViewExtension } from './outline-view'
 import { PageGapNavExtension } from './page-gap-nav'
 import { TrailingTableExitExtension } from './trailing-table-exit'
 import { moveBlocks } from './move-block'
@@ -362,6 +363,8 @@ const anchorAttrs = {
   paraMarkDel: { default: null as string | null },
   /** JSON {author,date?,id?} when the paragraph mark is a tracked insertion (w:pPr/w:rPr/w:ins) */
   paraMarkIns: { default: null as string | null },
+  /** JSON {author,date?,id?,resolved?} for a tracked format change of the paragraph mark (w:pPr/w:rPr/w:rPrChange) */
+  paraMarkRPrChange: { default: null as string | null },
   /** top-level insertion/deletion revision ({kind,author,date?}) */
   blockRevision: { default: null as Record<string, string> | null },
   /** JSON marks snapshot for an empty block's caret (Word's pilcrow
@@ -7470,6 +7473,70 @@ export const TextboxParagraph = Node.create({
   },
 })
 
+/**
+ * Ordered-list renumbering inside a textbox sub-editor. Counters run per box
+ * (the parse side computes them per box too — the document-wide sequence is out
+ * of reach from here), restarting at each level-0 item of the same numId. The
+ * pass runs on every doc change but only dispatches when a marker text actually
+ * moved, and its own dispatches carry a meta guard so it never loops.
+ */
+/** Per-box ordered marker texts in document order (null = not an ordered
+ * item). Any item restarts the levels below its own, as Word does. */
+export function textboxOrderedMarkerTexts(
+  markers: ReadonlyArray<TextboxListMarker | null | undefined>,
+): Array<string | null> {
+  const counters = new Map<string, number>()
+  return markers.map((marker) => {
+    if (!marker || marker.kind !== 'ordered' || marker.numId == null) return null
+    const ilvl = marker.ilvl ?? 0
+    for (const k of Array.from(counters.keys())) {
+      if (k.startsWith(`${marker.numId}:`) && Number(k.split(':')[1]) > ilvl) counters.delete(k)
+    }
+    const key = `${marker.numId}:${ilvl}`
+    const next = (counters.get(key) ?? 0) + 1
+    counters.set(key, next)
+    return `${next}.`
+  })
+}
+
+export const TextboxListRenumber = Extension.create({
+  name: 'textboxListRenumber',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('textboxListRenumber'),
+        appendTransaction: (transactions, _oldState, newState) => {
+          const ours = transactions.some((tr) => tr.getMeta('textboxListRenumber'))
+          const structural = transactions.some((tr) => tr.docChanged)
+          if (!structural || ours) return null
+          const markers: Array<TextboxListMarker | null> = []
+          const positions: number[] = []
+          newState.doc.forEach((node, pos) => {
+            markers.push(node.attrs.listMarker as TextboxListMarker | null)
+            positions.push(pos)
+          })
+          const fixes: Array<{ pos: number; text: string }> = []
+          textboxOrderedMarkerTexts(markers).forEach((text, i) => {
+            if (text !== null && markers[i]?.text !== text) fixes.push({ pos: positions[i], text })
+          })
+          if (fixes.length === 0) return null
+          const tr = newState.tr
+          tr.setMeta('textboxListRenumber', true)
+          for (const fix of fixes) {
+            const node = newState.doc.nodeAt(fix.pos)
+            if (!node) continue
+            tr.setNodeMarkup(fix.pos, undefined, {
+              ...node.attrs,
+              listMarker: { ...(node.attrs.listMarker as TextboxListMarker), text: fix.text },
+            })
+          }
+          return tr
+        },
+      }),
+    ]
+  },
+})
+
 /** shared with the main editor: same mark names, so ribbon commands route 1:1 */
 export const textboxSubExtensions = [
   Node.create({ name: 'doc', topNode: true, content: 'block+' }),
@@ -7496,6 +7563,7 @@ export const textboxSubExtensions = [
   TextStyleMark,
   FormatOffClearExtension,
   CommentMark,
+  TextboxListRenumber,
   UndoRedo,
 ]
 
@@ -7610,6 +7678,7 @@ export const editorExtensions = [
   InactiveSelectionExtension,
   AiQueueAnchorsExtension,
   CheckboxToggleExtension,
+  OutlineViewExtension,
   PageGapNavExtension,
   TrailingTableExitExtension,
   Gapcursor,

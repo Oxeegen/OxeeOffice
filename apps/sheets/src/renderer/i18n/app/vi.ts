@@ -1,6 +1,20 @@
 import type { zh } from './zh'
 
 export const vi = {
+  // ── Withholding cells from the model ──
+  redactMenuLabel: 'Ẩn phần đã chọn khỏi AI',
+  redactDialogDesc:
+    'Nội dung đã chọn vẫn còn trong tài liệu và tệp; mô hình chỉ thấy placeholder bên dưới. Đặt tên để mô hình biết nó đại diện cho điều gì.',
+  redactDialogScope:
+    'Điều này chỉ áp dụng cho AI trong ứng dụng này. CLI, các công cụ MCP và bản xuất không có cửa sổ đều đọc thẳng tệp, nên chúng vẫn thấy những từ này.',
+  redactDialogPlaceholder: 'Tên placeholder, ví dụ: số điện thoại khách hàng',
+  redactCancel: 'Hủy',
+  redactInsert: 'Ẩn',
+  redactEnable: 'Nhấp chuột phải vào phần đã chọn để ẩn khỏi mô hình.',
+  redactNeedsSavedRow: 'Hàng này chưa có trong tệp. Hãy lưu trước, rồi ẩn ô.',
+  redactRecoveredFromNames:
+    'Ứng dụng khác đã ghi lại tệp này và làm mất bản ghi về những ô đang ẩn. Các ô bị ẩn đã được khôi phục từ các tên trong sổ làm việc; lưu sẽ khôi phục lại toàn bộ bản ghi.',
+
   appMergeWorkbooks: 'Hợp nhất sổ làm việc',
   appMergeWorkbooksTip: 'Thêm các trang tính từ tệp Excel khác vào sổ làm việc này',
   appMergeWorkbooksPicking: 'Chọn các tệp để hợp nhất…',
@@ -712,7 +726,6 @@ export const vi = {
   appLinkPlaceholder: 'https://example.com hoặc Sheet1!A1',
   appRemoveLink: 'Xóa liên kết',
   appNotAvailableYet: 'Chưa khả dụng',
-  appComingSoon: 'Sắp ra mắt',
   appGroupChartLayouts: 'Bố cục biểu đồ',
   appAddChartElement: 'Thêm thành phần biểu đồ',
   appAddChartElementTitle: 'Tiêu đề, nhãn dữ liệu, chú giải',
@@ -1262,6 +1275,21 @@ export const vi = {
   appOpenFileFirst: 'Mở một tệp trước',
   appNoPassword: 'Không có mật khẩu',
   appProtectWorkbook: 'Bảo vệ sổ làm việc',
+  appChangePassword: 'Đổi mật khẩu',
+  appWorkbookPasswordChanged: 'Đã cập nhật mật khẩu sổ làm việc.',
+  appEncryptedOpenTitle: 'Mở sổ làm việc được bảo vệ bằng mật khẩu',
+  appEncryptedOpenCopy: 'Nhập mật khẩu để mở khóa sổ làm việc này.',
+  appEncryptedPasswordLabel: 'Mật khẩu',
+  appEncryptedOpen: 'Mở',
+  appChangePasswordTitle: 'Đổi mật khẩu sổ làm việc',
+  appChangePasswordCopy: 'Chọn mật khẩu mới và xác nhận bên dưới.',
+  appNewPasswordLabel: 'Mật khẩu mới',
+  appConfirmPasswordLabel: 'Xác nhận mật khẩu mới',
+  appPasswordsMismatch: 'Mật khẩu không khớp.',
+  appPasswordUpdateFailed: 'Không thể cập nhật mật khẩu sổ làm việc.',
+  appPasswordUpdating: 'Đang cập nhật…',
+  appUpdatePassword: 'Cập nhật mật khẩu',
+  appWorkbookNotPasswordProtected: 'Sổ làm việc này không được bảo vệ bằng mật khẩu mở.',
   appAllowEditRanges: 'Cho phép chỉnh sửa các vùng',
   appGroupClipboard: 'Bảng nhớ tạm',
   appPaste: 'Dán',
@@ -1448,6 +1476,10 @@ export const vi = {
   appNotePicturesNone: 'Không có ghi chú nào trong sổ làm việc này hiển thị hình ảnh.',
   appNotePictureUnavailable: 'Không thể hiển thị hình ảnh này.',
   appNotePicturesToggle: 'Ảnh trong ghi chú',
+  appNoteInsertPicture: 'Chèn hình ảnh',
+  appNotePictureInserted: 'Đã thêm ảnh vào ghi chú tại {cell}. Hãy lưu để ghi vào tệp.',
+  appNotePictureRemoved: 'Đã xóa ảnh khỏi ghi chú tại {cell}.',
+  appNotePictureRemove: 'Xóa hình ảnh',
   appCommentsPaneTitle: 'Chú thích',
   appThreadReply: 'Trả lời',
   appThreadReplyPlaceholder: 'Trả lời…',

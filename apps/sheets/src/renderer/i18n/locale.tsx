@@ -8,6 +8,17 @@ const translate = createI18n(strings)
 export type StringKey = keyof typeof strings.zh
 export type TFunc = (key: StringKey, params?: Params) => string
 
+/**
+ * Explicit-language translator, for callers that must not follow `moduleLang`:
+ * a Univer locale pack is built for one language at a time and has to stay on
+ * that language even while the app-level module language is elsewhere — the
+ * runtime boots with the English pack whatever the app language is.
+ */
+export const translateFor =
+  (lang: Lang): TFunc =>
+  (key, params) =>
+    translate(lang, key, params)
+
 // mirror for non-React modules (edit-journal, lazy-plan, AI tools …);
 // set before first render and on every language switch
 let moduleLang: Lang = 'zh'
@@ -42,6 +53,7 @@ const AI_LANG_DIRECTIVES: Record<Lang, string> = {
   hi: '\n\nउपयोगकर्ता के संदेश की भाषा में ही उत्तर दें; यदि भाषा निर्धारित न हो सके, तो हिंदी में उत्तर दें।',
   'zh-TW': '\n\n用與使用者訊息相同的語言回覆；無法判斷使用者訊息的語言時，用繁體中文回覆。',
   vi: '\n\nTrả lời bằng ngôn ngữ của tin nhắn người dùng; nếu không xác định được, hãy trả lời bằng tiếng Việt.',
+  tr: '\n\nKullanıcının mesajıyla aynı dilde yanıt ver; dil belirlenemiyorsa Türkçe yanıt ver.',
 }
 
 /** appended to the agent system prompt: replies follow the user's message language, falling back to the UI language */
@@ -72,6 +84,7 @@ export const DATE_LOCALES: Record<Lang, string> = {
   hi: 'hi-IN',
   'zh-TW': 'zh-TW',
   vi: 'vi-VN',
+  tr: 'tr-TR',
 }
 
 const LocaleContext = createContext<Lang>('zh')

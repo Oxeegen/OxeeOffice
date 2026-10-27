@@ -1,6 +1,21 @@
 import type { zh } from './zh'
 
 export const nl = {
+  // ── Withholding cells from the model ──
+  redactMenuLabel: 'Selectie verbergen voor de AI',
+  redactDialogDesc:
+    'De selectie blijft in het document en het bestand; het model ziet alleen de placeholder. Geef hem een naam.',
+  redactDialogScope:
+    'Verbergen geldt alleen voor de AI in deze app. De CLI, MCP-tools en de export zonder venster lezen het bestand rechtstreeks en zien deze woorden nog steeds.',
+  redactDialogPlaceholder: 'Naam van placeholder, bv. telefoonnummer klant',
+  redactCancel: 'Annuleren',
+  redactInsert: 'Verbergen',
+  redactEnable: 'Rechtsklik op een selectie om die voor het model te verbergen.',
+  redactNeedsSavedRow:
+    'Deze rij staat nog niet in het bestand. Sla eerst op en verberg daarna de cel.',
+  redactRecoveredFromNames:
+    'Een andere app heeft dit bestand herschreven en het overzicht van wat verborgen is weggegooid. De verborgen cellen zijn teruggevonden in de namen van de werkmap; bij opslaan wordt het volledige overzicht teruggeschreven.',
+
   appMergeWorkbooks: 'Werkmappen samenvoegen',
   appMergeWorkbooksTip: 'Bladen uit andere Excel-bestanden aan deze werkmap toevoegen',
   appMergeWorkbooksPicking: 'Kies bestanden om samen te voegen…',
@@ -756,7 +771,6 @@ export const nl = {
   appLinkPlaceholder: 'https://example.com of Sheet1!A1',
   appRemoveLink: 'Koppeling verwijderen',
   appNotAvailableYet: 'Nog niet beschikbaar',
-  appComingSoon: 'Binnenkort beschikbaar',
   appGroupChartLayouts: 'Grafiekindelingen',
   appAddChartElement: 'Grafiekelement toevoegen',
   appAddChartElementTitle: 'Titels, gegevenslabels, legenda',
@@ -1306,6 +1320,21 @@ export const nl = {
   appOpenFileFirst: 'Open eerst een bestand',
   appNoPassword: 'Geen wachtwoord',
   appProtectWorkbook: 'Werkmap beveiligen',
+  appChangePassword: 'Wachtwoord wijzigen',
+  appWorkbookPasswordChanged: 'Het wachtwoord van de werkmap is bijgewerkt.',
+  appEncryptedOpenTitle: 'Met wachtwoord beveiligde werkmap openen',
+  appEncryptedOpenCopy: 'Voer het wachtwoord in om deze werkmap te ontgrendelen.',
+  appEncryptedPasswordLabel: 'Wachtwoord',
+  appEncryptedOpen: 'Openen',
+  appChangePasswordTitle: 'Wachtwoord van werkmap wijzigen',
+  appChangePasswordCopy: 'Kies een nieuw wachtwoord en bevestig het hieronder.',
+  appNewPasswordLabel: 'Nieuw wachtwoord',
+  appConfirmPasswordLabel: 'Nieuw wachtwoord bevestigen',
+  appPasswordsMismatch: 'De wachtwoorden komen niet overeen.',
+  appPasswordUpdateFailed: 'Het wachtwoord van de werkmap kon niet worden bijgewerkt.',
+  appPasswordUpdating: 'Bijwerken…',
+  appUpdatePassword: 'Wachtwoord bijwerken',
+  appWorkbookNotPasswordProtected: 'Deze werkmap is niet beveiligd met een openingswachtwoord.',
   appAllowEditRanges: 'Bewerken van bereiken toestaan',
   appGroupClipboard: 'Klembord',
   appPaste: 'Plakken',
@@ -1495,6 +1524,11 @@ export const nl = {
   appNotePicturesNone: 'Geen enkele notitie in deze werkmap toont een afbeelding.',
   appNotePictureUnavailable: 'Deze afbeelding kan niet worden getoond.',
   appNotePicturesToggle: 'Afbeeldingen bij notities',
+  appNoteInsertPicture: 'Afbeelding invoegen',
+  appNotePictureInserted:
+    'Afbeelding toegevoegd aan de notitie in {cell}. Opslaan om die naar het bestand te schrijven.',
+  appNotePictureRemoved: 'Afbeelding verwijderd uit de notitie in {cell}.',
+  appNotePictureRemove: 'Afbeelding verwijderen',
   appCommentsPaneTitle: 'Opmerkingen',
   appThreadReply: 'Beantwoorden',
   appThreadReplyPlaceholder: 'Beantwoorden…',

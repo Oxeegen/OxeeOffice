@@ -31,6 +31,7 @@ import {
 import type { MenuItemConstructorOptions, NativeImage, WebContents } from 'electron'
 import { atomicCopyFile, atomicWriteFile } from './atomic-write'
 import { tabStripOverlay } from './title-bar-overlay'
+import { shellWindowBackground } from './window-background'
 import {
   applyUiScaleTo,
   applyUiScaleToAll,
@@ -92,6 +93,12 @@ import {
   writeAppSettingThen,
 } from './app-settings'
 import { OPEN_DOCUMENTS_FILE, clearOpenDocuments, publishOpenDocuments } from './open-documents'
+import {
+  LAST_SESSION_DOCUMENTS_KEY,
+  RESTORE_LAST_SESSION_KEY,
+  launchPathsWithLastSession,
+  restoreLastSessionEnabled,
+} from './last-session'
 import { startControlServer, type ControlServer } from './control-server'
 import { controlHandler } from './control-handlers'
 import { installCliLinkBestEffort } from './cli-link'
@@ -607,6 +614,13 @@ function currentUpdateChannel(): UpdateChannel {
   const saved = readAppSettings(APP_SETTINGS_PATH()).updateChannel
   cachedUpdateChannel = isUpdateChannel(saved) ? saved : 'stable'
   return cachedUpdateChannel
+}
+
+let cachedAutoUpdateCheck: boolean | null = null
+
+function autoUpdateCheckEnabled(): boolean {
+  cachedAutoUpdateCheck ??= readAppSettings(APP_SETTINGS_PATH()).autoUpdateCheck !== false
+  return cachedAutoUpdateCheck
 }
 
 let cachedTheme: UiTheme | null = null
@@ -1188,6 +1202,136 @@ const tMain = createI18n({
       'Tệp bị hỏng hoặc không phải là tệp PDF hợp lệ và không thể chuyển đổi.',
     dlgPickSaveDir: 'Chọn vị trí lưu mặc định',
     errSaveDirUnusable: 'Thư mục đã chọn không thể ghi và không thể dùng làm vị trí lưu mặc định',
+  },
+  tr: {
+    menuTabSave: 'Kaydet',
+    menuTabSaveAs: 'Farklı Kaydet…',
+    menuTabPrint: 'Yazdır…',
+    menuTabRename: 'Yeniden Adlandır',
+    menuTabDuplicate: 'Çoğalt (kayıtlı dosyayı kopyala)',
+    menuTabSplitBeside: 'Yan yana böl',
+    menuTabCopyPath: 'Yolu kopyala',
+    menuTabCopyName: 'Dosya adını kopyala',
+    menuTabReveal: 'Klasörde göster',
+    menuTabOpenDefault: 'Varsayılan uygulamayla aç',
+    menuTabMoveLeft: 'Sola taşı',
+    menuTabMoveRight: 'Sağa taşı',
+    menuTabCloseOthers: 'Diğer sekmeleri kapat',
+    menuTabCloseRight: 'Sağdaki sekmeleri kapat',
+    menuTabCloseAll: 'Tüm sekmeleri kapat',
+    menuTabReopen: 'Kapatılan sekmeyi yeniden aç',
+    menuTabPin: 'Sekmeyi sabitle (yüklü tut)',
+    menuTabUnpin: 'Sekme sabitlemesini kaldır',
+    dlgAddFolderRoot: 'Ana Sayfaya Klasör Ekle',
+    watchdogTitle: 'Belge çok fazla kaynak kullanıyor',
+    watchdogBody:
+      '"{title}" birkaç dakikadır çok fazla bellek veya CPU kullanıyor ({memory} MB, %{cpu} CPU). Beklemeye devam edebilir ya da belgeyi kapatabilirsiniz (önce kaydedilmemiş değişiklikleri kaydetmeniz istenecek). Tanılama bilgileri kaydedildi.',
+    watchdogWait: 'Beklemeye Devam Et',
+    watchdogClose: 'Belgeyi Kapat',
+    watchdogIgnore: 'Bir Daha Hatırlatma',
+    errFolderRootUnusable: 'Seçilen klasör okunamıyor',
+    menuFile: 'Dosya',
+    menuSectionNew: 'Yeni',
+    menuView: 'Görünüm',
+    menuUiZoomIn: 'Arayüzü Yakınlaştır',
+    menuUiZoomOut: 'Arayüzü Uzaklaştır',
+    menuUiZoomReset: 'Arayüz Yakınlaştırmasını Sıfırla',
+    menuOpenInNewWindow: 'Yeni Pencerede Aç',
+    menuNewDoc: 'AI Docs',
+    menuNewSheet: 'AI Sheets',
+    untitledSheet: 'Adsız Elektronik Tablo',
+    untitledDoc: 'Adsız Belge',
+    untitledDeck: 'Adsız Sunu',
+    untitledMarkdown: 'Adsız Markdown',
+    untitledHtml: 'Adsız HTML',
+    untitledPdf: 'Adsız PDF',
+    menuNewSlide: 'AI Slides',
+    menuNewMarkdown: 'AI Markdown',
+    menuNewHtml: 'AI HTML',
+    menuNewPdf: 'AI PDF',
+    menuExportPdf: 'PDF Olarak Dışa Aktar…',
+    menuExportImages: 'Görüntü Olarak Dışa Aktar…',
+    menuExportHtml: 'Tek Dosyalı HTML Olarak Dışa Aktar…',
+    menuOpenInDocs: 'Dönüştür ve Docs ile Aç',
+    menuPrint: 'Yazdır…',
+    menuOpen: 'Aç…',
+    menuSave: 'Kaydet',
+    menuSaveAs: 'Farklı Kaydet…',
+    menuClose: 'Kapat',
+    menuEdit: 'Düzenle',
+    menuWindow: 'Pencere',
+    menuHome: 'Ana Sayfa',
+    backToHome: 'Ana Sayfaya Dön',
+    dlgOpenTitle: 'Dosya Aç',
+    filterSupported: 'Desteklenen Dosyalar',
+    filterWord: 'Word Belgeleri',
+    filterExcel: 'Excel Çalışma Kitapları',
+    filterPpt: 'PowerPoint Sunuları',
+    filterMarkdown: 'Metin Dosyaları (Markdown, TXT, JSON)',
+    filterHtml: 'HTML Belgeleri',
+    filterPdf: 'PDF Belgeleri',
+    errBadArgs: 'Geçersiz bağımsız değişkenler',
+    errBadName: 'Geçersiz dosya adı',
+    errBadExtension: 'Bu uzantı desteklenmiyor ve dosya bir daha açılamaz',
+    errMissing: 'Dosya bulunamadı',
+    errExists: 'Bu adda bir dosya zaten var',
+    errRenameFailed: 'Yeniden adlandırma başarısız oldu',
+    errPdfSaveAsFailed: 'PDF kopyası kaydedilemedi',
+    errNewTabFailed: 'Yeni belge oluşturulamadı',
+    errDuplicateFailed: 'Dosya çoğaltılamadı',
+    errUnsupportedExt: '.{ext} dosyaları desteklenmiyor',
+    copySuffix: 'kopya',
+    menuHelp: 'Yardım',
+    menuUserGuide: 'Kullanım Kılavuzu',
+    thirdPartyNotices: 'Üçüncü Taraf Bildirimleri',
+    menuExportDocx: 'Word Olarak Dışa Aktar…',
+    btnCancel: 'İptal',
+    pdfDocxFailedMsg: 'Word olarak dışa aktarma başarısız oldu',
+    pdfConvertFailedMsg: 'Markdown / HTML olarak dışa aktarma başarısız oldu',
+    pdfDocxBusyMsg: 'Zaten bir Word dışa aktarma işlemi sürüyor. Lütfen bitmesini bekleyin.',
+    menuExportPptx: 'PowerPoint Olarak Dışa Aktar…',
+    pdfPptxFailedMsg: 'PowerPoint olarak dışa aktarma başarısız oldu',
+    pdfPptxBusyMsg: 'Zaten bir dışa aktarma işlemi sürüyor. Lütfen bitmesini bekleyin.',
+    pdfPptxLocalScannedDetail:
+      'Her sayfa tam sayfa görüntü olarak dışa aktarıldı; slaytlardaki metin düzenlenemez.',
+    menuExportXlsx: 'Excel Olarak Dışa Aktar…',
+    pdfXlsxFailedMsg: 'Excel olarak dışa aktarma başarısız oldu',
+    pdfXlsxBusyMsg: 'Zaten bir dışa aktarma işlemi sürüyor. Lütfen bitmesini bekleyin.',
+    pdfXlsxLocalScannedDetail:
+      'Taranmış sayfalar hücrelere dönüştürülemez; bunun yerine her sayfanın çalışma sayfasında bir bildirim satırı bulunur.',
+    pdfXlsxLocalSkippedMsg: 'Bazı sayfalar hücrelere dönüştürülmedi',
+    pdfXlsxLocalSkippedDetail:
+      '{pages} numaralı sayfalar hücrelere dönüştürülemedi; bunun yerine çalışma sayfalarında bir bildirim satırı bulunur.',
+    pdfDocxLocalScannedMsg: 'Taranmış belge algılandı',
+    pdfMdLocalMissingMsg: 'Markdown dosyasında bazı içerikler eksik',
+    pdfMdLocalScannedDetail:
+      'Düzenlenebilir metin tanınamadığından Markdown dosyasında kullanılabilir içerik yok.',
+    pdfMdLocalDroppedDetail:
+      '{pages} numaralı sayfa(lar) güvenilir biçimde yeniden oluşturulamadı; Markdown görüntü taşıyamadığından içerikleri eksik.',
+    pdfDocxLocalScannedDetail:
+      'Sayfalar görünümlerini korumak için görüntü olarak dışa aktarıldı; düzenlenebilir metin tanınamadı.',
+    pdfDocxLocalDegradedMsg: 'Bazı sayfalar görüntü olarak dışa aktarıldı',
+    pdfDocxLocalDegradedDetail:
+      '{pages} numaralı sayfa(lar) güvenilir biçimde yeniden oluşturulamadı ve tam sayfa görüntü olarak dışa aktarıldı.',
+    pdfDocxLocalOcrMsg: 'Taranmış sayfalar düzenlenebilir metne dönüştürüldü',
+    pdfDocxLocalOcrDetail:
+      '{pages} numaralı sayfa(lar) taramaydı; metinleri cihaz üzerinde OCR ile kurtarıldı. Lütfen sonucu gözden geçirin.',
+    pdfDocxLocalEncryptedDetail: 'Bu PDF şifreli ve doğru parola olmadan açılamadı.',
+    pdfDocxLocalUnsupportedEncDetail:
+      'Bu PDF sertifika tabanlı veya desteklenmeyen başka bir şifreleme kullanıyor ve dönüştürülemez.',
+    pdfPwdTitle: 'Parola Girin',
+    pdfPwdPrompt: 'Bu PDF şifreli. Açmak için parolayı girin:',
+    pdfPwdRetryPrompt: 'Parola yanlış. Lütfen yeniden deneyin.',
+    pdfPwdOk: 'Tamam',
+    pdfPwdVerifying: 'Parola doğrulanıyor…',
+    pdfPwdLabel: 'Parola',
+    pdfPwdPlaceholder: 'Açma parolasını girin',
+    pdfPwdShow: 'Parolayı göster',
+    pdfPwdHide: 'Parolayı gizle',
+    pdfDocxLocalCorruptDetail: 'Dosya bozuk veya geçerli bir PDF değil ve dönüştürülemez.',
+    dlgPickSaveDir: 'Varsayılan Kayıt Konumunu Seçin',
+    errSaveDirUnusable:
+      'Seçilen klasör yazılabilir değil ve varsayılan kayıt konumu olarak kullanılamaz',
   },
   ja: {
     menuTabSave: '保存',
@@ -3946,6 +4090,13 @@ function createShellWindow(): void {
     minWidth: SHELL_WINDOW_MIN_WIDTH,
     minHeight: SHELL_WINDOW_MIN_HEIGHT,
     title: 'GenOffice',
+    // Paint the theme's surface before the renderer's first frame so the window
+    // does not flash white in dark mode. nativeTheme.themeSource is already set
+    // from the saved theme in app.whenReady, before this window is created.
+    // macOS uses vibrancy below, which must stay transparent.
+    ...(process.platform === 'darwin'
+      ? {}
+      : { backgroundColor: shellWindowBackground(nativeTheme.shouldUseDarkColors) }),
     // vibrancy: editor modules punch translucent regions (e.g. the slides
     // thumbnail pane) through to the desktop
     ...(process.platform === 'darwin'
@@ -4179,6 +4330,16 @@ function createShellWindow(): void {
   win.on('closed', () => {
     if (shellWindow === win) shellWindow = null
     if (tabManager === manager) {
+      // the close guard has already settled every unsaved tab, so the tabs left are the session
+      if (restoreLastSessionEnabled(readAppSettings(APP_SETTINGS_PATH()))) {
+        try {
+          writeAppSettings(APP_SETTINGS_PATH(), {
+            [LAST_SESSION_DOCUMENTS_KEY]: [...new Set(manager.openFilePaths())],
+          })
+        } catch (err) {
+          console.warn('[shell] could not save the session documents:', err)
+        }
+      }
       tabManager = null
       setDockHost(null)
       publishAllOpenDocuments()
@@ -5029,6 +5190,14 @@ function registerHomeIpc(): void {
     applyUpdateChannel(channel)
   })
 
+  ipcMain.handle(HOME_CHANNELS.getAutoUpdateCheck, () => autoUpdateCheckEnabled())
+
+  ipcMain.handle(HOME_CHANNELS.setAutoUpdateCheck, (_event, on: unknown) => {
+    if (typeof on !== 'boolean') return
+    writeAppSetting(APP_SETTINGS_PATH(), 'autoUpdateCheck', on)
+    cachedAutoUpdateCheck = on
+  })
+
   ipcMain.handle(
     HOME_CHANNELS.onboardingSeen,
     (): boolean => readAppSettings(APP_SETTINGS_PATH()).onboardingSeen === true,
@@ -5112,6 +5281,18 @@ function registerHomeIpc(): void {
     if (typeof on !== 'boolean') return
     cachedTabSleepEnabled = on
     writeAppSettings(APP_SETTINGS_PATH(), { tabSleepEnabled: on })
+  })
+
+  ipcMain.handle(HOME_CHANNELS.getRestoreLastSession, () =>
+    restoreLastSessionEnabled(readAppSettings(APP_SETTINGS_PATH())),
+  )
+  ipcMain.handle(HOME_CHANNELS.setRestoreLastSession, (_event, on: unknown) => {
+    if (typeof on !== 'boolean') return
+    // turning it off forgets the stored paths instead of keeping them around
+    writeAppSettings(APP_SETTINGS_PATH(), {
+      [RESTORE_LAST_SESSION_KEY]: on,
+      ...(on ? {} : { [LAST_SESSION_DOCUMENTS_KEY]: undefined }),
+    })
   })
 
   ipcMain.handle(HOME_CHANNELS.getMcpStatus, () => mcpStatus())
@@ -7072,7 +7253,7 @@ app.whenReady().then(async () => {
   setUpdateCheckInvoker(() => void checkForUpdatesNow())
   // every app's Settings entry (⌘, / Ctrl+,) lands on the shell's Settings view
   setSettingsInvoker(() => openSettingsView())
-  initAutoUpdater(() => shellWindow, currentUpdateChannel())
+  initAutoUpdater(() => shellWindow, currentUpdateChannel(), autoUpdateCheckEnabled)
   // resource watchdog: a renderer that stays hot for minutes gets diagnostics
   // recorded and the user an offer to close the document (headless exports
   // are short-lived and unattended)
@@ -7089,7 +7270,18 @@ app.whenReady().then(async () => {
     })
   }
 
-  openLaunchPaths(pendingLaunchPaths)
+  const launchSettings = readAppSettings(APP_SETTINGS_PATH())
+  const launchPaths = launchPathsWithLastSession(launchSettings, pendingLaunchPaths)
+  if (launchSettings[LAST_SESSION_DOCUMENTS_KEY] !== undefined) {
+    // consumed before opening: a document that crashes the app during restore
+    // must not be restored again at the next launch
+    try {
+      writeAppSettings(APP_SETTINGS_PATH(), { [LAST_SESSION_DOCUMENTS_KEY]: undefined })
+    } catch (err) {
+      console.warn('[shell] could not clear the session documents:', err)
+    }
+  }
+  openLaunchPaths(launchPaths)
   pendingLaunchPaths = []
   for (const recoverAs of pendingUnsavedNewRecoveries()) void newSheetTab(recoverAs)
 

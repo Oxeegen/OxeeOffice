@@ -391,6 +391,7 @@ export const ms = {
   appLangHindi: 'Hindi',
   appLangTraditionalChinese: 'Cina Tradisional',
   appLangVietnamese: 'Vietnam',
+  appLangTurkish: 'Turki',
   appWrapTextMenu: 'Lilit Teks',
   appViewImage: 'Lihat Imej',
   appSaveImageAs: 'Simpan Imej Sebagai…',
@@ -544,4 +545,7 @@ export const ms = {
   appUpdateStyleTip: 'Kemas kini gaya ini dengan pilihan semasa (ditulis semula ke styles.xml)',
   appNewStyleFromSelection: 'Gaya baharu daripada pilihan semasa',
   appStyleNamePlaceholder: 'Nama gaya',
+  appMergeSourceLoaded: '{name} dimuatkan ({n} rekod)',
+  appMergeWritten: '{n} dokumen ditulis',
+  appMergeNothingToWrite: 'Tiada untuk ditulis',
 } satisfies Record<keyof typeof zh, string>
