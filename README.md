@@ -1,5 +1,10 @@
 <p align="center">
-  <img src="brand/assets/icon.png" alt="OxeeOffice" width="128">
+  <a href="https://github.com/Oxeegen/OxeeOffice/releases/latest">
+    <picture>
+      <source srcset="brand/assets/readme/hero-dark.webp" media="(prefers-color-scheme: dark)">
+      <img src="brand/assets/readme/hero.webp" alt="OxeeOffice — the open-source AI office suite: Docs, Sheets, Slides, PDF, Markdown and HTML with a built-in AI panel, running on Oxeegen models" width="100%">
+    </picture>
+  </a>
 </p>
 
 <h1 align="center">OxeeOffice</h1>
