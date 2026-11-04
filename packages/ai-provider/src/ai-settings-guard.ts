@@ -16,6 +16,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 import { normalizeCustomProfile } from './custom-profile'
+import { isThinkingEffort } from './thinking-effort'
 import { AI_PROVIDER_ADAPTERS, normalizeBaseUrl } from './registry'
 import type {
   AiCustomEndpoint,
@@ -94,7 +95,21 @@ function sanitizeProviderConfig(input: unknown): AiProviderConfig {
   const cliPath = sanitizeCliPath(raw.cliPath)
   if (cliPath !== undefined) config.cliPath = cliPath
   // OxeeOffice brand hook: per-request reasoning switch (oxeegenRoleSettings)
-  if (typeof raw.thinking === 'boolean') config.thinking = raw.thinking
+  if (raw.oxeegenNoThinking === true) config.oxeegenNoThinking = true
+  // Per-model thinking-effort picks: model id keys bounded like `model`, levels
+  // against the shipped ladder; anything else (unknown level, oversized map)
+  // is dropped wholesale rather than half-kept.
+  if (typeof raw.thinking === 'object' && raw.thinking !== null && !Array.isArray(raw.thinking)) {
+    const entries = Object.entries(raw.thinking as Record<string, unknown>)
+    if (entries.length <= 256) {
+      const thinking: Record<string, string> = {}
+      for (const [model, level] of entries) {
+        if (model === '' || model.length > MAX_MODEL_LENGTH || !isThinkingEffort(level)) continue
+        thinking[model] = level
+      }
+      if (Object.keys(thinking).length > 0) config.thinking = thinking
+    }
+  }
   // A custom slot may carry a nested profile; normalizeCustomProfile bounds every
   // field (protocol, headers via the HTTP-legality gate, sizes) and drops the rest.
   const profile = normalizeCustomProfile(raw.profile)
@@ -161,6 +176,9 @@ function sanitizeCustomEndpoints(raw: unknown): AiCustomEndpoint[] {
       baseUrl: config.baseUrl ?? '',
       apiKey: config.apiKey,
       model: config.model,
+      // the endpoint record carries its own thinking picks (bounded by
+      // sanitizeProviderConfig) so the slot mirror can hand them to the request
+      ...(config.thinking ? { thinking: config.thinking } : {}),
       ...(models && models.length > 0 ? { models } : {}),
     }
     for (const key of [

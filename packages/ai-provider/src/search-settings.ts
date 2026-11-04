@@ -17,6 +17,7 @@ export const AI_SEARCH_PROVIDERS: AiSearchProviderMeta[] = withOxeegenSearch([
   },
   { id: 'serper', label: 'Serper', keyPlaceholder: 'Serper API key', imageSearch: true },
   { id: 'serply', label: 'Serply', keyPlaceholder: 'Serply API key', imageSearch: true },
+  { id: 'searchapi', label: 'SearchApi', keyPlaceholder: 'SearchApi API key', imageSearch: true },
   { id: 'tavily', label: 'Tavily', keyPlaceholder: 'tvly-...', imageSearch: false },
   { id: 'parallel', label: 'Parallel', keyPlaceholder: 'Parallel API key', imageSearch: false },
   // exa/firecrawl: AI-search APIs without an image endpoint (like Tavily/Parallel)
@@ -33,6 +34,7 @@ export function defaultAiSearchSettings(): AiSearchSettings {
     providers: {
       serper: { apiKey: '' },
       serply: { apiKey: '' },
+      searchapi: { apiKey: '' },
       tavily: { apiKey: '' },
       parallel: { apiKey: '' },
       exa: { apiKey: '' },
@@ -49,7 +51,7 @@ export function resolveAiSearchSettings(
   if (!stored) return defaults
   const providers = { ...defaults.providers }
   // OxeeOffice brand hook: keep the Oxeegen (Brave) key too
-  for (const id of ['serper', 'serply', 'tavily', 'parallel', 'exa', 'firecrawl', 'keenable', 'oxeegen'] as const) {
+  for (const id of ['serper', 'serply', 'searchapi', 'tavily', 'parallel', 'exa', 'firecrawl', 'keenable', 'oxeegen'] as const) {
     const key = stored.providers?.[id]?.apiKey
     if (typeof key === 'string') providers[id] = { apiKey: key.trim() }
   }

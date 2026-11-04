@@ -1,7 +1,12 @@
 import { existsSync } from 'node:fs'
 import { basename, extname, isAbsolute, join } from 'node:path'
 import { z } from 'zod'
-import { createFileViaCli, readDocxTextViaCli } from '../headless-cli'
+import {
+  createFileViaCli,
+  mergeTemplateViaCli,
+  readDocxTextViaCli,
+  readDocxPropertiesViaCli,
+} from '../headless-cli'
 import type { McpToolDefinition } from '../mcp-server'
 import { capabilityReport, generateExtension } from './formats'
 import type { FamilyDriver, SessionHost, TargetResolver } from './session-tools'
@@ -45,7 +50,12 @@ export interface DocToolDeps {
 
 /** editor commands the docs renderer bridge understands (see docs shared/ipc.ts) */
 export type McpEditorCommandName =
-  'insert_content' | 'replace_blocks' | 'apply_ops' | 'read_document' | 'save_document'
+  | 'insert_content'
+  | 'replace_blocks'
+  | 'apply_ops'
+  | 'insert_picture'
+  | 'read_document'
+  | 'save_document'
 
 /**
  * Visible-editor control: opens a docs tab and pushes editor commands into it,
@@ -183,11 +193,77 @@ function createHeadlessDocxTool(deps: DocToolDeps): McpToolDefinition {
   }
 }
 
+/**
+ * Headless template fill through the bundled CLI's `merge` command: one record
+ * of `{{key}}` placeholders into a .docx/.pptx/.xlsx template, written to disk.
+ * It writes a file, so it rides the same opt-in as create_docx/create_xlsx.
+ */
+function createFillTemplateTool(deps: DocToolDeps): McpToolDefinition {
+  return {
+    name: 'fill_template',
+    description:
+      'Fill {{key}} placeholders in a .docx, .pptx or .xlsx template with values and write the ' +
+      'result to disk without opening the app (a one-record mail merge; loop the tool for a ' +
+      'batch). Nested keys flatten to dotted paths (a.b); arrays are not expanded. Returns the ' +
+      'fill report: how many placeholders were filled, which had no value, and which data keys ' +
+      'went unused.',
+    inputSchema: {
+      template: z.string().describe('absolute path to the .docx, .pptx or .xlsx template'),
+      data: z
+        .record(z.string(), z.unknown())
+        .describe('the values: an object whose keys are the {{key}} names'),
+      path: z
+        .string()
+        .optional()
+        .describe(
+          'absolute output path; default is a new file named after the template in the default save folder',
+        ),
+      overwrite: z
+        .boolean()
+        .optional()
+        .describe('allow replacing an existing file at `path`; default false'),
+      strict: z
+        .boolean()
+        .optional()
+        .describe('fail instead of writing when a placeholder has no value; default false'),
+    },
+    handler: async (args) => {
+      const templatePath = String(args.template ?? '')
+      if (!isAbsolute(templatePath)) throw new Error('template must be an absolute path')
+      const templateExt = extname(templatePath).toLowerCase()
+      if (!['.docx', '.pptx', '.xlsx'].includes(templateExt))
+        throw new Error('template must point to a .docx, .pptx or .xlsx file')
+      if (!existsSync(templatePath)) throw new Error(`file not found: ${templatePath}`)
+      if (!deps.cli) throw new Error('headless generation is not available in this build')
+
+      const stem = basename(templatePath, extname(templatePath))
+      const targetPath = resolveOutputPath({
+        defaultSaveDir: deps.defaultSaveDir,
+        ext: templateExt,
+        title: stem,
+        requestedPath: typeof args.path === 'string' ? args.path : undefined,
+        overwrite: args.overwrite === true,
+      })
+      const json = await mergeTemplateViaCli(deps.cli, {
+        templatePath,
+        data: args.data as Record<string, unknown>,
+        out: targetPath,
+        overwrite: args.overwrite === true,
+        strict: args.strict === true,
+      })
+      const detail = json.detail ?? {}
+      return { path: json.output_path ?? targetPath, summary: json.summary, ...detail }
+    },
+  }
+}
+
 export function createDocumentTools(deps: DocToolDeps, host: SessionHost): McpToolDefinition[] {
   return [
     // headless generation is opt-in: when background is off (the default),
     // clients only see the visible document session
-    ...(deps.background === false ? [] : [createHeadlessDocxTool(deps)]),
+    ...(deps.background === false
+      ? []
+      : [createHeadlessDocxTool(deps), createFillTemplateTool(deps)]),
     {
       name: 'read_docx',
       description: 'Read a Word .docx file and return its visible text (one paragraph per line).',
@@ -203,6 +279,25 @@ export function createDocumentTools(deps: DocToolDeps, host: SessionHost): McpTo
         if (!deps.cli) throw new Error('reading .docx is not available in this build')
         const text = await readDocxTextViaCli(deps.cli, filePath)
         return { path: filePath, name: basename(filePath), text }
+      },
+    },
+    {
+      name: 'read_docx_properties',
+      description:
+        "Read a Word .docx file's document properties: core (title, author, dates), app and " +
+        'custom properties, as stored in the file.',
+      inputSchema: {
+        path: z.string().describe('absolute path to a .docx file'),
+      },
+      handler: async (args) => {
+        const filePath = String(args.path ?? '')
+        if (!isAbsolute(filePath)) throw new Error('path must be absolute')
+        if (extname(filePath).toLowerCase() !== DOCX_EXT)
+          throw new Error('path must point to a .docx file')
+        if (!existsSync(filePath)) throw new Error(`file not found: ${filePath}`)
+        if (!deps.cli) throw new Error('reading .docx is not available in this build')
+        const properties = await readDocxPropertiesViaCli(deps.cli, filePath)
+        return { path: filePath, name: basename(filePath), properties }
       },
     },
     {
@@ -335,6 +430,69 @@ function createDocxContentTools(deps: DocToolDeps, host: SessionHost): McpToolDe
           ops: args.ops,
           dryRun: args.dryRun === true,
         })
+      },
+    },
+    {
+      name: 'insert_picture',
+      description:
+        'Insert a picture into the visible document from a direct image link (png/jpg/gif), ' +
+        'at a given size, inline after a block or floating at a position with text wrap. ' +
+        'Use read_document for block indexes.',
+      inputSchema: {
+        url: z.string().describe('direct image link (png/jpg/gif)'),
+        afterBlockIndex: z
+          .number()
+          .int()
+          .optional()
+          .describe('insert after this block (-1 = start of document); default: end of document'),
+        width: z
+          .union([z.number(), z.string()])
+          .optional()
+          .describe(
+            'display width, "2.54cm", "1in", "72pt", "96px" or a bare number of points; ' +
+              'default natural size capped at 480px',
+          ),
+        height: z
+          .union([z.number(), z.string()])
+          .optional()
+          .describe('display height; omit to keep the aspect ratio'),
+        float: z
+          .object({
+            anchor: z
+              .enum(['paragraph', 'page', 'margin'])
+              .optional()
+              .describe(
+                'what x/y measure from: the anchor paragraph (default), the page corner, ' +
+                  'or the margin box corner',
+              ),
+            x: z
+              .union([z.number(), z.string()])
+              .optional()
+              .describe(
+                'horizontal offset, "2.54cm", "1in", "72pt", "96px" or a bare number of points',
+              ),
+            y: z
+              .union([z.number(), z.string()])
+              .optional()
+              .describe(
+                'vertical offset, "2.54cm", "1in", "72pt", "96px" or a bare number of points',
+              ),
+            wrap: z
+              .enum(['square', 'tight', 'topAndBottom', 'behind', 'inFront'])
+              .optional()
+              .describe('how text wraps around the floating picture (default square)'),
+          })
+          .optional()
+          .describe(
+            'omit for an inline picture in its own paragraph; give it to float the picture ' +
+              'at a position',
+          ),
+        altText: z.string().optional().describe('alternative text (accessibility)'),
+        document: documentField,
+      },
+      handler: async (args) => {
+        const wc = await target(args.document, { focus: true })
+        return docs.runCommand(wc, 'insert_picture', args)
       },
     },
     {

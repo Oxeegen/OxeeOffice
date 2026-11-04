@@ -147,7 +147,7 @@ describe('tiers', () => {
           apiKey: 'k',
           model,
           baseUrl: EU,
-          thinking: false,
+          oxeegenNoThinking: true,
         })
       }
     }
@@ -168,13 +168,13 @@ describe('tiers', () => {
     expect(s.providers.oxeegen).toEqual({ apiKey: 'k', model: 'Oxee-max', baseUrl: EU })
   })
 
-  it('turns thinking: false into the vLLM chat-template switch, and nothing otherwise', () => {
+  it('turns oxeegenNoThinking into the vLLM chat-template switch, and nothing otherwise', () => {
     const adapter = api.getProviderAdapter('oxeegen')
-    expect(adapter.resolveEndpoint({ apiKey: 'k', model: 'Oxee-max', thinking: false }).bodyExtras).toEqual({
+    expect(adapter.resolveEndpoint({ apiKey: 'k', model: 'Oxee-max', oxeegenNoThinking: true }).bodyExtras).toEqual({
       chat_template_kwargs: { enable_thinking: false },
     })
     expect(adapter.resolveEndpoint({ apiKey: 'k', model: 'Oxee-max' }).bodyExtras).toBeUndefined()
-    expect(adapter.resolveEndpoint({ apiKey: 'k', model: 'Oxee-max', thinking: true }).bodyExtras).toBeUndefined()
+    expect(adapter.resolveEndpoint({ apiKey: 'k', model: 'Oxee-max', oxeegenNoThinking: false }).bodyExtras).toBeUndefined()
   })
 
   it('a reasoning-off request carries the switch and still no temperature or max_tokens', async () => {
@@ -200,6 +200,8 @@ describe('tiers', () => {
     expect(bodies[0]).not.toHaveProperty('temperature')
     expect(bodies[0]).not.toHaveProperty('max_tokens')
     expect(bodies[0]).not.toHaveProperty('thinking')
+    expect(bodies[0]).not.toHaveProperty('oxeegenNoThinking')
+    expect(bodies[0]).not.toHaveProperty('reasoning_effort')
   })
 
   it('writes Slides pages one at a time with references, on Oxeegen only', () => {
@@ -452,12 +454,20 @@ describe('a corrupted settings file', () => {
 })
 
 describe("upstream's AI settings schema check", () => {
-  it('keeps the per-request reasoning switch, and only as a boolean', () => {
+  it('keeps the per-request reasoning switch, and only as true', () => {
     const base = { provider: 'oxeegen', providers: { oxeegen: { apiKey: 'k', model: 'Oxee-max', baseUrl: US } } }
-    const off = api.sanitizeAiSettings({ ...base, providers: { oxeegen: { ...base.providers.oxeegen, thinking: false } } })
-    expect(off?.providers.oxeegen).toMatchObject({ model: 'Oxee-max', thinking: false })
-    const junk = api.sanitizeAiSettings({ ...base, providers: { oxeegen: { ...base.providers.oxeegen, thinking: 'no' } } })
-    expect(junk?.providers.oxeegen).not.toHaveProperty('thinking')
+    const off = api.sanitizeAiSettings({ ...base, providers: { oxeegen: { ...base.providers.oxeegen, oxeegenNoThinking: true } } })
+    expect(off?.providers.oxeegen).toMatchObject({ model: 'Oxee-max', oxeegenNoThinking: true })
+    const junk = api.sanitizeAiSettings({ ...base, providers: { oxeegen: { ...base.providers.oxeegen, oxeegenNoThinking: 'yes' } } })
+    expect(junk?.providers.oxeegen).not.toHaveProperty('oxeegenNoThinking')
+  })
+
+  it("upstream's per-model thinking picks send nothing for Oxee models", async () => {
+    const { toggleThinkingBodyFor, resolveThinkingEffort } = await import('../src/thinking-effort')
+    for (const model of api.OXEEGEN_CHAT_MODELS) {
+      expect(toggleThinkingBodyFor({ model, thinking: { [model]: 'high' } })).toBeUndefined()
+      expect(resolveThinkingEffort({ model, thinking: { [model]: 'none' } })).toBeUndefined()
+    }
   })
 
   it('a reasoning-off request survives the check and still reaches Oxeegen with the switch', () => {

@@ -75,10 +75,10 @@ export type OxeegenRole = 'deckPages' | 'layoutCheck' | 'writer' | 'compaction'
  * Instant. Planning (chat agent, Slides style and outline, HTML brief) keeps
  * reasoning on.
  */
-export const OXEEGEN_ROLES: Record<OxeegenRole, { model?: string; thinking?: false }> = {
-  deckPages: { thinking: false },
-  layoutCheck: { thinking: false },
-  writer: { thinking: false },
+export const OXEEGEN_ROLES: Record<OxeegenRole, { model?: string; noThinking?: true }> = {
+  deckPages: { noThinking: true },
+  layoutCheck: { noThinking: true },
+  writer: { noThinking: true },
   compaction: { model: 'Oxee-instant' },
 }
 
@@ -98,12 +98,12 @@ export function oxeegenRoleSettings<S extends SettingsWithModels>(settings: S, r
   if (!oxeegenLayerEnabled() || settings.provider !== 'oxeegen') return null
   const config = settings.providers.oxeegen
   if (!config) return null
-  const { model, thinking } = OXEEGEN_ROLES[role]
+  const { model, noThinking } = OXEEGEN_ROLES[role]
   return {
     ...settings,
     providers: {
       ...settings.providers,
-      oxeegen: { ...config, ...(model ? { model } : {}), ...(thinking === false ? { thinking } : {}) },
+      oxeegen: { ...config, ...(model ? { model } : {}), ...(noThinking ? { oxeegenNoThinking: true } : {}) },
     },
   }
 }
@@ -159,7 +159,7 @@ function oxeegenEndpoint(config: AiProviderConfig): ResolvedEndpoint {
     baseUrl: config.baseUrl?.trim() || OXEEGEN_DEFAULT_BASE_URL,
     omitTemperature: true,
     omitMaxTokens: true,
-    ...(config.thinking === false ? { bodyExtras: OXEEGEN_NO_THINKING_BODY } : {}),
+    ...(config.oxeegenNoThinking === true ? { bodyExtras: OXEEGEN_NO_THINKING_BODY } : {}),
   }
 }
 

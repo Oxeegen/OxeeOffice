@@ -40,18 +40,27 @@ const DEFAULT_NAMES = [
   'create_session',
   'get_app_info',
   'insert_content',
+  'insert_picture',
   'open_documents',
   'open_in_genoffice',
   'read_deck',
   'read_document',
   'read_docx',
+  'read_docx_properties',
   'read_pdf',
   'read_sheet',
   'replace_blocks',
+  'sheet_links',
   'save_session',
 ].sort()
 
-const BACKGROUND_NAMES = [...DEFAULT_NAMES, 'create_docx', 'create_pptx', 'create_xlsx'].sort()
+const BACKGROUND_NAMES = [
+  ...DEFAULT_NAMES,
+  'create_docx',
+  'create_pptx',
+  'create_xlsx',
+  'fill_template',
+].sort()
 
 function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -283,6 +292,10 @@ describe('MCP surface over Streamable HTTP (/mcp)', () => {
         'docx',
         'odt',
         'ott',
+        'doc',
+        'dot',
+        'hwpx',
+        'hwp',
       ])
       expect(infoJson.families.find((f) => f.family === 'pptx')!.editor.open).toEqual([
         'pptx',

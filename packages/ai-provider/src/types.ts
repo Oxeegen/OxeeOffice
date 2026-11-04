@@ -25,8 +25,13 @@ export type AiProviderId =
   | 'opper'
   | 'cheaperinference'
   | 'atlascloud'
+  | 'runcrate'
+  | 'cloudgpu'
+  | 'siliconflow'
+  | 'ppio'
   | 'opencode-zen'
   | 'opencode-go'
+  | 'commandcode'
   | 'custom'
 
 /** Genspark account status (gsk login state; the sole auth source for AI features) */
@@ -38,14 +43,17 @@ export interface GenSparkAccountStatus {
 export interface AiProviderConfig {
   apiKey: string
   model: string
-  /** OxeeOffice brand hook: false turns the model's reasoning off for this request (request-only, never saved) */
-  thinking?: boolean | undefined
+  /** OxeeOffice brand hook: true turns the model's reasoning off for this request (request-only, never saved) */
+  oxeegenNoThinking?: boolean | undefined
   /** required for custom; for other direct providers it overrides the default endpoint (regional mirrors) */
   baseUrl?: string | undefined
   /** optional Codex CLI override; empty means auto-detect the current authenticated install */
   cliPath?: string | undefined
   /** the declarative profile of the active user-hosted endpoint (custom only) */
   profile?: AiCustomProfile | undefined
+  /** per-model thinking-effort picks (model id → level, see thinking-effort.ts);
+   *  absent or a level the model's family does not list = the vendor default */
+  thinking?: Record<string, string> | undefined
 }
 
 /**
@@ -140,6 +148,13 @@ export interface AiCustomEndpoint extends AiCustomProfile {
   model: string
   /** ids the server advertised on the last `/models` probe, so the composer chip can list them offline */
   models?: string[] | undefined
+  /**
+   * per-model thinking-effort picks (model id → level, see thinking-effort.ts).
+   * The endpoint record carries its own copy so the settings pane's pick
+   * survives normalization and reaches `providers.custom` through the slot
+   * mirror; absent = the vendor default.
+   */
+  thinking?: Record<string, string> | undefined
 }
 
 /** Live picker data returned by Codex app-server's model/list method. */
@@ -179,10 +194,14 @@ export type AiMediaProviderId =
   | 'qwen'
   | 'minimax'
   | 'deepseek'
+  | 'stability'
+  | 'bfl'
+  | 'microsoft'
   | 'custom'
 
 /** wire shape of the image endpoint */
-export type AiImageProtocol = 'openai-images' | 'gemini' | 'dashscope' | 'minimax'
+export type AiImageProtocol =
+  'openai-images' | 'gemini' | 'dashscope' | 'minimax' | 'stability' | 'bfl' | 'mai'
 /** wire shape of the understanding endpoint */
 export type AiAnalysisProtocol = 'openai-chat' | 'gemini'
 
@@ -231,7 +250,7 @@ export interface AiMediaSettings {
 
 /** web/image search backends; Parallel and Keenable take a user key or run free and keyless */
 // OxeeOffice brand hook: oxeegen
-export type AiSearchProviderId = 'oxeegen' | 'genspark' | 'serper' | 'serply' | 'tavily' | 'parallel' | 'exa' | 'firecrawl' | 'keenable'
+export type AiSearchProviderId = 'oxeegen' | 'genspark' | 'serper' | 'serply' | 'searchapi' | 'tavily' | 'parallel' | 'exa' | 'firecrawl' | 'keenable'
 
 export interface AiSearchProviderMeta {
   id: AiSearchProviderId

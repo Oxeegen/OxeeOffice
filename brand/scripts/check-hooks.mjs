@@ -67,7 +67,7 @@ const HOOKS = [
   {
     file: 'packages/ai-provider/src/types.ts',
     why: 'oxeegen provider ids',
-    must: ["| 'oxeegen' // OxeeOffice brand hook", "AiSearchProviderId = 'oxeegen' | 'genspark' |", 'oxeegen?: { apiKey: string }', "purpose?: 'compaction'", 'thinking?: boolean | undefined'],
+    must: ["| 'oxeegen' // OxeeOffice brand hook", "AiSearchProviderId = 'oxeegen' | 'genspark' |", 'oxeegen?: { apiKey: string }', "purpose?: 'compaction'", 'oxeegenNoThinking?: boolean | undefined'],
   },
   {
     file: 'packages/ai-provider/src/media-protocols.ts',
@@ -81,7 +81,7 @@ const HOOKS = [
   {
     file: 'packages/ai-provider/src/ai-settings-guard.ts',
     why: "the settings schema check keeps the per-request reasoning switch",
-    must: ["if (typeof raw.thinking === 'boolean') config.thinking = raw.thinking"],
+    must: ['if (raw.oxeegenNoThinking === true) config.oxeegenNoThinking = true'],
   },
   {
     file: 'packages/ui/src/provider-logos.tsx',
@@ -166,7 +166,7 @@ const HOOKS = [
   {
     file: 'packages/ai-provider/src/search-settings.ts',
     why: 'Oxeegen (Brave) search entry and defaults',
-    must: ['= withOxeegenSearch([', 'return withOxeegenSearchDefaults({', "['serper', 'serply', 'tavily', 'parallel', 'exa', 'firecrawl', 'keenable', 'oxeegen']"],
+    must: ['= withOxeegenSearch([', 'return withOxeegenSearchDefaults({', "['serper', 'serply', 'searchapi', 'tavily', 'parallel', 'exa', 'firecrawl', 'keenable', 'oxeegen']"],
   },
   {
     file: 'packages/ai-provider/src/index.ts',
