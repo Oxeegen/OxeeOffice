@@ -18,6 +18,10 @@ if [ -f "$profile" ]; then
   fi
   rm -f "$profile"
 fi
+# drop the KDE "Create New" templates the post-install wrote (our exact names only)
+for name in "OxeeOffice Document.docx" "OxeeOffice Spreadsheet.xlsx" "OxeeOffice Presentation.pptx"; do
+  rm -f "/usr/share/templates/$name"
+done
 if [ -L /usr/bin/genoffice ] && [ "$(readlink /usr/bin/genoffice)" = "/opt/OxeeOffice/resources/cli/genoffice" ]; then
   rm -f /usr/bin/genoffice
 fi

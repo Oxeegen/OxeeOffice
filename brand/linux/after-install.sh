@@ -41,6 +41,25 @@ if [ -f "$mime" ] && grep -q '<icon name="x-office-document"' "$mime"; then
 fi
 command -v update-mime-database >/dev/null 2>&1 && update-mime-database /usr/share/mime >/dev/null 2>&1 || true
 command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
+# KDE Plasma's Dolphin lists the "Create New" menu from the XDG templates
+# directories, which include the system-wide /usr/share/templates. Only our
+# three exact file names are written, so another suite's templates are never
+# overwritten here or removed later.
+shell_new="$app/resources/shell-new"
+templates_dir="/usr/share/templates"
+if [ -d "$shell_new" ]; then
+  mkdir -p "$templates_dir" 2>/dev/null || true
+  for ext in docx xlsx pptx; do
+    case "$ext" in
+      docx) name="OxeeOffice Document.docx" ;;
+      xlsx) name="OxeeOffice Spreadsheet.xlsx" ;;
+      pptx) name="OxeeOffice Presentation.pptx" ;;
+    esac
+    # a template that cannot be written must not fail the whole install
+    install -m 0644 "$shell_new/blank.$ext" "$templates_dir/$name" 2>/dev/null ||
+      cp -f "$shell_new/blank.$ext" "$templates_dir/$name" 2>/dev/null || true
+  done
+fi
 launcher="$app/resources/cli/genoffice"
 link="/usr/bin/genoffice"
 if [ -x "$launcher" ]; then
