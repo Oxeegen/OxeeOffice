@@ -5,6 +5,57 @@ What changed in each OxeeOffice release. Installers are on the
 
 ---
 
+## OxeeOffice 0.12.852 — 2026-11-04
+
+Windows x64, Linux x64
+
+### Open older and other formats
+
+- **Word 97-2003 `.doc`/`.dot`**, **Hangul `.hwp`/`.hwpx`** and **PowerPoint 97-2003
+  `.ppt`** (text stays editable) open as converted copies; the original file is never
+  changed. Older Excel `.xls` workbooks keep their pictures, merges and cell formatting.
+  **Settings ▸ General ▸ Ask before converting legacy files** can skip the explanation.
+- Password-protected PDFs open.
+
+### New in the editors
+
+- **Docs:** Track Changes follows Word end to end — a Reviewing Pane, Show Markup filters
+  and balloons, a colour per author, moves recorded as moves, and reviewable table,
+  numbering, section, footnote, header and text-box changes; AI edits are credited to
+  your user name; Page Border, Insert Watermark and a pen gallery on the Draw tab; a
+  Styles pane; mail merge prints labels and envelopes; double-click selects a word.
+- **Sheets:** spell check; What-If data tables; PivotCharts; an external links panel
+  that updates linked values; the remaining Show Values As modes; Ctrl+Y repeats the
+  last action.
+- **Slides:** export slides as JPG; the print dialog chooses the printer, copies and
+  two-sided printing.
+- **PDF:** edit bookmarks; Bates numbering; an attachments panel; a calibrated measuring
+  tool; compare two documents page by page; reduce file size; recognized (OCR) text is
+  saved into scanned pages so they stay searchable; annotations carry your user name.
+- **Markdown:** block references, a tags sidebar, and mind maps that switch between
+  top-down and left-right layouts.
+
+### AI and app
+
+- **More AI providers and models** for people who use their own keys (including Claude
+  Sonnet 5.5, Gemini 4 and GPT-6), new image providers (Stability AI, FLUX, Microsoft
+  MAI) and SearchApi search; a per-model thinking-effort setting for the providers that
+  support one.
+- AI file naming for new documents in every app.
+- **Updates:** Settings ▸ About ▸ **Install updates silently** downloads a new version
+  in the background and installs it when you quit; off by default, so the update prompt
+  still asks first.
+- **Linux:** `.deb` and `.rpm` installs add OxeeOffice Document, Spreadsheet and
+  Presentation to KDE Dolphin's "Create New" menu.
+
+### Oxeegen AI
+
+Unchanged: Oxee models with the picker in every AI panel, slide pages generated one at a
+time with reasoning off, layout checks and long writing with reasoning off, Brave search,
+and OpenAI `gpt-image-2.5-flare` images.
+
+---
+
 ## OxeeOffice 0.12.115 — 2026-10-26
 
 Windows x64, Linux x64
