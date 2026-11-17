@@ -5,6 +5,46 @@ What changed in each OxeeOffice release. Installers are on the
 
 ---
 
+## OxeeOffice 0.13.18 — 2026-11-17
+
+Windows x64, Linux x64
+
+### New in the editors
+
+- **Slides:** export a presentation as an MP4 video (**File ▸ Export as Video (MP4)…**),
+  with slide timings, transitions, animations and recorded narration, in 1080p or 720p,
+  encoded on your computer; PowerPoint 97-2003 `.ppt` files convert far more faithfully
+  (fills, pictures, bullets, masters and layouts); 4- and 9-up handouts.
+- **Docs:** a **Story** view that hides the formatting while you write; Save As offers PDF,
+  HTML and Markdown next to Word; update the table of contents from its context menu;
+  dragging across table cells selects text across them; tracked changes reach inline
+  objects; print jobs state the document's paper size.
+- **Sheets:** slicers and timelines are kept when you save; break or change the source of
+  external links; large CSV imports stream, show their progress and can be stopped;
+  workbooks open faster; sorting right after opening keeps formulas intact; CSV and PDF
+  export and printing wait for formula results; pictures pasted from Office apps survive
+  the save.
+- **PDF:** a default zoom setting for newly opened files; the AI can find sensitive
+  information to redact; the print dialog offers the printer's own driver options;
+  undo and redo for replacing pages, page size, crop and inserting a PDF.
+
+### App
+
+- The documents open when you quit come back at the next launch by default.
+- Checking recent files no longer blocks the app at startup; a failed save leaves one
+  rescue copy instead of one per attempt.
+- Malformed OpenDocument, Hangul and PowerPoint files are handled safely.
+- Settings can hide the floating AI chip that appears on a selection.
+- [PRIVACY.md](PRIVACY.md) now describes optional search reranking.
+
+### Oxeegen AI
+
+Unchanged: Oxee models with the picker in every AI panel, slide pages generated one at a
+time with reasoning off, layout checks and long writing with reasoning off, Brave search,
+and OpenAI `gpt-image-2.5-flare` images.
+
+---
+
 ## OxeeOffice 0.12.852 — 2026-11-04
 
 Windows x64, Linux x64
