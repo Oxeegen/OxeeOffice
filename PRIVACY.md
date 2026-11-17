@@ -1,6 +1,6 @@
 # OxeeOffice Privacy
 
-Last updated: September 16, 2026. Applies to OxeeOffice 0.10.488 and later, the
+Last updated: November 17, 2026. Applies to OxeeOffice 0.10.488 and later, the
 first releases built from this repository.
 
 OxeeOffice opens, edits, saves and converts documents on your computer. Document
@@ -39,9 +39,28 @@ Your API keys are stored locally in the application's settings folder
 (`%APPDATA%\OxeeOffice` on Windows, `~/.config/OxeeOffice` on Linux) and are sent
 only to the provider they belong to.
 
+## Search reranking (off by default)
+
+File search runs on this computer: the index is built from your local files, is
+queried locally and is never uploaded. If you turn on **Jev search reranking** in
+Settings → AI Media & Search, a search with two or more hits whose judgement is
+not already cached also sends one request to the decision-model endpoint you
+selected. That request contains the query text and up to 20 excerpts (at most
+1,200 characters each), each with its file name and the name of its parent
+folder.
+
+Excerpts are document content, so they leave the computer whenever reranking is
+on. The request is capped at 24 KB and the reply at 1 MB; judgements are cached in
+memory for 30 minutes. If the endpoint fails or times out, the local ranking is
+used unchanged. A local endpoint (Kev, Rizzo Flow, or a custom URL on this
+machine) keeps the request on the computer; a custom URL pointing at a server you
+host sends the excerpts to that server. Turning reranking off stops these
+requests.
+
 ## What is never sent
 
 - documents, file names or file paths, except the content you ask the AI to work on
+  and, when search reranking is on, the excerpts described above
 - usage statistics or telemetry
 - account identity or email addresses
 
