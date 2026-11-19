@@ -5,6 +5,53 @@ What changed in each OxeeOffice release. Installers are on the
 
 ---
 
+## OxeeOffice 0.13.615 — 2026-11-19
+
+Windows x64, Linux x64
+
+### Reasoning level for Oxee models
+
+- A new chip next to the model in every AI panel's composer sets how much Oxee Max, Pro
+  and Flash reason before answering: **No reasoning**, **Low**, **Extra High** or
+  **Max** (the default). The same choice is in **Settings ▸ AI Model ▸ Thinking
+  effort**, and it is saved for each model. Lower levels answer much faster; Max takes
+  the most care on hard requests.
+- Steps that carry out a plan (writing slides, checking slide layout, writing long
+  documents) keep reasoning off whatever the level. Oxee Instant has no level: it never
+  reasons.
+
+### New in the editors
+
+- **Docs:** Word's dialogs behind the menus and ribbon (Paragraph, Font, Borders and
+  Shading, Bullets and Numbering, Footnote and Endnote, Index and Tables and more);
+  Compare and Combine Documents; templates, Insert ▸ File and Insert ▸ Icons; group and
+  align floating objects; Zotero citations; nested tables break across pages like Word;
+  **faster typing in long documents**.
+- **Sheets:** Excel's regular-expression functions and PERCENTOF; a copied range also
+  lands on the Windows clipboard as a picture; older `.xls` files keep their real
+  colours; the ribbon fits narrower windows; the cell editor stays on its cell while the
+  grid scrolls.
+- **PDF:** edit the recognized-text layer in place, with a Recognize Text command;
+  right-to-left inserts and line-end hyphens; smoother enlarged page images.
+- **OpenDocument:** `.odt` tables, lists, spacing, backgrounds and repeated header rows
+  convert more faithfully.
+
+### App
+
+- Hungarian interface; 80% and 90% interface zoom; a redesigned Settings window.
+- Network folders and system fonts work better on Linux.
+- AI attachments read Word, Excel and PowerPoint files more accurately.
+- Security hardening: the AI settings file is readable by your account only, plus
+  stricter file channels and imports; Electron 43.8.10.
+
+### Oxeegen AI
+
+Oxee models with the picker in every AI panel, now with a reasoning level beside it;
+slide pages, layout checks and long writing with reasoning off; Brave search; OpenAI
+`gpt-image-2.5-flare` images.
+
+---
+
 ## OxeeOffice 0.13.18 — 2026-11-17
 
 Windows x64, Linux x64

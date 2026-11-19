@@ -330,10 +330,13 @@ tournent sur les modèles d'Oxeegen (Max, Pro, Flash, Instant) via son point de
 terminaison compatible OpenAI. Dans **Paramètres → Modèle IA**, choisissez votre région
 (**US** ou **EU** — chacune a ses propres clés) et collez votre clé API Oxeegen ; le
 point de terminaison est renseigné pour vous. Changez de modèle à tout moment depuis le
-sélecteur placé dans la zone de saisie de chaque panneau IA : ce modèle planifie avec
-le raisonnement activé, puis rédige les diapositives, vérifie leur mise en page et
-rédige les longs documents avec le raisonnement désactivé. Demander à l'IA, sur
-l'écran d'accueil, utilise les mêmes réglages.
+sélecteur placé dans la zone de saisie de chaque panneau IA, et réglez le raisonnement
+d'Oxee Max, Pro et Flash avec la pastille voisine — **No reasoning** (sans
+raisonnement), **Low**, **Extra High** ou **Max** (par défaut), aussi dans Paramètres →
+Modèle IA et enregistré pour chaque modèle. Le modèle planifie à ce niveau, puis rédige
+les diapositives, vérifie leur mise en page et rédige les longs documents avec le
+raisonnement désactivé. Demander à l'IA, sur l'écran d'accueil, utilise les mêmes
+réglages.
 Aucune clé n'est jamais intégrée aux builds, puisque les versions sont publiques.
 
 Sous **Médias IA et recherche**, la recherche web et d'images passe par **Brave

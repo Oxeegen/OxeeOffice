@@ -312,9 +312,12 @@ while you watch.
 Oxeegen's models (Max, Pro, Flash, Instant) through its OpenAI-compatible
 endpoint. In **Settings → AI Model**, pick your region (**US** or **EU** — each has
 its own keys) and paste your Oxeegen API key; the endpoint is filled in for you.
-Switch models any time from the picker in each AI panel's composer: that model
-plans with reasoning on, then writes slides, checks slide layout and writes long
-documents with reasoning off. Ask AI on the home screen uses the same settings.
+Switch models any time from the picker in each AI panel's composer, and set how much
+Oxee Max, Pro and Flash reason with the chip beside it — **No reasoning**, **Low**,
+**Extra High** or **Max** (the default), also under Settings → AI Model and saved for
+each model. The model plans at that level, then writes slides, checks slide layout and
+writes long documents with reasoning off. Ask AI on the home screen uses the same
+settings.
 Keys are never bundled, because releases are public.
 
 Under **AI Media & Search**, web and image search run on **Brave Search** — paste a
