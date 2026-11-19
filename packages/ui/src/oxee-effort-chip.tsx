@@ -41,11 +41,13 @@ export function OxeeEffortChip({
     inside: () => [chipRef.current, popRef.current],
   })
 
-  const config = (settings.providers as Record<string, { model?: string; thinking?: Record<string, string> } | undefined>)[
-    settings.provider
-  ]
+  // settings can arrive partial (tests, an older file): no providers map means no chip
+  const providers = settings?.providers as
+    | Record<string, { model?: string; thinking?: Record<string, string> } | undefined>
+    | undefined
+  const config = settings?.provider ? providers?.[settings.provider] : undefined
   const level =
-    settings.provider === 'oxeegen' && config?.model
+    settings?.provider === 'oxeegen' && config?.model
       ? oxeegenEffortLevel({ model: config.model, thinking: config.thinking })
       : null
   if (!level) return null
