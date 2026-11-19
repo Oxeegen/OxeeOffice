@@ -2084,6 +2084,8 @@ export function SettingsModal({
                 )}
               </button>
             ))}
+            {/* OxeeOffice brand hook: no account, so no account card (it showed "Not signed in") */}
+            {!oxeegenLayerEnabled() && (
             <button type="button" className="set-nav-account" onClick={() => setSection('account')}>
               <span className="set-nav-avatar" aria-hidden="true">
                 {(authorName.value || authorName.fallback || email || '?')
@@ -2099,6 +2101,7 @@ export function SettingsModal({
                 </span>
               </span>
             </button>
+            )}
           </nav>
           <div
             className={'set-pane' + (section === 'aiModel' ? ' set-pane-ai-model' : '')}

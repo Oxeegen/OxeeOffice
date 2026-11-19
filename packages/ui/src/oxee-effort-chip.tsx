@@ -9,6 +9,15 @@ import {
 } from '@genoffice/ai-provider/browser'
 import { useDismissablePopover } from './popover-dismiss'
 
+/** The chip's short form; the menu and the tooltip carry the full names. */
+const CHIP_LABELS: Readonly<Record<string, string>> = { none: 'Off', low: 'Low', xhigh: 'X-High', max: 'Max' }
+
+/** Keeps the model name readable beside the chip in a narrow composer footer. */
+const FOOTER_CSS =
+  '.ai-model-picker:has(.oxee-effort-chip){min-width:150px;flex-shrink:0}' +
+  '.ai-model-picker:has(.oxee-effort-chip)>.ai-model-chip:not(.oxee-effort-chip){min-width:72px}' +
+  '.oxee-effort-chip{flex:0 0 auto;padding:0 6px 0 5px}'
+
 /**
  * OxeeOffice: the reasoning level of the active Oxee model, as a second chip
  * next to the model chip in every composer (AiModelPicker hook). The pick is
@@ -41,6 +50,7 @@ export function OxeeEffortChip({
       : null
   if (!level) return null
   const label = OXEEGEN_EFFORT_LABELS[level] ?? level
+  const short = CHIP_LABELS[level] ?? label
 
   const toggle = () => {
     if (!open) {
@@ -58,11 +68,12 @@ export function OxeeEffortChip({
 
   return (
     <>
+      <style>{FOOTER_CSS}</style>
       <button
         ref={chipRef}
         type="button"
         className={`ai-model-chip oxee-effort-chip${open ? ' open' : ''}`}
-        style={{ marginLeft: 2 }}
+        style={{ marginLeft: 3 }}
         onClick={toggle}
         onKeyDown={(e) => {
           if (e.key === 'Escape' && open) {
@@ -79,7 +90,7 @@ export function OxeeEffortChip({
           <path d="M12 3a6 6 0 0 0-3.5 10.9V17h7v-3.1A6 6 0 0 0 12 3z" />
           <path d="M9.5 21h5" />
         </svg>
-        <span className="ai-model-chip-text">{label}</span>
+        <span className="ai-model-chip-text">{short}</span>
         <svg className="ai-model-chip-caret" width="10" height="10" viewBox="0 0 10 10" aria-hidden>
           <path d="M2 6.5 5 3.5l3 3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>

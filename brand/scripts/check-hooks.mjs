@@ -254,6 +254,11 @@ const HOOKS = [
     why: 'Oxee reasoning levels in Settings > AI Model',
     must: ['<OxeegenEffortField', "{thinkingLevels.length > 0 && provider !== 'oxeegen' ? ("],
   },
+  {
+    file: 'apps/shell/src/renderer/src/SettingsModal.tsx',
+    why: 'no account card in the Settings sidebar (no sign-in in OxeeOffice)',
+    must: ['{/* OxeeOffice brand hook: no account, so no account card'],
+  },
   // ── Oxee mark in the editors (packages/ui/src/oxee-mark.tsx); the model picker is upstream's ──
   {
     file: 'packages/ui/src/index.ts',
