@@ -233,6 +233,27 @@ const HOOKS = [
     why: 'privacy test asserts the no-analytics statement',
     must: ['sends no usage analytics'],
   },
+  // ── Reasoning levels for Oxee models (packages/ai-provider/src/oxee-effort.ts) ──
+  {
+    file: 'packages/ai-provider/src/thinking-effort.ts',
+    why: 'Oxee models in the effort table and their request fields',
+    must: ["| 'oxeegen' // OxeeOffice brand hook", 'const oxee = oxeegenThinkingShape(model)', 'const oxee = oxeegenThinkingBody(config)'],
+  },
+  {
+    file: 'packages/ai-provider/src/browser.ts',
+    why: 'effort helpers for the composer chip and Settings',
+    must: ['oxeegenEffortLevel,', "} from './oxee-effort'"],
+  },
+  {
+    file: 'packages/ui/src/AiModelPicker.tsx',
+    why: 'reasoning level chip next to the model',
+    must: ["import { OxeeEffortChip } from './oxee-effort-chip'", '<OxeeEffortChip'],
+  },
+  {
+    file: 'apps/shell/src/renderer/src/SettingsModal.tsx',
+    why: 'Oxee reasoning levels in Settings > AI Model',
+    must: ['<OxeegenEffortField', "{thinkingLevels.length > 0 && provider !== 'oxeegen' ? ("],
+  },
   // ── Oxee mark in the editors (packages/ui/src/oxee-mark.tsx); the model picker is upstream's ──
   {
     file: 'packages/ui/src/index.ts',
@@ -301,6 +322,8 @@ const FORK_FILES = [
   'packages/ai-search/tests/oxeegen-search.test.ts',
   'apps/shell/src/renderer/src/oxeegen-settings.tsx',
   'packages/ui/src/oxee-mark.tsx',
+  'packages/ai-provider/src/oxee-effort.ts',
+  'packages/ui/src/oxee-effort-chip.tsx',
   'apps/shell/src/renderer/src/oxee-help/index.ts',
   ...['ai-models', 'home-screen', 'install', 'settings-integrations'].flatMap((t) => ['en', 'fr'].map((l) => `apps/shell/src/renderer/src/oxee-help/${t}.${l}.md`)),
   'brand/scripts/make-help-figures.mjs',

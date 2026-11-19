@@ -19,6 +19,8 @@
  */
 
 import type { AiProtocol } from './registry'
+// OxeeOffice brand hook: Oxee models' effort levels (fork-owned oxee-effort.ts)
+import { oxeegenThinkingBody, oxeegenThinkingShape } from './oxee-effort'
 
 export const THINKING_LEVELS = ['none', 'low', 'medium', 'high', 'xhigh', 'max'] as const
 
@@ -30,7 +32,7 @@ export function isThinkingEffort(value: unknown): value is ThinkingEffort {
 
 /** one family's effort surface: which canonical levels it accepts */
 export interface ThinkingShape {
-  kind: 'openai-effort' | 'anthropic-adaptive' | 'gemini-level' | 'toggle' | 'qwen-budget'
+  kind: 'openai-effort' | 'anthropic-adaptive' | 'gemini-level' | 'toggle' | 'qwen-budget' | 'oxeegen' // OxeeOffice brand hook
   levels: readonly ThinkingEffort[]
 }
 
@@ -77,6 +79,9 @@ const GEMINI_LEVELS: readonly ThinkingEffort[] = ['low', 'medium', 'high']
  * the same model id behind a chat-completions gateway offers just low..high.
  */
 export function thinkingShapeFor(model: string, protocol?: AiProtocol): ThinkingShape {
+  // OxeeOffice brand hook: Oxee models offer No reasoning / Low / Extra High / Max
+  const oxee = oxeegenThinkingShape(model)
+  if (oxee) return oxee
   const id = model.toLowerCase()
   if (/(^|\/)(gpt-[5-9]|o[134](-|$))/.test(id)) {
     const six = /(^|\/)gpt-6/.test(id)
@@ -214,6 +219,9 @@ export function toggleThinkingBodyFor(config: {
   model: string
   thinking?: Record<string, string> | undefined
 }): Record<string, unknown> | undefined {
+  // OxeeOffice brand hook: Oxee models send their level (Max until one is picked)
+  const oxee = oxeegenThinkingBody(config)
+  if (oxee !== null) return oxee
   const kind = thinkingShapeFor(config.model).kind
   const level = resolveThinkingEffort(config)
   if (level === undefined) return undefined

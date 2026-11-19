@@ -38,6 +38,13 @@ export {
 export type { ResolvedCustomProfile } from './custom-profile'
 export { endpointSupportsVision, getProviderAdapter, modelLacksVision } from './registry'
 export { thinkingShapeFor, type ThinkingEffort, type ThinkingShape } from './thinking-effort'
+// OxeeOffice brand hook: Oxee models' effort levels (composer chip, Settings)
+export {
+  OXEEGEN_EFFORT_LABELS,
+  OXEEGEN_EFFORT_LEVELS,
+  oxeegenEffortLevel,
+  withOxeegenEffort,
+} from './oxee-effort'
 export { AI_MEDIA_PROVIDERS, imageGenerationAvailable, mediaAnalysisAvailable } from './media'
 export { AI_SEARCH_PROVIDERS } from './search-settings'
 // OxeeOffice brand hook: the Oxeegen layer, browser-safe parts

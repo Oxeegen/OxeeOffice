@@ -65,6 +65,7 @@ import {
   initialSettingsSection,
   OXEEGEN_CHAT_HINT,
   OXEEGEN_SEARCH_HINT,
+  OxeegenEffortField,
   OxeegenRegionRow,
   oxeegenLayerEnabled,
   visibleSettingsSections,
@@ -785,7 +786,16 @@ function AiModelPane({ t }: { t: TFunc }) {
           />
         )}
       </div>
-      {thinkingLevels.length > 0 ? (
+      {/* OxeeOffice brand hook: Oxee reasoning levels (No reasoning / Low / Extra High / Max) */}
+      {provider === 'oxeegen' && (
+        <OxeegenEffortField
+          model={config.model}
+          thinking={config.thinking}
+          label={t('setAiThinking')}
+          onChange={(thinking) => updateConfig({ thinking })}
+        />
+      )}
+      {thinkingLevels.length > 0 && provider !== 'oxeegen' ? (
         <div className="set-field">
           <div className="set-field-text">
             <label className="set-field-label" htmlFor="set-ai-thinking">

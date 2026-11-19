@@ -10,6 +10,8 @@ import {
 import { ProviderLogo } from './provider-logos'
 import { useDismissablePopover } from './popover-dismiss'
 import { AI_MODEL_PICKER_STRINGS } from './strings-ai-model-picker'
+// OxeeOffice brand hook: reasoning level next to the model (fork-owned)
+import { OxeeEffortChip } from './oxee-effort-chip'
 
 /** Each app's preload exposes these under its own namespace; the panel adapts them. */
 export interface AiModelPickerBridge {
@@ -144,6 +146,14 @@ export function AiModelPicker({
           />
         </svg>
       </button>
+      {/* OxeeOffice brand hook: reasoning level next to the model */}
+      <OxeeEffortChip
+        settings={settings}
+        onChange={(next) => {
+          setSettings(next)
+          void bridge.setSettings(next).catch(() => {})
+        }}
+      />
       {open && (
         <div
           ref={popRef}

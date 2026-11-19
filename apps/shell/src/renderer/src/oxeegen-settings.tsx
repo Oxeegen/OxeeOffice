@@ -3,7 +3,13 @@
  * SettingsModal.tsx reaches them through hooks marked "OxeeOffice brand hook".
  */
 
-import { OXEEGEN_REGIONS, oxeegenLayerEnabled } from '@genoffice/ai-provider/browser'
+import {
+  OXEEGEN_EFFORT_LABELS,
+  OXEEGEN_EFFORT_LEVELS,
+  OXEEGEN_REGIONS,
+  oxeegenEffortLevel,
+  oxeegenLayerEnabled,
+} from '@genoffice/ai-provider/browser'
 
 const sameUrl = (a: string, b: string) =>
   a.trim().replace(/\/+$/, '').toLowerCase() === b.trim().replace(/\/+$/, '').toLowerCase()
@@ -104,3 +110,45 @@ export function initialSettingsSection<T extends string>(upstreamDefault: T): T 
 }
 
 export { oxeegenLayerEnabled }
+
+/**
+ * Reasoning level for the selected Oxee model (No reasoning / Low / Extra High
+ * / Max, Max until one is picked), in place of upstream's effort select. The
+ * same pick is offered next to the model in every composer
+ * (packages/ui/src/oxee-effort-chip.tsx).
+ */
+export function OxeegenEffortField({
+  model,
+  thinking,
+  label,
+  onChange,
+}: {
+  model: string
+  thinking: Record<string, string> | undefined
+  label: string
+  onChange: (thinking: Record<string, string>) => void
+}) {
+  const level = oxeegenEffortLevel({ model, thinking })
+  if (!level) return null
+  return (
+    <div className="set-field">
+      <div className="set-field-text">
+        <label className="set-field-label" htmlFor="set-ai-thinking">
+          {label}
+        </label>
+      </div>
+      <select
+        id="set-ai-thinking"
+        className="set-input"
+        value={level}
+        onChange={(e) => onChange({ ...(thinking ?? {}), [model]: e.target.value })}
+      >
+        {OXEEGEN_EFFORT_LEVELS.map((l) => (
+          <option key={l} value={l}>
+            {OXEEGEN_EFFORT_LABELS[l] ?? l}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}

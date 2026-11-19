@@ -112,6 +112,15 @@ export {
   type ThinkingEffort,
   type ThinkingShape,
 } from './thinking-effort'
+// OxeeOffice brand hook: Oxee models' effort levels
+export {
+  OXEEGEN_DEFAULT_EFFORT,
+  OXEEGEN_EFFORT_LABELS,
+  OXEEGEN_EFFORT_LEVELS,
+  oxeegenEffortLevel,
+  oxeegenThinkingBody,
+  withOxeegenEffort,
+} from './oxee-effort'
 export { chatForProvider } from './chat'
 export { setAiUserAgent, setRescueFetch } from './fetch'
 export { isAiNetworkError } from './network-error'

@@ -99,7 +99,7 @@ describe('request bodies: the server configuration decides', () => {
   const cb = { onDelta() {}, onToolCall() {} }
   const tool = { name: 't', description: 'd', inputSchema: { type: 'object', properties: {} } }
 
-  it('Oxeegen streams and one-shot calls send no temperature and no max_tokens', async () => {
+  it('Oxeegen streams and one-shot calls send no sampling field, only the effort level', async () => {
     const bodies = captureFetch()
     try {
       const config = { apiKey: 'k', model: 'Oxee-max', baseUrl: US }
@@ -114,13 +114,34 @@ describe('request bodies: the server configuration decides', () => {
       expect(body).not.toHaveProperty('temperature')
       expect(body).not.toHaveProperty('max_tokens')
       expect(body).not.toHaveProperty('max_completion_tokens')
-      expect(body).not.toHaveProperty('reasoning_effort')
+      expect(body).not.toHaveProperty('top_p')
       expect(body.model).toBe('Oxee-max')
+      // no level picked yet: Max
+      expect(body.reasoning_effort).toBe('max')
     }
-    // streams ask for the token count only (the usage chips); no sampling field
-    expect(Object.keys(bodies[0]!).sort()).toEqual(['messages', 'model', 'stream', 'stream_options', 'tools'])
+    // streams also ask for the token count (the usage chips)
+    expect(Object.keys(bodies[0]!).sort()).toEqual(['messages', 'model', 'reasoning_effort', 'stream', 'stream_options', 'tools'])
     expect(bodies[0]!.stream_options).toEqual({ include_usage: true })
-    expect(Object.keys(bodies[2]!).sort()).toEqual(['messages', 'model'])
+    expect(Object.keys(bodies[2]!).sort()).toEqual(['messages', 'model', 'reasoning_effort'])
+  })
+
+  it('sends the picked level: No reasoning is the chat-template switch, the others reasoning_effort', async () => {
+    const bodies = captureFetch()
+    try {
+      for (const level of ['none', 'low', 'xhigh', 'max']) {
+        const config = { apiKey: 'k', model: 'Oxee-pro', baseUrl: US, thinking: { 'Oxee-pro': level } }
+        await api.streamForProvider('oxeegen', config, 'sys', [{ role: 'user', text: 'hi' }] as never, [], 1024, cb as never)
+      }
+      // Instant never reasons and gets no effort field, whatever is stored
+      await api.streamForProvider('oxeegen', { apiKey: 'k', model: 'Oxee-instant', baseUrl: US, thinking: { 'Oxee-instant': 'max' } }, 'sys', [{ role: 'user', text: 'hi' }] as never, [], 1024, cb as never)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+    expect(bodies[0]).toMatchObject({ chat_template_kwargs: { enable_thinking: false } })
+    expect(bodies[0]).not.toHaveProperty('reasoning_effort')
+    expect(bodies.slice(1, 4).map((b) => b.reasoning_effort)).toEqual(['low', 'xhigh', 'max'])
+    expect(bodies[4]).not.toHaveProperty('reasoning_effort')
+    expect(bodies[4]).not.toHaveProperty('chat_template_kwargs')
   })
 
   it('other OpenAI-compatible providers still send upstream’s fields', async () => {
@@ -462,12 +483,37 @@ describe("upstream's AI settings schema check", () => {
     expect(junk?.providers.oxeegen).not.toHaveProperty('oxeegenNoThinking')
   })
 
-  it("upstream's per-model thinking picks send nothing for Oxee models", async () => {
-    const { toggleThinkingBodyFor, resolveThinkingEffort } = await import('../src/thinking-effort')
-    for (const model of api.OXEEGEN_CHAT_MODELS) {
-      expect(toggleThinkingBodyFor({ model, thinking: { [model]: 'high' } })).toBeUndefined()
-      expect(resolveThinkingEffort({ model, thinking: { [model]: 'none' } })).toBeUndefined()
+  it('offers No reasoning, Low, Extra High and Max for the Oxee models that reason, Max by default', async () => {
+    const { thinkingShapeFor } = await import('../src/thinking-effort')
+    for (const model of ['Oxee-max', 'Oxee-pro', 'Oxee-flash']) {
+      expect(thinkingShapeFor(model).levels).toEqual(['none', 'low', 'xhigh', 'max'])
+      expect(api.oxeegenEffortLevel({ model })).toBe('max')
+      expect(api.oxeegenEffortLevel({ model, thinking: { [model]: 'low' } })).toBe('low')
+      // a level the Oxee list does not offer reads as the default
+      expect(api.oxeegenEffortLevel({ model, thinking: { [model]: 'medium' } })).toBe('max')
     }
+    for (const model of ['Oxee-instant', 'Oxee-ultra', 'claude-sonnet-5']) {
+      expect(api.oxeegenEffortLevel({ model })).toBeNull()
+    }
+    expect(thinkingShapeFor('Oxee-instant').levels).toEqual([])
+  })
+
+  it('a step that carries out a plan keeps reasoning off whatever level is picked', () => {
+    const routed = api.oxeegenRoleSettings(
+      { provider: 'oxeegen', providers: { oxeegen: { apiKey: 'k', model: 'Oxee-max', baseUrl: US, thinking: { 'Oxee-max': 'max' } } } },
+      'deckPages',
+    )!
+    const config = routed.providers.oxeegen!
+    expect(api.oxeegenThinkingBody(config)).toBeUndefined()
+    expect(api.getProviderAdapter('oxeegen').resolveEndpoint(config).bodyExtras).toEqual({ chat_template_kwargs: { enable_thinking: false } })
+  })
+
+  it('stores a pick for the active model only, and the settings check keeps it', () => {
+    const base = { provider: 'oxeegen', providers: { oxeegen: { apiKey: 'k', model: 'Oxee-max', baseUrl: US, thinking: { 'Oxee-pro': 'none' } } } }
+    const next = api.withOxeegenEffort(base, 'low')
+    expect(next.providers.oxeegen.thinking).toEqual({ 'Oxee-pro': 'none', 'Oxee-max': 'low' })
+    expect(base.providers.oxeegen.thinking).toEqual({ 'Oxee-pro': 'none' })
+    expect(api.sanitizeAiSettings(next)?.providers.oxeegen?.thinking).toEqual({ 'Oxee-pro': 'none', 'Oxee-max': 'low' })
   })
 
   it('a reasoning-off request survives the check and still reaches Oxeegen with the switch', () => {
