@@ -19,8 +19,9 @@ All application windows run with the full Electron renderer lockdown:
   (`packages/electron-utils` → `safeExternalUrl`) that parses the URL and
   enforces a protocol allowlist (http/https; pdf link annotations additionally
   allow mailto). `file:`, `javascript:`, and custom schemes are always rejected.
-- No API keys are hardcoded or bundled; user-supplied keys stay in the OS-level
-  settings store.
+- No API keys are hardcoded or bundled; user-supplied keys stay in a settings file
+  under the app's own user-data folder, written owner-only (0600) so other local
+  accounts cannot read them.
 
 ## Threat Model: AI-Generated Layout Scripts (slides)
 

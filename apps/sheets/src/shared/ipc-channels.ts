@@ -135,6 +135,7 @@ export const IPC_CHANNELS = {
   aiStreamChunk: 'ai:stream-chunk',
   aiGskStatus: 'ai:gsk-status',
   aiGskLogin: 'ai:gsk-login',
+  aiGskLoginLanded: 'ai:gsk-login-landed',
   aiImageSearch: 'ai:image-search',
   aiFetchImage: 'ai:fetch-image',
   // sheets: prefix — slides' ai:generate-image only registers once a slides view exists
@@ -153,4 +154,7 @@ export const IPC_CHANNELS = {
   filesAddPastedImage: 'sheets:files-add-pasted-image',
   filesRead: 'sheets:files-read',
   filesReadImage: 'sheets:files-read-image',
+  /** Windows clipboard helper: append the copied range's EMF rendering */
+  appendCopyEmf: 'sheets:append-copy-emf',
+  copyEmfAvailable: 'sheets:copy-emf-available',
 } as const

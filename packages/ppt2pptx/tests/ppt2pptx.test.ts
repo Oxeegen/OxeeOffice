@@ -87,6 +87,20 @@ describe('convertPptToPptx: editable text', () => {
     )
   })
 
+  it('decodes the whole cp1252 punctuation block of a TextBytesAtom', async () => {
+    const specs: SlideSpec[] = [
+      {
+        textSequences: [
+          { kind: 4, atom: 'bytes', text: '\u0080 price \u0085 \u0087 \u0099' },
+          { kind: 4, atom: 'bytes', text: 'caf\u00e9 \u009cuvre' },
+        ],
+      },
+    ]
+    const texts = await slideTextsOf(pptBytesOf(buildPptStreams(specs)))
+    // 0x80 0x85 0x87 0x99 0x9C are C1 controls in latin1, punctuation in cp1252
+    expect(texts[0]).toEqual(['\u20ac price \u2026 \u2021 \u2122', 'caf\u00e9 \u0153uvre'])
+  })
+
   it('reads the slide size from the DocumentAtom (576 master units per inch)', async () => {
     const specs: SlideSpec[] = [{ textSequences: [{ kind: 4, text: 'widescreen' }] }]
     const streams = buildPptStreams(specs, { slideSize: [7680, 4320] })
@@ -1248,6 +1262,35 @@ describe('round 4: paragraph rulers, centre-body style, metro indents', () => {
     ])
     const tabLst = '<a:tabLst><a:tab pos="0" algn="l"/><a:tab pos="457200" algn="r"/></a:tabLst>'
     expect(xml.split(tabLst)).toHaveLength(3)
+  })
+
+  it('a metroBlob outline of noFill hides the line the legacy records leave at its default', async () => {
+    const blobOf = async (ln: string): Promise<Uint8Array> => {
+      const pkg = new JSZip()
+      pkg.file(
+        'drs/shapexml.xml',
+        `<p:sp><p:spPr><a:prstGeom prst="rect"/><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill>${ln}</p:spPr></p:sp>`,
+      )
+      return pkg.generateAsync({ type: 'uint8array', compression: 'DEFLATE' })
+    }
+    const shape = (metroBlob: Uint8Array, props: Record<number, number>): SlideSpec[] => [
+      {
+        textSequences: [
+          { kind: 4, text: 'box', anchor: [0, 0, 2000, 1000], shapeType: 1, props, metroBlob },
+        ],
+      },
+    ]
+    const hidden = await blobOf('<a:ln><a:noFill/></a:ln>')
+    // fUsefInsetPen alone, as PowerPoint for Mac writes it
+    expect(await slideXml(shape(hidden, { 0x01ff: 0x400000 }))).toContain(
+      '<a:ln><a:noFill/></a:ln>',
+    )
+    // an explicit legacy fLine wins over the blob
+    expect(await slideXml(shape(hidden, { 0x01ff: 0x080008 }))).toContain('<a:ln w="9525">')
+    const drawn = await blobOf(
+      '<a:ln w="12700"><a:solidFill><a:srgbClr val="000000"/></a:solidFill></a:ln>',
+    )
+    expect(await slideXml(shape(drawn, { 0x01ff: 0x400000 }))).toContain('<a:ln w="9525">')
   })
 
   it('a metroBlob with one trailing paragraph more than the text still sets the indents', async () => {

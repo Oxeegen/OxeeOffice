@@ -25,7 +25,7 @@ import {
   readSync,
   writeFileSync,
 } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { homedir, tmpdir } from 'node:os'
 import { createHash } from 'node:crypto'
 import * as opentype from 'opentype.js'
@@ -129,7 +129,15 @@ function fontDirs(): string[] {
     case 'win32':
       return ['C:\\Windows\\Fonts', join(homedir(), 'AppData/Local/Microsoft/Windows/Fonts')]
     default:
-      return ['/usr/share/fonts', '/usr/local/share/fonts', join(homedir(), '.fonts')]
+      return [
+        '/usr/share/fonts',
+        '/usr/local/share/fonts',
+        // fontconfig's per-user XDG dir: where desktop "install for this user" lands. Skipping
+        // it makes those families invisible to metrics while Chromium (fontconfig) still draws
+        // them, so a run following Latin text starts too early and CJK glyphs overlap.
+        join(process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share'), 'fonts'),
+        join(homedir(), '.fonts'),
+      ]
   }
 }
 
@@ -216,6 +224,13 @@ function norm(s: string): string {
     .normalize('NFKC')
     .toLowerCase()
     .replace(/[\s\-_]/g, '')
+}
+
+/** Index key of a scanned font file; the scan returns paths relative to its root, the key is the file name alone */
+export function fontFileKey(relPath: string): string | null {
+  const m = /^(.+)\.(ttf|otf|ttc|otc)$/i.exec(basename(relPath))
+  // Strip the variable-font axis suffix: NotoSansSC[wght].ttf -> notosanssc
+  return m ? norm(m[1]!.replace(/\[[^\]]*\]$/, '')) : null
 }
 
 // Japanese fonts: Windows families/filenames and macOS Hiragino serve as each other's fallback
@@ -783,11 +798,8 @@ class FontRegistry {
 
   private addFlatDir(dir: string, files: string[]): void {
     for (const name of files) {
-      const m = /^(.+)\.(ttf|otf|ttc|otc)$/i.exec(name)
-      if (!m) continue
-      // Strip the variable-font axis suffix: NotoSansSC[wght].ttf -> notosanssc
-      const key = norm(m[1]!.replace(/\[[^\]]*\]$/, ''))
-      if (!this.index.has(key)) this.index.set(key, join(dir, name))
+      const key = fontFileKey(name)
+      if (key && !this.index.has(key)) this.index.set(key, join(dir, name))
     }
   }
 

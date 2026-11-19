@@ -36,7 +36,8 @@ function coversPage(t: Transform, size: SlideSize, maxAreaRatio: number): boolea
 }
 
 function isOpaqueColor(c: ResolvedColor): boolean {
-  return /^#?[0-9a-fA-F]{6}$/.test(c) || /^#?[0-9a-fA-F]{6}[fF]{2}$/.test(c)
+  const t = (c ?? '').trim()
+  return /^#?[0-9a-fA-F]{6}$/.test(t) || /^#?[0-9a-fA-F]{6}[fF]{2}$/.test(t)
 }
 
 /** No stroke, zero width, or a fully transparent stroke color (#RRGGBB00). */
@@ -44,7 +45,7 @@ function strokeInvisible(stroke: Stroke | undefined): boolean {
   if (!stroke || stroke.width === 0 || stroke.fill.type === 'none') return true
   return (
     stroke.fill.type === 'solid' &&
-    (stroke.fill.color === 'none' || /^#?[0-9a-fA-F]{6}00$/.test(stroke.fill.color))
+    (stroke.fill.color === 'none' || /^#?[0-9a-fA-F]{6}00$/.test((stroke.fill.color ?? '').trim()))
   )
 }
 
@@ -102,8 +103,10 @@ export function promoteSlideBackground(slide: Slide, size: SlideSize): boolean {
   const fill = leading[leading.length - 1]!.fill
   if (fill?.type !== 'solid') return false
   slide.elements.splice(0, leading.length)
-  slide.bodyPrefix = patchSlideBackgroundXml(slide.bodyPrefix, fill.color)
-  slide.background = { type: 'solid', color: fill.color }
+  // the padding isOpaqueColor tolerates would be written as black
+  const color = fill.color.trim()
+  slide.bodyPrefix = patchSlideBackgroundXml(slide.bodyPrefix, color)
+  slide.background = { type: 'solid', color }
   slide.structureDirty = true
   return true
 }

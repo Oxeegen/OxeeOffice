@@ -7,6 +7,8 @@ import { LocaleProvider, setModuleLang } from '../src/renderer/i18n/locale'
 import { Ribbon, docModeOf } from '../src/renderer/components/Ribbon'
 import { computeFormatState } from '../src/renderer/components/ribbon-format-state'
 import { ribbonProps } from './helpers/ribbon-props'
+import { runMenuCommand, type CommandHost } from '../src/renderer/commands/menu-commands'
+import type { ActionCommandId } from '../src/shared/commands'
 
 Object.assign(window, { desktop: { onLanguageChanged: () => () => undefined } })
 setModuleLang('en')
@@ -97,6 +99,34 @@ describe('top-right mode cluster', () => {
     act(() => [...host.querySelectorAll<HTMLButtonElement>('.mode-menu button')][0].click())
     expect(onReadMode).toHaveBeenCalledWith(false)
     expect(onTrackChanges).not.toHaveBeenCalled()
+    cleanup()
+  })
+
+  it('the Print Layout button leaves read mode instead of toggling it', () => {
+    const setMode = vi.fn()
+    const setReadMode = vi.fn()
+    const commandHost = new Proxy(
+      {
+        hasDoc: true,
+        editor: null,
+        view: { mode: 'print', readMode: true, setMode, setReadMode },
+      },
+      { get: (target, key) => (key in target ? target[key as keyof typeof target] : () => {}) },
+    ) as unknown as CommandHost
+    const onCommand = (id: ActionCommandId, payload?: string) =>
+      runMenuCommand(commandHost, id, payload)
+    const { host, cleanup } = mount({ onCommand })
+    act(() =>
+      [...host.querySelectorAll<HTMLButtonElement>('.ribbon-tab')]
+        .find((b) => b.textContent === 'View')!
+        .click(),
+    )
+    const printBtn = [...host.querySelectorAll<HTMLButtonElement>('.rb-big')].find((b) =>
+      b.textContent!.includes('Print Layout'),
+    )!
+    act(() => printBtn.click())
+    expect(setMode).toHaveBeenCalledWith('print')
+    expect(setReadMode).toHaveBeenCalledWith(false)
     cleanup()
   })
 

@@ -145,7 +145,13 @@ export {
   type RendererHost,
 } from './renderer-scheme'
 export { installRendererProtocol, registerRendererScheme } from './renderer-protocol'
-export { atomicCopyFile, atomicWriteFile, atomicWriteVia, writeJsonAtomic } from './atomic-write'
+export {
+  atomicCopyFile,
+  atomicWriteFile,
+  atomicWriteVia,
+  writeJsonAtomic,
+  restrictFileToOwner,
+} from './atomic-write'
 export {
   PRINT_READY_SCRIPT,
   printHtmlDocument,
@@ -172,3 +178,10 @@ export {
   writePdfDefaultZoom,
   type PdfDefaultZoom,
 } from './pdf-zoom-prefs'
+export {
+  tileRects,
+  tileWindows,
+  TILE_MIN_ROW_HEIGHT,
+  type TileRect,
+  type TileWindow,
+} from './window-tiles'
