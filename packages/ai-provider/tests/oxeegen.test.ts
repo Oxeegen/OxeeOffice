@@ -242,6 +242,14 @@ describe('tiers', () => {
     const other = { ...base, purpose: 'compaction' as const, settings: with_('anthropic', 'claude-sonnet-5') }
     expect(api.oxeegenRouteStreamRequest(other)).toBe(other)
   })
+
+  it('runs Docs one-shot proofing (grammar, synonyms) on the picker model with reasoning off', () => {
+    const routed = api.oxeegenRouteChatSettings(with_('oxeegen', 'Oxee-max'))
+    expect(routed.providers.oxeegen).toMatchObject({ model: 'Oxee-max', oxeegenNoThinking: true })
+    expect(api.oxeegenThinkingBody(routed.providers.oxeegen!)).toBeUndefined()
+    const other = with_('anthropic', 'claude-sonnet-5')
+    expect(api.oxeegenRouteChatSettings(other)).toBe(other)
+  })
 })
 
 describe('defaults for a fresh install', () => {

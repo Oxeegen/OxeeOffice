@@ -64,12 +64,13 @@ export const OXEEGEN_DEFAULT_VISION_MODEL = 'Oxee-pro'
 
 // ── Tiers ───────────────────────────────────────────────────────────────────
 
-export type OxeegenRole = 'deckPages' | 'layoutCheck' | 'writer' | 'compaction'
+export type OxeegenRole = 'deckPages' | 'layoutCheck' | 'writer' | 'proofing' | 'compaction'
 
 /**
  * How each step calls Oxeegen. Every step uses the model in the picker; steps
  * that carry out a plan already made turn reasoning off (Slides page specs,
- * the Slides layout check, the Docs / Markdown / HTML writers). A slide spec
+ * the Slides layout check, the Docs / Markdown / HTML writers, and the Docs
+ * one-shot proofing requests: grammar check and synonyms). A slide spec
  * took 2-5 s with reasoning off against 50-99 s with it on, still valid JSON
  * (2026-09-16). The summary written when a long chat is compacted runs on
  * Instant. Planning (chat agent, Slides style and outline, HTML brief) keeps
@@ -79,6 +80,7 @@ export const OXEEGEN_ROLES: Record<OxeegenRole, { model?: string; noThinking?: t
   deckPages: { noThinking: true },
   layoutCheck: { noThinking: true },
   writer: { noThinking: true },
+  proofing: { noThinking: true },
   compaction: { model: 'Oxee-instant' },
 }
 
@@ -116,6 +118,11 @@ export function oxeegenDeckPageConcurrency(settings: { provider: string }): numb
 /** Whether each Slides page request carries the specs of the pages before it. */
 export function oxeegenDeckPageReferences(settings: { provider: string }): boolean {
   return oxeegenLayerEnabled() && settings.provider === 'oxeegen'
+}
+
+/** Main-process `ai:chat` routing (Docs grammar check, synonyms): reasoning off. */
+export function oxeegenRouteChatSettings<S extends SettingsWithModels>(settings: S): S {
+  return oxeegenRoleSettings(settings, 'proofing') ?? settings
 }
 
 /** Main-process `ai:stream` routing: compaction summaries go to Instant. */

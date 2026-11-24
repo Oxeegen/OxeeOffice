@@ -10,6 +10,15 @@ set -e
 app="/opt/OxeeOffice"
 # Chromium aborts when the SUID helper exists without 4755; Chrome's deb sets it unconditionally.
 [ -f "$app/chrome-sandbox" ] && { chown root:root "$app/chrome-sandbox" 2>/dev/null || true; chmod 4755 "$app/chrome-sandbox" 2>/dev/null || true; }
+# The deb and rpm are packed from one unpacked tree, at the same time, and only
+# the deb build bakes resources/package-type ("deb"), so the rpm carries it too.
+# The app reads that file to self-update through dpkg, which an rpm install
+# cannot do. rpm runs this script with a number ($1: 1 install, 2 upgrade),
+# dpkg with "configure": on rpm, drop the file so the app keeps to manual
+# updates, as before.
+case "${1:-}" in
+  [0-9]*) rm -f "$app/resources/package-type" ;;
+esac
 # Ubuntu 24.04+ restricts unprivileged user namespaces; the bundled profile lifts
 # that for our binary. electron-builder names it after executableName ("genoffice"),
 # which would collide with a real GenOffice install, so it is installed as

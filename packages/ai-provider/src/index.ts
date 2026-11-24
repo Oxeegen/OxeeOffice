@@ -156,5 +156,6 @@ export {
   oxeegenDeckPageReferences,
   oxeegenLayerEnabled,
   oxeegenRoleSettings,
+  oxeegenRouteChatSettings,
   oxeegenRouteStreamRequest,
 } from './oxeegen'

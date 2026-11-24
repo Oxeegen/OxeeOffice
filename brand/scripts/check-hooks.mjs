@@ -116,7 +116,12 @@ const HOOKS = [
   {
     file: 'apps/docs/src/main/docs-main.ts',
     why: "shell's ai:stream runs compaction summaries on the worker model",
-    must: ["import { oxeegenRouteStreamRequest } from '@genoffice/ai-provider'", 'request = oxeegenRouteStreamRequest(request)'],
+    must: ["import { oxeegenRouteChatSettings, oxeegenRouteStreamRequest } from '@genoffice/ai-provider'", 'request = oxeegenRouteStreamRequest(request)'],
+  },
+  {
+    file: 'apps/docs/src/main/docs-main.ts',
+    why: "docs' one-shot ai:chat (grammar check, synonyms) runs with reasoning off on Oxeegen",
+    must: ['const settings = oxeegenRouteChatSettings(sanitized)'],
   },
   {
     file: 'apps/slides/src/renderer/ai/slides-skill.ts',

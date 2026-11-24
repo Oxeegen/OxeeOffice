@@ -133,7 +133,7 @@ import {
   type LegacyAiSettings,
 } from '@genoffice/ai-provider'
 // OxeeOffice brand hook: compaction summaries on Oxee-instant
-import { oxeegenRouteStreamRequest } from '@genoffice/ai-provider'
+import { oxeegenRouteChatSettings, oxeegenRouteStreamRequest } from '@genoffice/ai-provider'
 import { listCodexModels, shutdownCodexAppServers } from '@genoffice/ai-provider/codex-app-server'
 import { startAiTrace } from '@genoffice/ai-provider/trace'
 import { listCustomModelsForIpc } from '@genoffice/ai-provider/custom-models'
@@ -8362,8 +8362,9 @@ export function registerAiIpc(): void {
   ipcMain.handle('ai:chat', async (_event, request: AiChatRequest) => {
     // same schema check as ai:stream: one-shot requests would otherwise act on
     // the renderer's settings copy verbatim
-    const settings = sanitizeAiSettings(request.settings)
-    if (!settings) return { ok: false, error: 'invalid AI settings payload' }
+    const sanitized = sanitizeAiSettings(request.settings)
+    if (!sanitized) return { ok: false, error: 'invalid AI settings payload' }
+    const settings = oxeegenRouteChatSettings(sanitized) // OxeeOffice brand hook: proofing with reasoning off
     const { system, user } = request
     const provider = settings.provider
     let config = settings.providers?.[provider]
