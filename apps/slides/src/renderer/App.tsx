@@ -142,6 +142,7 @@ import { createPreviewTracker, type EditPointsCommit } from './edit-points-actio
 import { FIT_WIDTH } from './app-constants'
 import { StageRuler } from './components/StageRuler'
 import { formatRulerValue, type RulerUnit } from './ruler-ticks'
+import { useMeasurementUnit } from './measurement-unit'
 import * as fileActions from './file-actions'
 import * as clipboardActions from './clipboard-actions'
 import * as insertActions from './insert-actions'
@@ -789,8 +790,8 @@ export function App() {
   }, [slide?.widthPx, slide?.heightPx])
 
   // ── Stage rulers (PowerPoint-style fixed chrome outside the zoomed canvas) ──
-  /** ruler unit follows the UI language: imperial for English, metric elsewhere */
-  const rulerUnit: RulerUnit = lang === 'en' ? 'in' : 'cm'
+  /** ruler unit: the app-wide measurement unit (Settings ▸ General) */
+  const rulerUnit: RulerUnit = useMeasurementUnit()
   /** where slide coordinate 0 falls, in px relative to the stage viewport
    * (= ruler-local px, since each ruler strip is flush with .stage-wrap) */
   const [rulerOrigin, setRulerOrigin] = useState<{ x: number; y: number } | null>(null)
@@ -1023,7 +1024,8 @@ export function App() {
     const tick = () => {
       if (saving || editing || editingCell || mouseDownRef.current) return
       void window.slidesApi.isDirty().then((d) => {
-        if (!d || saving) return
+        // notes typed into the pane reach the deck only when flushed, which save() does first
+        if ((!d && !notesDraftRef.current) || saving) return
         saving = true
         void save(true).finally(() => {
           saving = false

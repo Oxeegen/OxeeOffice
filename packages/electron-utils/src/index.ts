@@ -22,6 +22,7 @@ export {
   checkUpdatesMenuItem,
   editMenuTemplate,
   helpMenuTemplate,
+  hasSettingsInvoker,
   setSettingsInvoker,
   setUpdateCheckInvoker,
   settingsMenuItem,
@@ -63,6 +64,12 @@ export {
   resolveDefaultSaveDir,
   type PathProvider,
 } from './default-save-dir'
+export {
+  EXCLUDED_FOLDERS_KEY,
+  isUnderExcludedFolder,
+  normalizeExcludedFolders,
+  readExcludedFolders,
+} from './excluded-folders'
 export { installNavigationGuard } from './navigation-guard'
 export {
   decodeChunks,
@@ -79,6 +86,8 @@ export {
   KNOWN_UNSUPPORTED_DOC_RE,
   OPENABLE_DOC_RE,
   partitionDropPayload,
+  USER_FILE_PATHS_SEEN_CHANNEL,
+  seenFilePaths,
 } from './drop-open'
 export { safeExternalUrl, type SafeExternalUrlOptions } from './safe-external-url'
 export {
@@ -152,6 +161,12 @@ export {
   writeJsonAtomic,
   restrictFileToOwner,
 } from './atomic-write'
+export {
+  createPathGrants,
+  isBesideDocument,
+  sharedPathGrants,
+  type PathGrants,
+} from './path-grants'
 export {
   PRINT_READY_SCRIPT,
   printHtmlDocument,

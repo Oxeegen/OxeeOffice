@@ -10,8 +10,9 @@ import {
   newDocumentCorePropertiesXml,
 } from './doc-properties'
 import { PPR_CHILD_ORDER } from './generate'
+import { THEME_CONTENT_TYPE, THEME_PART_PATH, THEME_REL_TYPE, buildThemeXml } from './theme'
 import { escapeXmlAttr } from './xml-utils'
-import type { NumberingLevel } from './types'
+import type { NumberingLevel, ThemeColors, ThemeFonts } from './types'
 
 /**
  * Blank document template for "new document" and AI from-scratch generation.
@@ -128,14 +129,57 @@ const QUICK_STYLES_XML =
   '<w:style w:type="paragraph" w:styleId="ListParagraph"><w:name w:val="List Paragraph"/><w:basedOn w:val="Normal"/>' +
   '<w:uiPriority w:val="34"/><w:qFormat/><w:pPr><w:ind w:left="720"/><w:contextualSpacing/></w:pPr></w:style>'
 
-const stylesXml = (eastAsiaFont?: string): string =>
+// A document without w:compat is laid out in Word's oldest table mode: a table's
+// indent is measured to its cell text, so its border hangs into the left margin.
+// New documents start in the current mode, as Word's own do.
+const SETTINGS_XML =
+  XML_DECL +
+  '<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+  '<w:defaultTabStop w:val="720"/><w:compat>' +
+  '<w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/>' +
+  '</w:compat></w:settings>'
+
+// Word's default table style: without it Word gives a table no cell margins, so
+// text in a table inserted here touched its borders (probe 2026-11-23)
+const TABLE_NORMAL_XML =
+  '<w:style w:type="table" w:default="1" w:styleId="TableNormal"><w:name w:val="Normal Table"/>' +
+  '<w:uiPriority w:val="99"/><w:semiHidden/><w:unhideWhenUsed/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/>' +
+  '<w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/>' +
+  '<w:bottom w:w="0" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style>'
+
+// Word for Mac 16 lays a document without a theme part out in the current
+// Office theme: the colors it caches for a built-in table style's accents are
+// these (probe 2026-11-23, Grid Table 4 Accent 1 -> 156082, Accent 2 -> E97132).
+// New documents carry the theme, so Docs reads the same colors instead of
+// falling back to its older palette.
+export const WORD_THEME_COLORS: Readonly<ThemeColors> = {
+  name: 'Office',
+  dk1: '000000',
+  lt1: 'FFFFFF',
+  dk2: '0E2841',
+  lt2: 'E8E8E8',
+  accent1: '156082',
+  accent2: 'E97132',
+  accent3: '196B24',
+  accent4: '0F9ED5',
+  accent5: 'A02B93',
+  accent6: '4EA72E',
+  hlink: '467886',
+  folHlink: '96607D',
+}
+
+export const WORD_THEME_FONTS: Readonly<ThemeFonts> = { major: 'Aptos Display', minor: 'Aptos' }
+
+const stylesXml = (eastAsiaFont?: string, lang?: string, wordDefaults = false): string =>
   XML_DECL +
   '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
   '<w:docDefaults><w:rPrDefault><w:rPr>' +
   `<w:rFonts w:ascii="Calibri"${eastAsiaFont ? ` w:eastAsia="${eastAsiaFont}"` : ''} w:hAnsi="Calibri"/><w:sz w:val="22"/><w:szCs w:val="22"/>` +
+  (lang ? `<w:lang w:val="${lang}"/>` : '') +
   '</w:rPr></w:rPrDefault>' +
   '<w:pPrDefault><w:pPr><w:spacing w:after="120" w:line="276" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults>' +
   '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style>' +
+  (wordDefaults ? TABLE_NORMAL_XML : '') +
   headingStyle(1, 32) +
   headingStyle(2, 28) +
   headingStyle(3, 26) +
@@ -147,6 +191,94 @@ const stylesXml = (eastAsiaFont?: string): string =>
   '<w:rPr><w:color w:val="0563C1"/><w:u w:val="single"/></w:rPr></w:style>' +
   Array.from({ length: 9 }, (_, i) => tocStyle(i + 1)).join('') +
   '</w:styles>'
+
+/** name -> style id and kind for every style the blank template defines: a
+    legacy document's built-in style of the same name maps onto it instead of
+    being emitted beside it (two styles under one name is a Word repair). */
+export const BLANK_STYLES_BY_NAME: ReadonlyMap<
+  string,
+  { id: string; kind: 'paragraph' | 'character' }
+> = new Map(
+  [
+    ...stylesXml().matchAll(
+      /<w:style w:type="(\w+)"[^>]*w:styleId="([^"]+)"><w:name w:val="([^"]+)"/g,
+    ),
+  ].map((m) => {
+    const kind = m[1] === 'character' ? ('character' as const) : ('paragraph' as const)
+    return [m[3]!, { id: m[2]!, kind }] as const
+  }),
+)
+
+/** the boolean toggles the template's own rPr / pPr can carry, per layer */
+const BLANK_RUN_TOGGLES = [
+  'w:b',
+  'w:bCs',
+  'w:i',
+  'w:iCs',
+  'w:strike',
+  'w:caps',
+  'w:smallCaps',
+  'w:vanish',
+] as const
+const BLANK_PARAGRAPH_TOGGLES = [
+  'w:keepNext',
+  'w:keepLines',
+  'w:widowControl',
+  'w:contextualSpacing',
+] as const
+
+/** is the tag present in this XML fragment switched on (no explicit off)? */
+const blankToggleOn = (xml: string, tag: string): boolean => {
+  const m = new RegExp(`<${tag.replace(':', '\\:')}((?:\\s[^>]*)?)/>`).exec(xml)
+  if (!m) return false
+  return !/w:val="(?:0|false|off)"/.test(m[1] ?? '')
+}
+
+export interface BlankStyleToggles {
+  /** rPr toggles the template chain turns ON (w:b, w:i, …) */
+  run: readonly string[]
+  /** pPr toggles the template chain turns ON (w:keepNext, w:contextualSpacing, …) */
+  paragraph: readonly string[]
+}
+
+/** styleId -> the toggles the template style chain turns ON. A legacy document
+    whose style maps onto a template style inherits these silently once it
+    carries the template's w:styleId — so a property its own chain leaves
+    silent must be stated explicitly off instead (a plain-heading document
+    mapped onto the bold template headings would otherwise come out bold). */
+export const BLANK_STYLE_ON_TOGGLES_BY_ID: ReadonlyMap<string, BlankStyleToggles> = (() => {
+  const own = new Map<string, { basedOn?: string; run: string[]; paragraph: string[] }>()
+  for (const m of stylesXml().matchAll(
+    /<w:style [^>]*w:styleId="([^"]+)"[^>]*>([\s\S]*?)<\/w:style>/g,
+  )) {
+    const id = m[1]!
+    const body = m[2] ?? ''
+    const rPr = /<w:rPr>([\s\S]*?)<\/w:rPr>/.exec(body)?.[1] ?? ''
+    const pPr = /<w:pPr>([\s\S]*?)<\/w:pPr>/.exec(body)?.[1] ?? ''
+    own.set(id, {
+      basedOn: /<w:basedOn w:val="([^"]+)"/.exec(body)?.[1],
+      run: BLANK_RUN_TOGGLES.filter((tag) => blankToggleOn(rPr, tag)),
+      paragraph: BLANK_PARAGRAPH_TOGGLES.filter((tag) => blankToggleOn(pPr, tag)),
+    })
+  }
+  const folded = new Map<string, BlankStyleToggles>()
+  const fold = (id: string, seen = new Set<string>()): BlankStyleToggles => {
+    const cached = folded.get(id)
+    if (cached) return cached
+    const def = own.get(id)
+    if (!def || seen.has(id)) return { run: [], paragraph: [] }
+    seen.add(id)
+    const base = def.basedOn ? fold(def.basedOn, seen) : { run: [], paragraph: [] }
+    const toggles: BlankStyleToggles = {
+      run: [...new Set([...base.run, ...def.run])],
+      paragraph: [...new Set([...base.paragraph, ...def.paragraph])],
+    }
+    folded.set(id, toggles)
+    return toggles
+  }
+  for (const id of own.keys()) fold(id)
+  return folded
+})()
 
 function bulletLevels(): string {
   let xml = ''
@@ -568,6 +700,11 @@ export interface BlankDocxOptions {
    * Word/our renderer then substitute per script when CJK text appears.
    */
   eastAsiaFont?: string
+  /**
+   * docDefaults w:lang w:val (BCP-47). Word hyphenates only text that declares a
+   * language; omitted, none is written.
+   */
+  lang?: string
   /** Page size of the single section; defaults to A4. */
   paperSize?: BlankPaperSize
   /** Creation stamp of docProps/core.xml; defaults to now (tests pin a fixed date). */
@@ -578,6 +715,10 @@ export interface BlankDocxOptions {
   appVersion?: string
   /** docProps/app.xml Template; defaults to Word's "Normal.dotm". */
   template?: string
+  /** start like a document Word creates: the current compatibility mode
+   *  (settings.xml), the Normal Table style and the current Office theme. Converters that write their own
+   *  settings part, or keep an older mode, leave it off; defaults to false. */
+  wordDefaults?: boolean
   /** drop the Application / AppVersion generator fields from docProps/app.xml
    *  (the Word-default Template stays); defaults to false. */
   omitGeneratorFields?: boolean
@@ -595,6 +736,10 @@ export async function buildBlankDocx(options?: BlankDocxOptions): Promise<Uint8A
       '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
       '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>' +
       '<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>' +
+      (options?.wordDefaults
+        ? '<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/>' +
+          `<Override PartName="/${THEME_PART_PATH}" ContentType="${THEME_CONTENT_TYPE}"/>`
+        : '') +
       `<Override PartName="/${CORE_PROPERTIES_PATH}" ContentType="${CORE_PROPERTIES_CONTENT_TYPE}"/>` +
       `<Override PartName="/${APP_PROPERTIES_PATH}" ContentType="${APP_PROPERTIES_CONTENT_TYPE}"/>` +
       '</Types>',
@@ -614,11 +759,23 @@ export async function buildBlankDocx(options?: BlankDocxOptions): Promise<Uint8A
     `${XML_DECL}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
       '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
       '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>' +
+      (options?.wordDefaults
+        ? '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings" Target="settings.xml"/>' +
+          `<Relationship Id="rId4" Type="${THEME_REL_TYPE}" Target="theme/theme1.xml"/>`
+        : '') +
       '</Relationships>',
   )
 
-  zip.file('word/styles.xml', stylesXml(options?.eastAsiaFont))
+  const wordDefaults = options?.wordDefaults === true
+  zip.file('word/styles.xml', stylesXml(options?.eastAsiaFont, options?.lang, wordDefaults))
   zip.file('word/numbering.xml', NUMBERING_XML)
+  if (wordDefaults) {
+    zip.file('word/settings.xml', SETTINGS_XML)
+    zip.file(
+      THEME_PART_PATH,
+      buildThemeXml({ ...WORD_THEME_FONTS, eastAsia: options?.eastAsiaFont }, WORD_THEME_COLORS),
+    )
+  }
 
   // Word always writes both parts; a document created here carries minimal
   // Word-like ones so later property sets have a home (and DMS tools see the

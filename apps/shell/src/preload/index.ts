@@ -1,6 +1,11 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import {
+  MEASUREMENT_UNIT_CHANNELS,
+  isMeasurementUnit,
+  isMeasurementUnitState,
+} from '@genoffice/ui/measurement'
+import {
   AI_MEDIA_PROVIDERS,
   AI_PROVIDERS,
   AI_SEARCH_PROVIDERS,
@@ -189,6 +194,9 @@ const homeApi: HomeApi = {
   },
   async kbRead(path, offset) {
     return ipcRenderer.invoke('kb:read', { path, offset })
+  },
+  async kbGrantMention(path) {
+    return ipcRenderer.invoke('kb:grant-mention', path)
   },
   async kbCreateDocument(request) {
     return ipcRenderer.invoke('kb:create-document', request)
@@ -427,6 +435,17 @@ const homeApi: HomeApi = {
       throw new Error('Invalid document theme.')
     await ipcRenderer.invoke(HOME_CHANNELS.setDocumentTheme, theme)
   },
+  async getMeasurementUnit() {
+    const result: unknown = await ipcRenderer.invoke(MEASUREMENT_UNIT_CHANNELS.get)
+    if (!isMeasurementUnitState(result)) throw new Error('Invalid measurement unit state.')
+    return result
+  },
+  async setMeasurementUnit(unit) {
+    if (unit !== null && !isMeasurementUnit(unit)) throw new Error('Invalid measurement unit.')
+    const result: unknown = await ipcRenderer.invoke(MEASUREMENT_UNIT_CHANNELS.set, unit)
+    if (!isMeasurementUnitState(result)) throw new Error('Invalid measurement unit state.')
+    return result
+  },
   async getAutoSaveDefault() {
     const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.getAutoSaveDefault)
     const r = result as { on?: unknown; updatedAt?: unknown } | null
@@ -459,6 +478,19 @@ const homeApi: HomeApi = {
   async setRestoreLastSession(on) {
     if (typeof on !== 'boolean') throw new Error('Invalid restore session setting.')
     await ipcRenderer.invoke(HOME_CHANNELS.setRestoreLastSession, on)
+  },
+  async getExcludedFolders() {
+    const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.getExcludedFolders)
+    return Array.isArray(result) ? (result as string[]) : []
+  },
+  async setExcludedFolders(paths) {
+    if (!Array.isArray(paths)) throw new Error('Invalid excluded folders list.')
+    const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.setExcludedFolders, paths)
+    return Array.isArray(result) ? (result as string[]) : []
+  },
+  async pickExcludedFolder() {
+    const result: unknown = await ipcRenderer.invoke(HOME_CHANNELS.pickExcludedFolder)
+    return typeof result === 'string' ? result : null
   },
   async setAutoSaveDefault(on) {
     if (typeof on !== 'boolean') throw new Error('Invalid AutoSave default.')
