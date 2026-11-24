@@ -5,6 +5,46 @@ What changed in each OxeeOffice release. Installers are on the
 
 ---
 
+## OxeeOffice 0.13.886 — 2026-11-24
+
+Windows x64, Linux x64
+
+### New in the editors
+
+- **Docs:** headers and footers edited the way Word shows them (double-click a page
+  margin to open one); rulers fixed above the page, with a vertical ruler; the story
+  view becomes a writing view with Focus; **grammar check** and right-click
+  **synonyms** using your AI model; MathType equations shown as real equations and
+  convertible to Word equations; Paste as Picture and Paste Link with a Links dialog;
+  collapsible headings, saved themes and style sets, the style area in Draft and Outline
+  views; Word's navigation, selection and outline shortcuts; editing permissions in
+  protected documents; word count matches Word; Print in the File menu.
+- **Sheets:** much faster AutoFilter on large workbooks; GROUPBY and PIVOTBY; charts
+  follow formula results; a save keeps the Comments pane and its threads; double
+  underlines survive reopening.
+- **Slides:** AutoSave keeps speaker notes while you type them.
+- **PDF:** comments on text highlights are shown and kept.
+
+### App
+
+- One measurement unit in **Settings ▸ General** (inches, centimetres, millimetres,
+  points or picas), followed by every editor.
+- Exclude folders from recent files, search and session restore (**Settings ▸
+  General**).
+- In the Ask panel, type **@** to mention a knowledge-base file.
+- The Linux `.deb` now updates itself from **Restart to install**, like the AppImage.
+- Security hardening: every file the editors read or open is permission-checked; the
+  network MCP server refuses to listen beyond this computer without a token; CSV
+  formula cells are neutralized.
+
+### Oxeegen AI
+
+Grammar check and synonyms run on the model in the picker with reasoning off, so they
+answer in seconds. Everything else is unchanged: the reasoning level beside the picker,
+fast slides and long writing, Brave search, OpenAI `gpt-image-2.5-flare` images.
+
+---
+
 ## OxeeOffice 0.13.615 — 2026-11-19
 
 Windows x64, Linux x64

@@ -25,6 +25,8 @@ OxeeOffice sends no usage statistics, so General has no switch for them.
 - **Open the AI panel in new documents** — off, a new document starts with the panel collapsed and one click away.
 - **Auto-save all documents** turns AutoSave on by default in every editor; you can still switch it off for one window.
 - **Save Location** with a **Change** button, and **Default app for Office documents** to claim .docx / .xlsx / .pptx for OxeeOffice.
+- **Show measurements in units of**: Automatic (follows the language), Inches, Centimeters, Millimeters, Points or Picas. Every editor follows it.
+- **Reopen documents from last time**, and **Excluded folders**: files under the folders you add stay out of recent files, search and session restore.
 
 ## AI Media & Search
 

@@ -25,6 +25,8 @@ OxeeOffice n’envoie aucune statistique d’utilisation : Général n’a donc 
 - **Ouvrir le panneau IA dans les nouveaux documents** — désactivé, un nouveau document démarre avec le panneau replié, à un clic de là.
 - **Enregistrer automatiquement tous les documents** active l'enregistrement automatique par défaut dans tous les éditeurs ; vous pouvez toujours le désactiver pour une fenêtre.
 - **Emplacement d'enregistrement** avec un bouton **Modifier** et **Application par défaut pour les documents Office** pour attribuer .docx / .xlsx / .pptx à OxeeOffice.
+- **Afficher les mesures en** : Automatique (selon la langue), Pouces, Centimètres, Millimètres, Points ou Picas. Tous les éditeurs suivent ce choix.
+- **Rouvrir les documents de la dernière fois** et **Dossiers exclus** : les fichiers des dossiers ajoutés n'apparaissent ni dans les fichiers récents, ni dans la recherche, ni dans la restauration de session.
 
 ## Médias IA et recherche
 
